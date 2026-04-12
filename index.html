@@ -619,7 +619,7 @@
                     scrap: d.scrap || 0,
                     modelo: d.modelo || 'Geral',
                     turno: d.turno || 'Geral',
-                    sourceFile: d.sourceFile || 'Desconhecido' // NOVO: Garante propriedade para ficheiros
+                    sourceFile: d.sourceFile || 'Desconhecido'
                 }));
                 rawData = allData;
 
@@ -1447,15 +1447,10 @@
                                 </div>
                                 <div class="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                                     <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 shadow-sm flex items-center gap-1.5 whitespace-nowrap">
-                                    <i data-lucide="calendar" class="text-purple-500 w-3.5 h-3.5"></i>
-                                    ${new Date(imp.date + 'T00:00:00').toLocaleDateString('pt-PT')}
-                                </div>
-                                <button onclick="removeImprovementFromHistory('${imp.key.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200" title="Apagar Registo">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                </button>
-                            </div>
-                        </div>
-                                    <button onclick="removeImprovementFromHistory('${imp.key}')" class="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200" title="Apagar Registo">
+                                        <i data-lucide="calendar" class="text-purple-500 w-3.5 h-3.5"></i>
+                                        ${new Date(imp.date + 'T00:00:00').toLocaleDateString('pt-PT')}
+                                    </div>
+                                    <button onclick="removeImprovementFromHistory('${imp.key.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200" title="Apagar Registo">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                                     </button>
                                 </div>
@@ -1835,10 +1830,20 @@
             document.getElementById('file-count').classList.remove('hide');
 
             const finishProc = (parsed, name) => {
-                // Remove os dados associados ao ficheiro se ele já existisse antes
-                rawData = rawData.filter(d => d.sourceFile !== name);
+                // NOVO: Prevenir duplicação de dados exatos ao invés de apenas excluir pelo nome do ficheiro
+                const dataMap = new Map();
                 
-                rawData = [...rawData, ...parsed];
+                rawData.forEach(d => {
+                    const key = `${d.date}|${d.area}|${d.maquina}|${d.modelo}|${d.turno}`;
+                    dataMap.set(key, d);
+                });
+                
+                parsed.forEach(d => {
+                    const key = `${d.date}|${d.area}|${d.maquina}|${d.modelo}|${d.turno}`;
+                    dataMap.set(key, d);
+                });
+                
+                rawData = Array.from(dataMap.values());
                 
                 const dates = rawData.map(d => d.date).sort();
                 if (dates.length && !selectedMonth) selectedMonth = dates[dates.length-1].substring(0,7);
