@@ -282,9 +282,24 @@
         </div>
     </div>
 
+    <!-- Modal de Confirmação Personalizado -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] hide opacity-0 transition-opacity duration-300" style="backdrop-filter: blur(4px);">
+        <div class="bg-white rounded-2xl p-6 w-11/12 max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="confirm-modal-content">
+            <div class="flex items-center gap-3 mb-4 text-rose-600">
+                <div class="bg-rose-100 p-2 rounded-full"><i data-lucide="alert-triangle" class="w-6 h-6"></i></div>
+                <h3 class="text-lg font-bold text-slate-800">Atenção</h3>
+            </div>
+            <p id="confirm-modal-msg" class="text-sm text-slate-600 mb-6 font-medium"></p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeConfirmModal()" class="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-bold transition-colors">Cancelar</button>
+                <button id="btn-confirm-action" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // A SUA configuração do Firebase garantida
         const firebaseConfig = {
@@ -299,7 +314,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Apontar diretamente para a raiz da SUA base de dados (Ignorar rotas internas restritas)
+        // Apontar diretamente para a raiz da SUA base de dados
         const getConfigDoc = () => doc(db, 'dashboard_config', 'settings');
         const getRawDataCollection = () => collection(db, 'dashboard_raw_data');
         const getRawDataDoc = (month) => doc(db, 'dashboard_raw_data', month);
@@ -328,6 +343,38 @@
             stats: null, monthlyComparison: [], improvementStats: null, improvementsWithStats: [], shiftDistribution: [],
             auditStats: { months: [], totalMissingAlerts: 0 }
         };
+
+        let confirmActionCallback = null;
+
+        window.openConfirmModal = function(msg, callback) {
+            document.getElementById('confirm-modal-msg').innerText = msg;
+            confirmActionCallback = callback;
+            
+            const modal = document.getElementById('confirm-modal');
+            const content = document.getElementById('confirm-modal-content');
+            modal.classList.remove('hide');
+            
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        };
+
+        window.closeConfirmModal = function() {
+            const modal = document.getElementById('confirm-modal');
+            const content = document.getElementById('confirm-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hide');
+                confirmActionCallback = null;
+            }, 300);
+        };
+
+        document.getElementById('btn-confirm-action').addEventListener('click', () => {
+            if (confirmActionCallback) confirmActionCallback();
+            closeConfirmModal();
+        });
 
         // --- Funções Utilitárias ---
         function showToast(message, type = 'info') {
@@ -571,7 +618,8 @@
                     ...d, 
                     scrap: d.scrap || 0,
                     modelo: d.modelo || 'Geral',
-                    turno: d.turno || 'Geral'
+                    turno: d.turno || 'Geral',
+                    sourceFile: d.sourceFile || 'Desconhecido' // NOVO: Garante propriedade para ficheiros
                 }));
                 rawData = allData;
 
@@ -607,11 +655,23 @@
                 });
 
                 const promises = [];
+                
+                // Gravar meses que contêm dados
                 for (const [month, dataArr] of Object.entries(dataByMonth)) {
                     promises.push(setDoc(getRawDataDoc(month), {
                         data: JSON.stringify(dataArr)
                     }));
                 }
+
+                // Limpeza Dinâmica: Procurar meses na Base de Dados que já não têm dados locais e apagá-los
+                const snapshot = await getDocs(getRawDataCollection());
+                snapshot.forEach(docSnap => {
+                    const month = docSnap.id;
+                    // Ignora o documento de configuração
+                    if (month !== 'dashboard_config' && !dataByMonth[month]) {
+                        promises.push(deleteDoc(getRawDataDoc(month)));
+                    }
+                });
                 
                 await Promise.all(promises);
                 updateSyncStatus('success');
@@ -1387,9 +1447,14 @@
                                 </div>
                                 <div class="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                                     <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 shadow-sm flex items-center gap-1.5 whitespace-nowrap">
-                                        <i data-lucide="calendar" class="text-purple-500 w-3.5 h-3.5"></i>
-                                        ${new Date(imp.date + 'T00:00:00').toLocaleDateString('pt-PT')}
-                                    </div>
+                                    <i data-lucide="calendar" class="text-purple-500 w-3.5 h-3.5"></i>
+                                    ${new Date(imp.date + 'T00:00:00').toLocaleDateString('pt-PT')}
+                                </div>
+                                <button onclick="removeImprovementFromHistory('${imp.key.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200" title="Apagar Registo">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
                                     <button onclick="removeImprovementFromHistory('${imp.key}')" class="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200" title="Apagar Registo">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                                     </button>
@@ -1456,12 +1521,15 @@
             if (fileNames.length > 0) {
                 fileNames.forEach(f => {
                     html += `
-                    <div class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2">
-                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> ${f}
+                    <div class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 group transition-all">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> <span class="truncate max-w-[150px] sm:max-w-xs">${f}</span>
+                        <button onclick="removeFile('${f.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="ml-1 p-0.5 text-blue-400 hover:text-rose-600 rounded transition-colors" title="Remover Planilha">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
                     </div>`;
                 });
             } else {
-                html += `<p class="text-slate-500 text-sm">Nenhum ficheiro registado na memória do sistema.</p>`;
+                html += `<p class="text-slate-500 text-sm">Nenhuma planilha registada na memória do sistema.</p>`;
             }
             
             html += `</div></div>`;
@@ -1502,7 +1570,12 @@
                         <div>
                             <div class="flex justify-between items-start mb-3">
                                 <h3 class="text-lg font-black uppercase tracking-wide ${titleClass}">${formatMonthName(m.month)}</h3>
-                                <span class="bg-white px-2 py-1 rounded-md text-xs font-bold border border-slate-200 text-slate-600">${m.existingCount}/${m.daysInMonth} dias presentes</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="bg-white px-2 py-1 rounded-md text-xs font-bold border border-slate-200 text-slate-600">${m.existingCount}/${m.daysInMonth} dias</span>
+                                    <button onclick="removeMonthData('${m.month}')" class="p-1.5 bg-white text-rose-500 hover:bg-rose-50 hover:text-rose-700 rounded-md border border-slate-200 hover:border-rose-200 transition-colors shadow-sm focus:outline-none" title="Eliminar todos os dados deste mês">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             ${isPerfect ? `
@@ -1574,12 +1647,31 @@
         };
 
         window.removeImprovementFromHistory = function(key) {
-            if(confirm("Tem a certeza que deseja eliminar definitivamente este projeto?")) {
+            openConfirmModal("Tem a certeza que deseja eliminar definitivamente este projeto?", () => {
                 delete improvements[key];
                 saveData();
                 updateUI();
                 showToast("Projeto apagado com sucesso.", "success");
-            }
+            });
+        };
+
+        window.removeFile = function(fileName) {
+            openConfirmModal(`Tem a certeza que deseja remover a planilha "${fileName}"? (Dados muito antigos poderão necessitar de ser apagados eliminando o respetivo mês abaixo)`, () => {
+                fileNames = fileNames.filter(f => f !== fileName);
+                rawData = rawData.filter(d => d.sourceFile !== fileName);
+                saveData();
+                updateUI();
+                showToast("Planilha removida com sucesso.", "success");
+            });
+        };
+
+        window.removeMonthData = function(month) {
+            openConfirmModal(`ATENÇÃO: Tem a certeza que deseja eliminar TODOS os dados do mês ${formatMonthName(month)}?`, () => {
+                rawData = rawData.filter(d => !d.date.startsWith(month));
+                saveData();
+                updateUI();
+                showToast(`Dados de ${formatMonthName(month)} eliminados.`, "success");
+            });
         };
         
         window.toggleDay = function(index) {
@@ -1704,7 +1796,8 @@
                         modelo: targetModelo,
                         turno: targetTurno,
                         prod: 0,
-                        scrap: 0
+                        scrap: 0,
+                        sourceFile: 'Edição Manual'
                     };
                     newObj[currentMetric] = newValue;
                     rawData.push(newObj);
@@ -1742,9 +1835,10 @@
             document.getElementById('file-count').classList.remove('hide');
 
             const finishProc = (parsed, name) => {
-                const newMonths = new Set(parsed.map(d => d.date.substring(0, 7)));
-                const filtered = rawData.filter(d => !newMonths.has(d.date.substring(0, 7)));
-                rawData = [...filtered, ...parsed];
+                // Remove os dados associados ao ficheiro se ele já existisse antes
+                rawData = rawData.filter(d => d.sourceFile !== name);
+                
+                rawData = [...rawData, ...parsed];
                 
                 const dates = rawData.map(d => d.date).sort();
                 if (dates.length && !selectedMonth) selectedMonth = dates[dates.length-1].substring(0,7);
@@ -1816,7 +1910,7 @@
                             const modelo = moIdx!==-1 && c[moIdx] ? c[moIdx].replace(/"/g, '').trim() : 'Geral';
                             const turno = tuIdx!==-1 && c[tuIdx] ? c[tuIdx].replace(/"/g, '').trim() : 'Geral';
                             
-                            if(dt && (prod > 0 || scrap > 0)) parsed.push({date: dt, prod, scrap, area, maquina: maq, modelo, turno});
+                            if(dt && (prod > 0 || scrap > 0)) parsed.push({date: dt, prod, scrap, area, maquina: maq, modelo, turno, sourceFile: file.name});
                         }
                         if(parsed.length===0) throw new Error("Não foram encontrados dados numéricos válidos.");
                         finishProc(parsed, file.name);
@@ -1861,7 +1955,7 @@
                             const modelo = moKey && r[moKey] ? String(r[moKey]).trim() : 'Geral';
                             const turno = tuKey && r[tuKey] ? String(r[tuKey]).trim() : 'Geral';
                             
-                            if(dt && (prod > 0 || scrap > 0)) parsed.push({date: dt, prod, scrap, area, maquina: maq, modelo, turno});
+                            if(dt && (prod > 0 || scrap > 0)) parsed.push({date: dt, prod, scrap, area, maquina: maq, modelo, turno, sourceFile: file.name});
                         }
                         if(parsed.length===0) throw new Error("Não foram encontrados dados válidos na planilha.");
                         finishProc(parsed, file.name);
