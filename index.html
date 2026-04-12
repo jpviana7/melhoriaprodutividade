@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Produção & Scrap</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .hide { display: none !important; }
+        
+        /* Estilização suave para a barra de rolagem horizontal */
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Estilo para a zona de drag & drop */
+        .dropzone-active {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            transform: scale(1.01);
+        }
+        
+        .chart-bar { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8 min-h-screen relative">
+
+    <!-- Container de Notificações Toast -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Cabeçalho (Agora funciona como Dropzone) -->
+        <header id="header-dropzone" class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border-2 border-slate-100 transition-all duration-300 relative overflow-hidden">
+            <div class="flex items-center space-x-4 z-10">
+                <div class="bg-gradient-to-br from-blue-600 to-blue-700 p-3 rounded-xl text-white shadow-md">
+                    <i data-lucide="factory" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Dashboard de Produção</h1>
+                    <p class="text-slate-500 font-medium mt-1" id="header-subtitle">Análise Global Integrada</p>
+                </div>
+            </div>
+            
+            <div class="flex-shrink-0 flex flex-col md:items-end z-10">
+                <input type="file" accept=".csv, .xls, .xlsx" class="hidden" id="file-upload">
+                <button onclick="document.getElementById('file-upload').click()" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-md hover:shadow-lg w-full justify-center md:w-auto">
+                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                    <span>Anexar Planilhas</span>
+                </button>
+                <p id="drop-hint" class="text-[10px] text-slate-400 mt-1 hidden md:block uppercase font-bold tracking-wider">Ou arraste para aqui</p>
+                <p id="file-count" class="text-xs text-slate-500 mt-2 font-medium hide"></p>
+                <p id="saving-status" class="text-xs text-emerald-600 mt-1 font-medium hide flex items-center gap-1">
+                    <i data-lucide="cloud-off" class="w-3 h-3 text-slate-400 hide" id="saving-icon-offline"></i>
+                    <i data-lucide="cloud-lightning" class="w-3 h-3 text-blue-500 animate-pulse hide" id="saving-icon-sync"></i>
+                    <i data-lucide="cloud-check" class="w-3 h-3 text-emerald-500 hide" id="saving-icon-check"></i>
+                    <span id="saving-text">Sincronizado ✓</span>
+                </p>
+            </div>
+            
+            <!-- Overlay visual para Drag & Drop -->
+            <div id="drop-overlay" class="absolute inset-0 bg-blue-50/90 border-2 border-dashed border-blue-400 z-0 opacity-0 transition-opacity flex items-center justify-center hide pointer-events-none">
+                <div class="text-blue-600 font-bold text-lg flex items-center gap-2">
+                    <i data-lucide="download" class="animate-bounce"></i> Largue o ficheiro para processar
+                </div>
+            </div>
+        </header>
+
+        <!-- Container de Erros -->
+        <div id="error-container" class="hide bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm flex items-start space-x-3 transition-all fade-in">
+            <i data-lucide="alert-circle" class="text-red-500 mt-0.5 w-5 h-5"></i>
+            <div>
+                <h3 class="text-red-800 font-bold">Aviso do Sistema</h3>
+                <p id="error-msg" class="text-red-600 text-sm mt-1"></p>
+            </div>
+            <button onclick="document.getElementById('error-container').classList.add('hide')" class="ml-auto text-red-400 hover:text-red-600">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div id="loading-container" class="text-center py-16 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <i data-lucide="loader-2" class="w-8 h-8 text-blue-600 animate-spin"></i>
+            <p class="text-slate-500 font-medium">A ligar à base de dados e a carregar informações...</p>
+        </div>
+
+        <div id="tabs-container" class="hide flex flex-wrap border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+            <button onclick="setTab('dashboard')" id="tab-dashboard" class="flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-blue-600 text-blue-600">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 text-inherit"></i>
+                <span class="hidden sm:inline">Dashboards Analíticos</span><span class="sm:hidden">Dashboards</span>
+            </button>
+            <button onclick="setTab('improvements')" id="tab-improvements" class="flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300">
+                <i data-lucide="clipboard-list" class="w-4 h-4 text-inherit"></i>
+                <span class="hidden sm:inline">Histórico de Projetos</span><span class="sm:hidden">Projetos</span>
+                <span id="improvements-badge" class="hide py-0.5 px-2 rounded-full text-xs ml-2 bg-slate-100 text-slate-500 transition-colors">0</span>
+            </button>
+            <button onclick="setTab('audit')" id="tab-audit" class="flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300">
+                <i data-lucide="database" class="w-4 h-4 text-inherit"></i>
+                <span class="hidden sm:inline">Auditoria de Dados</span><span class="sm:hidden">Auditoria</span>
+                <span id="audit-badge" class="hide py-0.5 px-2 rounded-full text-[10px] font-bold ml-2 bg-rose-100 text-rose-600 transition-colors">!</span>
+            </button>
+        </div>
+
+        <!-- ABA 1: Dashboard -->
+        <div id="view-dashboard" class="space-y-6 fade-in hide">
+            <!-- Alternador Métrica Produção vs Scrap -->
+            <div class="flex items-center gap-1 bg-slate-200/70 p-1.5 rounded-xl w-max border border-slate-200">
+                <button onclick="setMetric('prod')" id="btn-metric-prod" class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-black transition-all shadow-sm bg-white text-blue-600">
+                    <i data-lucide="package" class="w-4 h-4"></i> Produção
+                </button>
+                <button onclick="setMetric('scrap')" id="btn-metric-scrap" class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Scrap
+                </button>
+            </div>
+
+            <!-- Filtros -->
+            <div class="flex flex-col bg-white p-5 rounded-xl border border-slate-100 shadow-sm gap-5">
+                <div class="flex flex-col md:flex-row md:items-start gap-4">
+                    <div class="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 shrink-0 h-[42px]">
+                        <i data-lucide="calendar" class="w-4 h-4 text-slate-400 ml-2"></i>
+                        <select id="filter-month" onchange="updateFilters()" class="bg-transparent text-slate-800 font-semibold text-sm focus:ring-0 block p-1.5 outline-none cursor-pointer border-none"></select>
+                    </div>
+                    
+                    <div class="hidden md:block w-px h-10 bg-slate-200 mt-1"></div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
+                        <!-- Multi-Select de Área -->
+                        <div class="flex flex-col">
+                            <span class="text-slate-500 font-bold text-[11px] uppercase tracking-wider mb-1">Área</span>
+                            <div class="relative w-full multi-dropdown-container" id="dropdown-area-container">
+                                <button onclick="toggleDropdown('area')" class="w-full bg-slate-50 border border-slate-200 text-slate-800 font-medium text-sm rounded-lg flex justify-between items-center p-2.5 outline-none transition-shadow hover:shadow-sm">
+                                    <span id="area-display" class="truncate pr-2">Todas</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                                </button>
+                                <div id="dropdown-area-list" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl hide max-h-60 overflow-y-auto custom-scrollbar multi-dropdown-list flex flex-col"></div>
+                            </div>
+                        </div>
+
+                        <!-- Multi-Select de Máquina -->
+                        <div class="flex flex-col">
+                            <span class="text-slate-500 font-bold text-[11px] uppercase tracking-wider mb-1">Máquina</span>
+                            <div class="relative w-full multi-dropdown-container" id="dropdown-machine-container">
+                                <button onclick="toggleDropdown('machine')" class="w-full bg-slate-50 border border-slate-200 text-slate-800 font-medium text-sm rounded-lg flex justify-between items-center p-2.5 outline-none transition-shadow hover:shadow-sm">
+                                    <span id="machine-display" class="truncate pr-2">Todas</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                                </button>
+                                <div id="dropdown-machine-list" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl hide max-h-60 overflow-y-auto custom-scrollbar multi-dropdown-list flex flex-col"></div>
+                            </div>
+                        </div>
+
+                        <!-- Multi-Select de Modelo -->
+                        <div class="flex flex-col">
+                            <span class="text-slate-500 font-bold text-[11px] uppercase tracking-wider mb-1">Modelo / Bateria</span>
+                            <div class="relative w-full multi-dropdown-container" id="dropdown-modelo-container">
+                                <button onclick="toggleDropdown('modelo')" class="w-full bg-slate-50 border border-slate-200 text-slate-800 font-medium text-sm rounded-lg flex justify-between items-center p-2.5 outline-none transition-shadow hover:shadow-sm">
+                                    <span id="modelo-display" class="truncate pr-2">Todos</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                                </button>
+                                <div id="dropdown-modelo-list" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl hide max-h-60 overflow-hidden multi-dropdown-list flex flex-col">
+                                    <div class="p-2 border-b border-slate-100 bg-slate-50">
+                                        <div class="relative">
+                                            <i data-lucide="search" class="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                                            <input type="text" id="search-modelo" oninput="filterDropdown('modelo', this.value)" placeholder="Pesquisar..." class="w-full pl-8 pr-3 py-1.5 text-sm bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                        </div>
+                                    </div>
+                                    <div id="dropdown-modelo-options" class="overflow-y-auto custom-scrollbar flex-1 flex flex-col"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Multi-Select de Turno -->
+                        <div class="flex flex-col">
+                            <span class="text-slate-500 font-bold text-[11px] uppercase tracking-wider mb-1">Turno</span>
+                            <div class="relative w-full multi-dropdown-container" id="dropdown-turno-container">
+                                <button onclick="toggleDropdown('turno')" class="w-full bg-slate-50 border border-slate-200 text-slate-800 font-medium text-sm rounded-lg flex justify-between items-center p-2.5 outline-none transition-shadow hover:shadow-sm">
+                                    <span id="turno-display" class="truncate pr-2">Todos</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                                </button>
+                                <div id="dropdown-turno-list" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl hide max-h-60 overflow-y-auto custom-scrollbar multi-dropdown-list flex flex-col"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex flex-col gap-3">
+                    <div class="flex items-center gap-2 text-slate-600 font-semibold text-sm">
+                        <i data-lucide="filter" class="w-4 h-4 text-blue-500"></i>
+                        <span>Dias da Semana Considerados:</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2" id="days-toggles"></div>
+                </div>
+
+                <div id="improvement-input-container" class="hide pt-4 border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center gap-3">
+                    <div class="flex items-center space-x-2 text-purple-700 font-bold text-sm bg-purple-50 px-3 py-1.5 rounded-lg">
+                        <i data-lucide="target" class="w-4 h-4"></i>
+                        <span id="label-reg-melhoria">Registar Melhoria:</span>
+                    </div>
+                    <input type="text" id="imp-desc" placeholder="Ex: Troca de esteira" oninput="handleImprovementChange('description', this.value)" class="flex-1 min-w-[200px] w-full md:w-auto bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-2 focus:ring-purple-200 focus:border-purple-500 p-2.5 outline-none transition-all">
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <span class="text-sm text-slate-500 font-medium">Data:</span>
+                        <input type="date" id="imp-date" onchange="handleImprovementChange('date', this.value)" class="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-2 focus:ring-purple-200 focus:border-purple-500 p-2.5 outline-none flex-1 md:flex-none transition-all cursor-pointer">
+                    </div>
+                    <button id="btn-remove-imp" onclick="handleImprovementClear()" class="hide flex items-center gap-1 px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors mt-2 md:mt-0">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Remover
+                    </button>
+                </div>
+                <div id="improvement-tip" class="hide pt-3 border-t border-slate-100 text-sm text-slate-500 flex items-start gap-2 bg-blue-50/50 p-3 rounded-lg">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-500 shrink-0"></i>
+                    <span>Para registar um projeto, selecione um <strong>Mês</strong> e garanta que filtrou por <strong>APENAS UMA</strong> Área e <strong>APENAS UMA</strong> Máquina.</span>
+                </div>
+            </div>
+
+            <div id="dashboard-content"></div>
+        </div>
+
+        <!-- ABA 2: Histórico -->
+        <div id="view-improvements" class="space-y-6 fade-in hide">
+            <div id="improvements-content"></div>
+        </div>
+
+        <!-- ABA 3: Auditoria -->
+        <div id="view-audit" class="space-y-6 fade-in hide">
+            <div id="audit-content"></div>
+        </div>
+
+    </div>
+
+    <!-- Modal de Edição de Produção/Scrap -->
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 hide opacity-0 transition-opacity duration-300" style="backdrop-filter: blur(4px);">
+        <div class="bg-white rounded-2xl p-6 w-11/12 max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="edit-modal-content">
+            <div class="flex justify-between items-start mb-2 border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <div class="bg-blue-100 p-1.5 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4 text-blue-600"></i></div>
+                    Editar Valor
+                </h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <div class="bg-slate-50 p-3 rounded-lg mb-5 mt-2 flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="calendar" class="text-slate-400 w-4 h-4"></i>
+                    <p id="edit-modal-date" class="text-sm text-slate-700 font-bold"></p>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                    <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+                    <p id="edit-modal-context" class="truncate"></p>
+                </div>
+            </div>
+
+            <div class="mb-4 bg-slate-100 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div class="flex flex-col pr-4">
+                    <span class="text-sm font-bold text-slate-800">Contabilizar na Média</span>
+                    <span class="text-[10px] text-slate-500 mt-0.5 leading-tight">Se desativado, este dia será ignorado no cálculo das médias mensais diárias.</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="edit-include-avg" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+
+            <div class="mb-6">
+                <label id="edit-modal-label" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Produzido</label>
+                <input type="number" id="edit-prod-value" onkeyup="if(event.key === 'Enter') saveEditedValue()" class="w-full bg-white border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-800 text-lg">
+                <p class="text-[10px] text-slate-400 mt-2 text-right">Prima <kbd class="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Enter</kbd> para guardar</p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeEditModal()" class="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-bold transition-colors">Cancelar</button>
+                <button id="btn-save-edit" onclick="saveEditedValue()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4" id="save-icon-normal"></i>
+                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin hide" id="save-icon-loading"></i>
+                    <span>Guardar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // A SUA configuração do Firebase garantida
+        const firebaseConfig = {
+          apiKey: "AIzaSyCmzrUb5z4ux5B62WfzOD8fd9z-kpqcJqc",
+          authDomain: "producao-252be.firebaseapp.com",
+          projectId: "producao-252be",
+          storageBucket: "producao-252be.firebasestorage.app",
+          messagingSenderId: "405873578148",
+          appId: "1:405873578148:web:de87f293393a844f57d631"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Apontar diretamente para a raiz da SUA base de dados (Ignorar rotas internas restritas)
+        const getConfigDoc = () => doc(db, 'dashboard_config', 'settings');
+        const getRawDataCollection = () => collection(db, 'dashboard_raw_data');
+        const getRawDataDoc = (month) => doc(db, 'dashboard_raw_data', month);
+
+        // --- Estado Global ---
+        let rawData = [];
+        let fileNames = [];
+        let activeTab = 'dashboard';
+        let currentMetric = 'prod'; 
+        
+        let selectedMonth = "";
+        let selectedAreas = ["Todas"];
+        let selectedMachines = ["Todas"];
+        let selectedModelos = ["Todos"]; 
+        let selectedTurnos = ["Todos"];  
+        
+        let improvements = {};
+        let hiddenDays = [0]; 
+        let hiddenDates = []; 
+        let editingDate = null;
+
+        let selectedCompareMonths = [];
+        
+        let processedState = {
+            viewData: [], monthOptions: [], areaOptions: [], machineOptions: [], modeloOptions: [], turnoOptions: [], 
+            stats: null, monthlyComparison: [], improvementStats: null, improvementsWithStats: [], shiftDistribution: [],
+            auditStats: { months: [], totalMissingAlerts: 0 }
+        };
+
+        // --- Funções Utilitárias ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = 'bg-slate-800';
+            let icon = 'info';
+            
+            if (type === 'success') { bgClass = 'bg-emerald-600'; icon = 'check-circle'; }
+            if (type === 'error') { bgClass = 'bg-rose-600'; icon = 'alert-circle'; }
+            if (type === 'warning') { bgClass = 'bg-amber-500'; icon = 'alert-triangle'; }
+            
+            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white font-medium text-sm transform transition-all duration-300 translate-y-10 opacity-0 pointer-events-auto ${bgClass}`;
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 shrink-0"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            });
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        const formatMonthName = (monthStr) => {
+            if (monthStr === 'Todos') return 'Todos os Meses';
+            if (!monthStr || typeof monthStr !== 'string') return String(monthStr || "");
+            const parts = monthStr.split('-');
+            if (parts.length !== 2) return monthStr;
+            const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+            if (isNaN(date.getTime())) return monthStr;
+            return date.toLocaleString('pt-PT', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+        };
+
+        const getCurrentImpKey = () => {
+            const a = selectedAreas.length === 1 && !selectedAreas.includes('Todas') ? selectedAreas[0] : 'Todas';
+            const m = selectedMachines.length === 1 && !selectedMachines.includes('Todas') ? selectedMachines[0] : 'Todas';
+            return `${currentMetric}|${selectedMonth}|${a}|${m}`;
+        };
+
+        const getFilterText = () => {
+            if(hiddenDays.length === 0) return "(todos os dias)";
+            if(hiddenDays.length === 1 && hiddenDays.includes(0)) return "(sem domingos)";
+            if(hiddenDays.length === 2 && hiddenDays.includes(0) && hiddenDays.includes(6)) return "(dias úteis)";
+            return "(dias filtrados)";
+        };
+
+        function updateSyncStatus(status) {
+            const container = document.getElementById('saving-status');
+            const txt = document.getElementById('saving-text');
+            const iOff = document.getElementById('saving-icon-offline');
+            const iSync = document.getElementById('saving-icon-sync');
+            const iChk = document.getElementById('saving-icon-check');
+            
+            container.classList.remove('hide', 'text-emerald-600', 'text-red-500', 'text-blue-500');
+            iOff.classList.add('hide'); iSync.classList.add('hide'); iChk.classList.add('hide');
+            
+            if (status === 'saving') {
+                container.classList.add('text-blue-500');
+                txt.innerText = 'A sincronizar...';
+                iSync.classList.remove('hide');
+            } else if (status === 'success') {
+                container.classList.add('text-emerald-600');
+                txt.innerText = 'Sincronizado ✓';
+                iChk.classList.remove('hide');
+                setTimeout(() => container.classList.add('hide'), 3000);
+            } else {
+                container.classList.add('text-red-500');
+                txt.innerText = 'Erro na sincronização';
+                iOff.classList.remove('hide');
+            }
+        }
+
+        // --- Gestão de Dropdowns Multi-Select ---
+        window.filterDropdown = function(type, query) {
+            const lowerQuery = query.toLowerCase();
+            const optionsContainer = document.getElementById(`dropdown-${type}-options`) || document.getElementById(`dropdown-${type}-list`);
+            const labels = optionsContainer.querySelectorAll('.dropdown-option');
+            
+            labels.forEach(label => {
+                if (label.textContent.toLowerCase().includes(lowerQuery)) {
+                    label.classList.remove('hide');
+                } else {
+                    label.classList.add('hide');
+                }
+            });
+        };
+
+        window.toggleDropdown = function(id) {
+            const list = document.getElementById(`dropdown-${id}-list`);
+            const isHidden = list.classList.contains('hide');
+            
+            document.querySelectorAll('.multi-dropdown-list').forEach(el => el.classList.add('hide'));
+            
+            if (isHidden) {
+                list.classList.remove('hide');
+                const searchInput = document.getElementById(`search-${id}`);
+                if (searchInput) setTimeout(() => searchInput.focus(), 50);
+            }
+        };
+
+        document.addEventListener('click', (e) => {
+            if (!document.body.contains(e.target)) return;
+            if (!e.target.closest('.multi-dropdown-container')) {
+                document.querySelectorAll('.multi-dropdown-list').forEach(el => el.classList.add('hide'));
+            }
+        });
+
+        window.handleCheckboxChange = function(type, value) {
+            selectedCompareMonths = []; 
+
+            let currentSelection;
+            if (type === 'area') currentSelection = [...selectedAreas];
+            else if (type === 'machine') currentSelection = [...selectedMachines];
+            else if (type === 'modelo') currentSelection = [...selectedModelos];
+            else currentSelection = [...selectedTurnos];
+
+            if (value === 'Todas' || value === 'Todos') {
+                currentSelection = [value];
+            } else {
+                currentSelection = currentSelection.filter(item => item !== 'Todas' && item !== 'Todos');
+                
+                if (currentSelection.includes(value)) {
+                    currentSelection = currentSelection.filter(item => item !== value); 
+                } else {
+                    currentSelection.push(value); 
+                }
+                
+                if (currentSelection.length === 0) {
+                    currentSelection = [type === 'area' || type === 'machine' ? 'Todas' : 'Todos'];
+                }
+            }
+
+            if (type === 'area') {
+                selectedAreas = currentSelection;
+                selectedMachines = ['Todas']; 
+            } else if (type === 'machine') {
+                selectedMachines = currentSelection;
+            } else if (type === 'modelo') {
+                selectedModelos = currentSelection;
+            } else if (type === 'turno') {
+                selectedTurnos = currentSelection;
+            }
+
+            updateUI();
+        };
+
+        const populateMultiSelect = (type, options, selectedArray) => {
+            const container = document.getElementById(`dropdown-${type}-options`) || document.getElementById(`dropdown-${type}-list`);
+            const display = document.getElementById(`${type}-display`);
+
+            if (selectedArray.includes('Todas') || selectedArray.includes('Todos')) {
+                display.innerText = type === 'area' || type === 'machine' ? 'Todas' : 'Todos';
+            } else if (selectedArray.length === 1) {
+                display.innerText = selectedArray[0];
+            } else {
+                display.innerText = `${selectedArray.length} selecionadas`;
+            }
+
+            const optionsHash = options.join('|');
+            const currentHash = container.getAttribute('data-hash');
+
+            if (currentHash === optionsHash) {
+                const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+                const spans = container.querySelectorAll('span.font-medium');
+                
+                checkboxes.forEach((input, index) => {
+                    const o = options[index];
+                    const isChecked = selectedArray.includes(o);
+                    input.checked = isChecked;
+                    if (isChecked) {
+                        spans[index].classList.remove('text-slate-600');
+                        spans[index].classList.add('text-slate-800');
+                    } else {
+                        spans[index].classList.remove('text-slate-800');
+                        spans[index].classList.add('text-slate-600');
+                    }
+                });
+                return;
+            }
+
+            container.setAttribute('data-hash', optionsHash);
+            container.innerHTML = options.map(o => {
+                const isChecked = selectedArray.includes(o);
+                const safeVal = o.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                return `
+                <label class="dropdown-option flex items-center space-x-3 p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors">
+                    <input type="checkbox" value="${safeVal}" onchange="handleCheckboxChange('${type}', this.value)" ${isChecked ? 'checked' : ''} class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                    <span class="text-sm font-medium ${isChecked ? 'text-slate-800' : 'text-slate-600'}">${o}</span>
+                </label>`;
+            }).join('');
+            
+            const searchInput = document.getElementById(`search-${type}`);
+            if (searchInput && searchInput.value) {
+                filterDropdown(type, searchInput.value);
+            }
+        };
+
+        // --- Firebase CRUD ---
+        async function loadData() {
+            try {
+                const configSnap = await getDoc(getConfigDoc());
+                if (configSnap.exists()) {
+                    const data = configSnap.data();
+                    
+                    if (data.improvements) {
+                        const parsedImps = JSON.parse(data.improvements);
+                        const migratedImps = {};
+                        for(const k in parsedImps) {
+                            if (k.split('|').length === 4) {
+                                migratedImps[k] = parsedImps[k];
+                            } else if (k.split('|').length === 3) {
+                                migratedImps['prod|' + k] = parsedImps[k];
+                            } else {
+                                migratedImps[k] = parsedImps[k];
+                            }
+                        }
+                        improvements = migratedImps;
+                    }
+                    
+                    if (data.fileNames) fileNames = data.fileNames;
+                    if (data.hiddenDays) hiddenDays = JSON.parse(data.hiddenDays);
+                    if (data.hiddenDates) hiddenDates = JSON.parse(data.hiddenDates);
+                }
+
+                const snapshot = await getDocs(getRawDataCollection());
+                let allData = [];
+                snapshot.forEach((docSnap) => {
+                    const monthData = docSnap.data().data;
+                    if (monthData) {
+                        allData = allData.concat(JSON.parse(monthData));
+                    }
+                });
+                
+                allData = allData.map(d => ({ 
+                    ...d, 
+                    scrap: d.scrap || 0,
+                    modelo: d.modelo || 'Geral',
+                    turno: d.turno || 'Geral'
+                }));
+                rawData = allData;
+
+            } catch (err) { 
+                console.error("Erro ao carregar do Firebase:", err);
+                let msg = "Erro de ligação à base de dados. Verifique as Regras do Firestore.";
+                if (err.message.includes('offline') || err.message.includes('unavailable')) {
+                    msg = "Erro de Ligação: O Firebase não responde. Certifique-se de que clicou em 'Criar Base de Dados' no Firestore e de que o seu AdBlocker está desligado.";
+                }
+                showError(msg);
+            } finally {
+                document.getElementById('loading-container').classList.add('hide');
+                updateUI();
+            }
+        }
+
+        async function saveData() {
+            updateSyncStatus('saving');
+
+            try {
+                await setDoc(getConfigDoc(), {
+                    improvements: JSON.stringify(improvements),
+                    fileNames: fileNames,
+                    hiddenDays: JSON.stringify(hiddenDays),
+                    hiddenDates: JSON.stringify(hiddenDates)
+                });
+
+                const dataByMonth = {};
+                rawData.forEach(d => {
+                    const m = d.date.substring(0, 7);
+                    if (!dataByMonth[m]) dataByMonth[m] = [];
+                    dataByMonth[m].push(d);
+                });
+
+                const promises = [];
+                for (const [month, dataArr] of Object.entries(dataByMonth)) {
+                    promises.push(setDoc(getRawDataDoc(month), {
+                        data: JSON.stringify(dataArr)
+                    }));
+                }
+                
+                await Promise.all(promises);
+                updateSyncStatus('success');
+            } catch (err) { 
+                console.error("Erro ao guardar no Firebase:", err); 
+                updateSyncStatus('error');
+                showError("Não foi possível guardar as alterações na nuvem.");
+            }
+        }
+
+        // --- Processamento e UI ---
+        function calculateData() {
+            if (rawData.length === 0) {
+                processedState = { viewData: [], monthOptions: [], areaOptions: [], machineOptions: [], modeloOptions: [], turnoOptions: [], stats: null, monthlyComparison: [], improvementStats: null, improvementsWithStats: [], shiftDistribution: [], auditStats: { months: [], totalMissingAlerts: 0 } };
+                return;
+            }
+
+            const areasSet = new Set();
+            const monthsSet = new Set();
+            const modelosSet = new Set();
+            const turnosSet = new Set();
+            
+            rawData.forEach(d => {
+                if (d.area) areasSet.add(d.area);
+                if (d.date) monthsSet.add(d.date.substring(0, 7));
+                if (d.modelo) modelosSet.add(d.modelo);
+                if (d.turno) turnosSet.add(d.turno);
+            });
+            
+            processedState.areaOptions = ['Todas', ...Array.from(areasSet).sort()];
+            processedState.monthOptions = ['Todos', ...Array.from(monthsSet).sort().reverse()];
+            processedState.modeloOptions = ['Todos', ...Array.from(modelosSet).sort()];
+            processedState.turnoOptions = ['Todos', ...Array.from(turnosSet).sort()];
+            
+            if(!selectedMonth && processedState.monthOptions.length > 1) {
+                selectedMonth = processedState.monthOptions[1]; 
+            }
+
+            const machinesSet = new Set();
+            rawData.forEach(d => {
+                if (selectedAreas.includes('Todas') || selectedAreas.includes(d.area)) {
+                    if (d.maquina) machinesSet.add(d.maquina);
+                }
+            });
+            processedState.machineOptions = ['Todas', ...Array.from(machinesSet).sort()];
+
+            const filtered = rawData.filter(d => 
+                (selectedAreas.includes('Todas') || selectedAreas.includes(d.area)) && 
+                (selectedMachines.includes('Todas') || selectedMachines.includes(d.maquina)) &&
+                (selectedModelos.includes('Todos') || selectedModelos.includes(d.modelo)) &&
+                (selectedTurnos.includes('Todos') || selectedTurnos.includes(d.turno))
+            );
+
+            const grouped = {};
+            filtered.forEach(d => { grouped[d.date] = (grouped[d.date] || 0) + (d[currentMetric] || 0); });
+
+            const allDaily = Object.keys(grouped).map(date => {
+                const dateObj = new Date(date + 'T00:00:00');
+                return { 
+                    date, 
+                    value: grouped[date], 
+                    month: date.substring(0, 7), 
+                    dayOfWeek: dateObj.getDay(),
+                    isIgnored: hiddenDates.includes(date)
+                };
+            }).filter(d => !hiddenDays.includes(d.dayOfWeek)).sort((a, b) => a.date.localeCompare(b.date));
+
+            let impStats = null;
+            const isAreaSpecific = selectedAreas.length === 1 && !selectedAreas.includes('Todas');
+            const isMachineSpecific = selectedMachines.length === 1 && !selectedMachines.includes('Todas');
+
+            let activeImp = null;
+            if (isAreaSpecific && isMachineSpecific) {
+                const targetA = selectedAreas[0];
+                const targetM = selectedMachines[0];
+                let latestDate = '';
+                
+                Object.entries(improvements).forEach(([k, imp]) => {
+                    if (!imp.date) return;
+                    const parts = k.split('|');
+                    let iMetric = 'prod', iArea, iMach;
+                    if (parts.length === 4) {
+                        iMetric = parts[0]; iArea = parts[2]; iMach = parts[3];
+                    } else if (parts.length === 3) {
+                        iMetric = 'prod'; iArea = parts[1]; iMach = parts[2];
+                    }
+
+                    if (iMetric === currentMetric && iArea === targetA && iMach === targetM) {
+                        if (!latestDate || imp.date > latestDate) {
+                            latestDate = imp.date;
+                            activeImp = imp;
+                        }
+                    }
+                });
+            }
+
+            if (activeImp) {
+                const before = allDaily.filter(d => d.date < activeImp.date && !d.isIgnored);
+                const after = allDaily.filter(d => d.date >= activeImp.date && !d.isIgnored);
+                const avgB = before.length ? before.reduce((s, d) => s + d.value, 0) / before.length : 0;
+                const avgA = after.length ? after.reduce((s, d) => s + d.value, 0) / after.length : 0;
+                impStats = { 
+                    metric: currentMetric, 
+                    date: activeImp.date, 
+                    description: activeImp.description, 
+                    avgBefore: avgB, 
+                    avgAfter: avgA, 
+                    impactAbsolute: avgA - avgB, 
+                    daysBefore: before.length, 
+                    daysAfter: after.length 
+                };
+            }
+            processedState.improvementStats = impStats;
+
+            processedState.viewData = selectedMonth === 'Todos' ? allDaily : allDaily.filter(d => d.month === selectedMonth);
+            
+            const viewTotalAbsolute = processedState.viewData.reduce((s, d) => s + d.value, 0);
+            const activeViewData = processedState.viewData.filter(d => !d.isIgnored);
+            const activeTotal = activeViewData.reduce((s, d) => s + d.value, 0);
+            
+            processedState.stats = { 
+                total: viewTotalAbsolute, 
+                avg: activeViewData.length ? activeTotal / activeViewData.length : 0, 
+                days: activeViewData.length,
+                ignoredCount: processedState.viewData.length - activeViewData.length
+            };
+
+            const viewRawData = selectedMonth === 'Todos' ? filtered : filtered.filter(d => d.date.substring(0, 7) === selectedMonth);
+            const activeRawData = viewRawData.filter(d => {
+                const dateObj = new Date(d.date + 'T00:00:00');
+                return !hiddenDates.includes(d.date) && !hiddenDays.includes(dateObj.getDay());
+            });
+
+            const shiftStats = {};
+            activeRawData.forEach(d => {
+                const val = d[currentMetric] || 0;
+                if (val > 0) {
+                    const t = d.turno || 'Geral';
+                    shiftStats[t] = (shiftStats[t] || 0) + val;
+                }
+            });
+            
+            const validDaysCount = activeViewData.length || 1;
+            processedState.shiftDistribution = Object.entries(shiftStats)
+                .map(([turno, total]) => ({ 
+                    turno, 
+                    total,
+                    dailyAvg: total / validDaysCount 
+                }))
+                .sort((a, b) => a.turno.localeCompare(b.turno));
+
+            const mStats = {};
+            allDaily.forEach(d => {
+                if (!mStats[d.month]) mStats[d.month] = { t: 0, d: 0, activeT: 0, activeD: 0 };
+                mStats[d.month].t += d.value; 
+                mStats[d.month].d += 1;
+                if (!d.isIgnored) {
+                    mStats[d.month].activeT += d.value;
+                    mStats[d.month].activeD += 1;
+                }
+            });
+            
+            processedState.monthlyComparison = Object.keys(mStats).map(m => ({ 
+                month: m, 
+                avg: mStats[m].activeD ? mStats[m].activeT / mStats[m].activeD : 0,
+                activeT: mStats[m].activeT,
+                activeD: mStats[m].activeD
+            })).sort((a,b)=>a.month.localeCompare(b.month));
+
+            processedState.improvementsWithStats = Object.entries(improvements).map(([key, imp]) => {
+                if (!imp.date) return null;
+                const parts = key.split('|');
+                let iMetric = 'prod', iMonth, iArea, iMach;
+                if (parts.length === 4) {
+                    [iMetric, iMonth, iArea, iMach] = parts;
+                } else if (parts.length === 3) {
+                    iMonth = parts[0]; iArea = parts[1]; iMach = parts[2];
+                }
+                
+                const filt = rawData.filter(d => (iArea === 'Todas' || d.area === iArea) && (iMach === 'Todas' || d.maquina === iMach));
+                const grp = {}; filt.forEach(d => { grp[d.date] = (grp[d.date] || 0) + (d[iMetric] || 0); });
+                
+                const daily = Object.keys(grp).map(date => {
+                    return { date, value: grp[date], dayOfWeek: new Date(date+'T00:00:00').getDay(), isIgnored: hiddenDates.includes(date) };
+                }).filter(d => !hiddenDays.includes(d.dayOfWeek));
+                
+                const bef = daily.filter(d => d.date < imp.date && !d.isIgnored);
+                const aft = daily.filter(d => d.date >= imp.date && !d.isIgnored);
+                const aB = bef.length ? bef.reduce((s, d) => s + d.value, 0) / bef.length : 0;
+                const aA = aft.length ? aft.reduce((s, d) => s + d.value, 0) / aft.length : 0;
+                return { key, metric: iMetric, month: iMonth, area: iArea, machine: iMach, ...imp, stats: { avgBefore: aB, avgAfter: aA, impactAbsolute: aA - aB, daysBefore: bef.length, daysAfter: aft.length } };
+            }).filter(Boolean).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // --- Lógica da Auditoria de Dados ---
+            const auditMonths = [];
+            let totalMissingAlerts = 0;
+            const uniqueMonths = [...new Set(rawData.map(d => d.date.substring(0, 7)))].sort().reverse();
+            
+            const datesByMonth = {};
+            rawData.forEach(d => {
+                const m = d.date.substring(0, 7);
+                if (!datesByMonth[m]) datesByMonth[m] = new Set();
+                datesByMonth[m].add(d.date);
+            });
+
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            uniqueMonths.forEach(mStr => {
+                const [y, m] = mStr.split('-');
+                const daysInMonth = new Date(y, m, 0).getDate();
+                const existingDates = datesByMonth[mStr];
+                const missingWorking = [];
+                const missingIgnored = [];
+
+                for(let i=1; i<=daysInMonth; i++) {
+                    const dateStr = `${y}-${m}-${String(i).padStart(2, '0')}`;
+                    
+                    if (dateStr > todayStr) break;
+
+                    if (!existingDates.has(dateStr)) {
+                        const dayOfWeek = new Date(dateStr + 'T00:00:00').getDay();
+                        if (hiddenDays.includes(dayOfWeek) || hiddenDates.includes(dateStr)) {
+                            missingIgnored.push(dateStr);
+                        } else {
+                            missingWorking.push(dateStr);
+                        }
+                    }
+                }
+                totalMissingAlerts += missingWorking.length;
+                auditMonths.push({ month: mStr, missingWorking, missingIgnored, daysInMonth, existingCount: existingDates.size });
+            });
+
+            processedState.auditStats = { months: auditMonths, totalMissingAlerts };
+        }
+
+        function renderDayToggles() {
+            const container = document.getElementById('days-toggles');
+            if(!container) return;
+            const daysNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            
+            container.innerHTML = daysNames.map((day, index) => {
+                const isActive = !hiddenDays.includes(index);
+                return `
+                <button onclick="toggleDay(${index})" class="px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${isActive ? 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200' : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200'}">
+                    ${day}
+                </button>`;
+            }).join('');
+        }
+
+        function updateUI() {
+            calculateData();
+            
+            const isProd = currentMetric === 'prod';
+            
+            const btnProd = document.getElementById('btn-metric-prod');
+            const btnScrap = document.getElementById('btn-metric-scrap');
+            
+            if (isProd) {
+                btnProd.className = "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-black transition-all shadow-sm bg-white text-blue-600";
+                btnScrap.className = "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700";
+                document.getElementById('label-reg-melhoria').innerText = "Registar Melhoria (Produção):";
+            } else {
+                btnScrap.className = "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-black transition-all shadow-sm bg-white text-rose-600";
+                btnProd.className = "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-500 hover:text-slate-700";
+                document.getElementById('label-reg-melhoria').innerText = "Registar Projeto (Scrap):";
+            }
+            
+            let areaText = '';
+            if (!selectedAreas.includes('Todas')) {
+                if (selectedAreas.length === 1) areaText = `- Área ${selectedAreas[0]}`;
+                else areaText = `- Múltiplas Áreas`;
+            }
+            document.getElementById('header-subtitle').innerText = `Análise de ${isProd ? 'Produção' : 'Scrap'} ${areaText}`;
+            
+            if (fileNames.length > 0) {
+                const fc = document.getElementById('file-count');
+                fc.innerText = `${fileNames.length} ${fileNames.length === 1 ? 'ficheiro carregado' : 'ficheiros carregados'}`;
+                fc.classList.remove('hide');
+            }
+
+            if (rawData.length > 0 && processedState.stats) {
+                document.getElementById('tabs-container').classList.remove('hide');
+                
+                const selMonth = document.getElementById('filter-month');
+                selMonth.innerHTML = processedState.monthOptions.map(o => `<option value="${o}" ${o===selectedMonth?'selected':''}>${formatMonthName(o)}</option>`).join('');
+                
+                populateMultiSelect('area', processedState.areaOptions, selectedAreas);
+                populateMultiSelect('machine', processedState.machineOptions, selectedMachines);
+                populateMultiSelect('modelo', processedState.modeloOptions, selectedModelos);
+                populateMultiSelect('turno', processedState.turnoOptions, selectedTurnos);
+
+                renderDayToggles();
+
+                const isAreaSpecific = selectedAreas.length === 1 && !selectedAreas.includes('Todas');
+                const isMachineSpecific = selectedMachines.length === 1 && !selectedMachines.includes('Todas');
+                
+                const showImpInput = selectedMonth !== 'Todos' && isAreaSpecific && isMachineSpecific;
+                document.getElementById('improvement-input-container').classList.toggle('hide', !showImpInput);
+                document.getElementById('improvement-tip').classList.toggle('hide', showImpInput);
+                
+                const currentImpForm = improvements[getCurrentImpKey()] || {};
+                document.getElementById('imp-desc').value = currentImpForm.description || '';
+                document.getElementById('imp-date').value = currentImpForm.date || '';
+                document.getElementById('btn-remove-imp').classList.toggle('hide', !currentImpForm.date);
+
+                // Badges
+                const impLen = processedState.improvementsWithStats.length;
+                const badgeImp = document.getElementById('improvements-badge');
+                badgeImp.innerText = impLen;
+                if(impLen > 0) { badgeImp.classList.remove('hide'); badgeImp.className = `py-0.5 px-2 rounded-full text-xs ml-2 ${activeTab === 'improvements' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'} transition-colors`; } 
+                else { badgeImp.classList.add('hide'); }
+
+                const badgeAudit = document.getElementById('audit-badge');
+                if (processedState.auditStats.totalMissingAlerts > 0) {
+                    badgeAudit.classList.remove('hide');
+                } else {
+                    badgeAudit.classList.add('hide');
+                }
+
+                // Tab Logic
+                const tDash = document.getElementById('tab-dashboard');
+                const tImp = document.getElementById('tab-improvements');
+                const tAudit = document.getElementById('tab-audit');
+                
+                const activeClass = "flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-blue-600 text-blue-600";
+                const activePurple = "flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-purple-600 text-purple-700";
+                const inactiveClass = "flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300";
+
+                tDash.className = activeTab === 'dashboard' ? activeClass : inactiveClass;
+                tImp.className = activeTab === 'improvements' ? activePurple : inactiveClass;
+                tAudit.className = activeTab === 'audit' ? "flex items-center space-x-2 py-3 px-4 sm:px-6 border-b-2 font-bold text-sm transition-colors border-rose-600 text-rose-700" : inactiveClass;
+
+                document.getElementById('view-dashboard').classList.toggle('hide', activeTab !== 'dashboard');
+                document.getElementById('view-improvements').classList.toggle('hide', activeTab !== 'improvements');
+                document.getElementById('view-audit').classList.toggle('hide', activeTab !== 'audit');
+
+                if (activeTab === 'dashboard') renderDashboardContent();
+                else if (activeTab === 'improvements') renderImprovementsContent();
+                else if (activeTab === 'audit') renderAuditContent();
+
+            } else {
+                document.getElementById('tabs-container').classList.add('hide');
+                document.getElementById('view-dashboard').classList.add('hide');
+                document.getElementById('view-improvements').classList.add('hide');
+                document.getElementById('view-audit').classList.add('hide');
+            }
+            lucide.createIcons();
+        }
+
+        function renderDashboardContent() {
+            const container = document.getElementById('dashboard-content');
+            let html = '';
+            const stats = processedState.stats;
+            const impStats = processedState.improvementStats;
+            const filterLabel = getFilterText();
+            const isProd = currentMetric === 'prod';
+            
+            const isImpactGood = impStats ? (isProd ? impStats.impactAbsolute >= 0 : impStats.impactAbsolute <= 0) : false;
+
+            if (!isProd && stats.total === 0) {
+                html += `
+                <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm mb-6 flex items-start gap-3">
+                    <i data-lucide="alert-triangle" class="text-amber-500 w-5 h-5"></i>
+                    <div>
+                        <h3 class="text-amber-800 font-bold">Sem dados de Scrap</h3>
+                        <p class="text-amber-700 text-sm mt-1">Não foi detetado nenhum valor de scrap. Certifique-se que o ficheiro Excel contém uma coluna com o nome <strong>"scrap"</strong>, <strong>"refugo"</strong> ou <strong>"perda"</strong>.</p>
+                    </div>
+                </div>`;
+            }
+
+            if (impStats) {
+                const impactClass = isImpactGood ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
+                const impactIcon = impStats.impactAbsolute >= 0 ? 'arrow-up-right' : 'arrow-down-right';
+                const impactText = isProd 
+                                   ? (impStats.impactAbsolute >= 0 ? 'Baterias extra/dia' : 'Baterias a menos/dia') 
+                                   : (impStats.impactAbsolute <= 0 ? 'Scrap evitado/dia' : 'Scrap extra/dia');
+                
+                html += `
+                <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden mb-6">
+                    <div class="absolute top-0 right-0 -mt-10 -mr-10 text-white/5"><i data-lucide="${isProd ? 'trending-up' : 'trending-down'}" class="w-48 h-48"></i></div>
+                    <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div class="flex-1">
+                            <h2 class="text-xl font-bold flex items-center gap-2">
+                                <div class="bg-slate-700/50 p-1.5 rounded-lg"><i data-lucide="target" class="text-purple-300 w-5 h-5"></i></div>
+                                ${impStats.description ? `Projeto: ${impStats.description}` : `Resultados da Melhoria`}
+                            </h2>
+                            <p class="text-slate-300 text-sm mt-2 font-medium">
+                                Máquina ${selectedMachines[0]} • Aplicada a ${new Date(impStats.date + 'T00:00:00').toLocaleDateString('pt-PT')} • 
+                                <span class="text-purple-300">Impacto Global Acumulado</span>
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-4 md:space-x-8 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                            <div class="text-center min-w-[100px]">
+                                <p class="text-slate-400 text-xs font-bold tracking-wider mb-1">MÉDIA ANTES</p>
+                                <p class="text-3xl font-black drop-shadow-sm">${Math.round(impStats.avgBefore).toLocaleString('pt-PT')}</p>
+                                <p class="text-[10px] text-slate-500 mt-1 uppercase">${impStats.daysBefore} dias analisados</p>
+                            </div>
+                            <div class="text-slate-500 bg-slate-800 p-2 rounded-full"><i data-lucide="arrow-right" class="w-5 h-5"></i></div>
+                            <div class="text-center min-w-[100px]">
+                                <p class="text-slate-200 text-xs font-bold tracking-wider mb-1">MÉDIA DEPOIS</p>
+                                <p class="text-3xl font-black text-white drop-shadow-sm">${Math.round(impStats.avgAfter).toLocaleString('pt-PT')}</p>
+                                <p class="text-[10px] text-slate-400 mt-1 uppercase">${impStats.daysAfter} dias</p>
+                            </div>
+                            <div class="pl-4 md:pl-8 border-l border-slate-700 flex items-center">
+                                <div class="flex flex-col items-center justify-center py-3 px-4 rounded-xl ${impactClass} backdrop-blur-sm">
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="${impactIcon}" class="w-5 h-5"></i>
+                                        <span class="text-2xl font-black">${Math.round(Math.abs(impStats.impactAbsolute)).toLocaleString('pt-PT')}</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold uppercase mt-1 text-center tracking-wider">${impactText}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                html += `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="p-6 rounded-2xl border shadow-sm flex items-start space-x-4 transition-all bg-white border-slate-100 hover:shadow-md group">
+                        <div class="p-3 rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors"><i data-lucide="${isProd ? 'layers' : 'trash-2'}" class="w-6 h-6"></i></div>
+                        <div>
+                            <p class="text-sm font-bold tracking-wide uppercase mb-1 text-slate-400">Total de ${isProd ? 'Produção' : 'Scrap'} (${selectedMonth === 'Todos' ? 'Global' : formatMonthName(selectedMonth).split(' ')[0]})</p>
+                            <h3 class="text-3xl font-black text-slate-800">${stats.total.toLocaleString('pt-PT')}</h3>
+                            <p class="text-xs mt-1 text-slate-400 font-medium">Inclui todos os dias filtrados</p>
+                        </div>
+                    </div>
+                    <div class="p-6 rounded-2xl border shadow-sm flex items-start space-x-4 transition-all ${isProd ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100' : 'bg-gradient-to-br from-rose-50 to-orange-50 border-rose-100'} hover:shadow-md">
+                        <div class="p-3 rounded-xl ${isProd ? 'bg-blue-600' : 'bg-rose-600'} text-white shadow-sm"><i data-lucide="${isProd ? 'trending-up' : 'trending-down'}" class="w-6 h-6"></i></div>
+                        <div>
+                            <p class="text-sm font-bold tracking-wide uppercase mb-1 ${isProd ? 'text-blue-800/60' : 'text-rose-800/60'}">Média Diária (${selectedMonth === 'Todos' ? 'Global' : formatMonthName(selectedMonth).split(' ')[0]})</p>
+                            <h3 class="text-3xl font-black ${isProd ? 'text-blue-900' : 'text-rose-900'}">${Math.round(stats.avg).toLocaleString('pt-PT')}</h3>
+                            <p class="text-xs mt-1 ${isProd ? 'text-blue-600/70' : 'text-rose-600/70'} font-medium">Baseado em ${stats.days} dias válidos ${stats.ignoredCount > 0 ? `(${stats.ignoredCount} ignorados)` : ''}</p>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            html += `<div class="flex flex-col gap-6">`;
+
+            html += `<div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 w-full">
+                        <div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="activity" class="${isProd ? 'text-blue-500' : 'text-rose-500'} w-5 h-5"></i> Evolução Diária de ${isProd ? 'Produção' : 'Scrap'} - ${formatMonthName(selectedMonth)}</h2>
+                                <p class="text-slate-500 text-sm mt-1">${impStats ? "A linha indica a data da implementação do projeto." : "Acompanhe a variação diária. Clique em qualquer barra para editar o valor."}</p>
+                            </div>
+                            ${selectedMonth === 'Todos' ? `<span class="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 shadow-sm"><i data-lucide="eye" class="w-3.5 h-3.5"></i> Visão Completa</span>` : ''}
+                        </div>`;
+            
+            const vData = processedState.viewData;
+            if (vData.length > 0) {
+                const maxVal = Math.max(...vData.map(d => d.value));
+                const maxTotal = Math.max(maxVal * 1.15, stats.avg * 1.2);
+                
+                const splitIdx = impStats ? vData.findIndex(d => d.date >= impStats.date) : -1;
+                
+                let barsHtml = '';
+                vData.forEach((item, index) => {
+                    const hp = maxTotal === 0 ? 0 : (item.value / maxTotal) * 100;
+                    const dObj = new Date(item.date + 'T00:00:00');
+                    
+                    let isGood = false;
+                    if(impStats) isGood = isProd ? item.value >= stats.avg : item.value <= stats.avg;
+                    else isGood = isProd ? item.value >= stats.avg : item.value <= stats.avg;
+
+                    let bClass = '';
+                    if (item.isIgnored) {
+                        bClass = 'bg-slate-200 border-2 border-dashed border-slate-400 opacity-70';
+                    } else {
+                        if(isProd) {
+                            bClass = item.value >= stats.avg ? 'bg-gradient-to-t from-blue-600 to-blue-400 shadow-blue-500/20 shadow-sm' : 'bg-gradient-to-t from-slate-300 to-slate-200';
+                        } else {
+                            bClass = item.value > stats.avg ? 'bg-gradient-to-t from-rose-500 to-rose-400 shadow-rose-500/20 shadow-sm' : 'bg-gradient-to-t from-slate-300 to-slate-200';
+                        }
+                    }
+                    
+                    const showLbl = vData.length > 40 ? index % 3 === 0 : true;
+
+                    barsHtml += `
+                    <div class="flex-1 flex flex-col items-center group relative h-full justify-end min-w-[6px]">
+                        <div onclick="openEditModal('${item.date}', ${item.value})" class="chart-bar w-full max-w-[40px] rounded-t cursor-pointer relative ${bClass}" style="height: ${hp}%">
+                            <div class="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[9px] sm:text-[10px] font-bold text-slate-500 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                ${item.value > 0 ? Math.round(item.value).toLocaleString('pt-PT') : ''}
+                            </div>
+                            
+                            <div class="opacity-0 group-hover:opacity-100 absolute bottom-full mb-3 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white p-2.5 rounded-xl whitespace-nowrap z-30 pointer-events-none transition-all shadow-xl scale-95 group-hover:scale-100 origin-bottom">
+                                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5 border-b border-slate-600 pb-1">
+                                    <i data-lucide="calendar" class="w-3 h-3"></i> ${dObj.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </div>
+                                <div class="font-black text-lg">${item.value.toLocaleString('pt-PT')} <span class="text-xs font-medium text-slate-300">un.</span></div>
+                                ${item.isIgnored ? '<div class="text-[9.5px] text-amber-300 mt-1 font-bold flex items-center gap-1"><i data-lucide="eye-off" class="w-3 h-3"></i> Ignorado na Média</div>' : ''}
+                                <div class="text-[9px] text-blue-300 mt-1.5 flex items-center gap-1 pt-1 border-t border-slate-700 bg-slate-900/50 p-1 rounded"><i data-lucide="mouse-pointer-click" class="w-3 h-3"></i> Clique para editar</div>
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </div>
+                        ${showLbl ? `<div class="mt-3 text-[9px] sm:text-[10px] text-slate-400 font-bold rotate-45 origin-left md:rotate-0 whitespace-nowrap">${dObj.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</div>` : `<div class="mt-3 text-[10px] text-transparent h-4">.</div>`}
+                    </div>`;
+                });
+
+                html += `
+                <div class="w-full overflow-x-auto pb-6 custom-scrollbar">
+                    <div class="pt-16 px-4 min-w-[500px]">
+                        <div class="h-72 relative flex items-end space-x-1 sm:space-x-2">
+                            ${(stats.avg > 0 && !impStats) ? `
+                            <div class="absolute w-full border-t border-dashed ${isProd ? 'border-blue-500/50' : 'border-rose-500/50'} z-10 flex items-center transition-all duration-500 pointer-events-none" style="bottom: ${(stats.avg / maxTotal) * 100}%">
+                                <span class="absolute -top-3 left-0 text-[10px] font-bold ${isProd ? 'text-blue-600 bg-blue-50 border-blue-200' : 'text-rose-600 bg-rose-50 border-rose-200'} px-2.5 py-1 rounded-full border shadow-sm flex items-center gap-1"><i data-lucide="bar-chart-2" class="w-3 h-3"></i> Média: ${Math.round(stats.avg).toLocaleString('pt-PT')}</span>
+                            </div>` : ''}
+                            
+                            ${splitIdx >= 0 ? `
+                            <div class="absolute top-0 bottom-0 border-l-2 border-dashed border-purple-500 z-20 flex flex-col items-center pointer-events-none" style="left: ${(splitIdx / vData.length) * 100}%">
+                                <div class="bg-purple-600 text-white text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl -mt-8 shadow-md whitespace-nowrap transform -translate-x-1/2 max-w-[150px] sm:max-w-[250px] truncate border border-purple-400">
+                                    ${impStats.description || 'Projeto Aplicado'}
+                                </div>
+                            </div>` : ''}
+                            ${barsHtml}
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                html += `<div class="h-64 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 gap-3">
+                    <i data-lucide="bar-chart" class="w-8 h-8 text-slate-300"></i>
+                    <p class="font-medium text-sm">Sem dados para o período e filtros atuais.</p>
+                </div>`;
+            }
+            html += `</div>`;
+
+            const mData = processedState.monthlyComparison;
+            const sData = processedState.shiftDistribution;
+
+            html += `<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">`;
+            
+            // Coluna 1: Comparativo Mensal
+            html += `
+            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col w-full xl:col-span-2">
+                <div class="mb-2 border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-2 text-indigo-600 mb-1">
+                            <i data-lucide="line-chart" class="w-5 h-5"></i>
+                            <h2 class="text-xl font-bold text-slate-800">Comparativo Mensal (${isProd ? 'Produção' : 'Scrap'})</h2>
+                        </div>
+                        <p class="text-slate-500 text-sm">Média de ${isProd ? 'produção' : 'scrap'} diária, avaliando a tendência a longo prazo.</p>
+                    </div>
+                </div>`;
+
+            if (mData.length > 1) {
+                if (selectedCompareMonths.length > 0) {
+                    let sumT = 0;
+                    let sumD = 0;
+                    selectedCompareMonths.forEach(m => {
+                        const mDataRow = mData.find(d => d.month === m);
+                        if (mDataRow) {
+                            sumT += mDataRow.activeT;
+                            sumD += mDataRow.activeD;
+                        }
+                    });
+                    const combinedAvg = sumD > 0 ? sumT / sumD : 0;
+                    
+                    html += `
+                    <div class="mb-4 p-4 bg-indigo-50/80 rounded-xl border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                         <div class="flex items-center gap-3">
+                             <div class="bg-indigo-100 text-indigo-600 p-2.5 rounded-lg shadow-sm border border-indigo-200"><i data-lucide="calculator" class="w-5 h-5"></i></div>
+                             <div>
+                                 <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-0.5">Média Combinada (${selectedCompareMonths.length} meses)</p>
+                                 <p class="text-2xl font-black text-indigo-800 leading-none">${Math.round(combinedAvg).toLocaleString('pt-PT')} <span class="text-sm font-bold text-indigo-500">un/dia</span></p>
+                             </div>
+                         </div>
+                         <button onclick="clearMonthSelection()" class="text-indigo-500 hover:text-indigo-700 bg-white hover:bg-indigo-100 px-4 py-2 rounded-lg border border-indigo-200 text-xs font-bold transition-colors shadow-sm self-end sm:self-auto flex items-center gap-1.5"><i data-lucide="x" class="w-3.5 h-3.5"></i> Limpar</button>
+                    </div>`;
+                } else {
+                    html += `
+                    <div class="mb-4 text-xs font-medium text-slate-400 flex items-center gap-1.5 bg-slate-50 p-2.5 rounded-lg border border-slate-100 border-dashed w-max">
+                        <i data-lucide="mouse-pointer-click" class="w-4 h-4 text-slate-300"></i>
+                        <span>Clique nas barras abaixo para calcular uma média combinada.</span>
+                    </div>`;
+                }
+
+                const maxAvg = Math.max(...mData.map(d => d.avg)) * 1.2;
+                let mHtml = '';
+                
+                mData.forEach(item => {
+                    const hp = maxAvg === 0 ? 0 : (item.avg / maxAvg) * 100;
+                    
+                    const monthParts = formatMonthName(item.month).split(' ');
+                    let labelStr = item.month;
+                    if (monthParts.length === 3) {
+                        const mShort = monthParts[0].substring(0,3);
+                        const yShort = monthParts[2].substring(2);
+                        labelStr = `${mShort.charAt(0).toUpperCase() + mShort.substring(1).toLowerCase()}/${yShort}`;
+                    }
+
+                    const isSelected = selectedCompareMonths.includes(item.month);
+                    let barColor = isProd ? 'bg-gradient-to-t from-indigo-600 to-indigo-400' : 'bg-gradient-to-t from-rose-600 to-rose-400';
+                    let ringClass = '';
+                    let opacityClass = 'hover:brightness-110';
+                    let labelBg = isProd ? 'text-indigo-700 bg-indigo-50 border-indigo-100' : 'text-rose-700 bg-rose-50 border-rose-100';
+
+                    if (selectedCompareMonths.length > 0) {
+                        if (isSelected) {
+                            ringClass = isProd ? 'ring-2 ring-indigo-500 ring-offset-2' : 'ring-2 ring-rose-500 ring-offset-2';
+                            labelBg = isProd ? 'text-white bg-indigo-600 border-indigo-600' : 'text-white bg-rose-600 border-rose-600';
+                            opacityClass = '';
+                        } else {
+                            opacityClass = 'opacity-40 grayscale-[0.5]';
+                        }
+                    }
+
+                    mHtml += `
+                    <div class="flex flex-col items-center group relative h-full justify-end w-14 sm:w-24 shrink-0 transition-all duration-300 ${opacityClass}">
+                        <div onclick="toggleMonthSelection('${item.month}')" class="chart-bar w-full rounded-t-lg ${barColor} shadow-sm relative flex justify-center cursor-pointer transition-all ${ringClass}" style="height: ${hp}%">
+                            <span class="absolute -top-7 text-[10px] sm:text-xs font-black ${labelBg} px-2 py-0.5 rounded shadow-sm border transition-colors">${Math.round(item.avg).toLocaleString('pt-PT')}</span>
+                            
+                            <div class="opacity-0 group-hover:opacity-100 absolute bottom-full mb-3 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white p-2.5 rounded-xl whitespace-nowrap z-20 pointer-events-none transition-all scale-95 group-hover:scale-100 shadow-lg">
+                                <div class="text-[10px] text-slate-400 font-bold uppercase mb-1 border-b border-slate-600 pb-1">${formatMonthName(item.month)}</div>
+                                <div class="font-black text-lg">${Math.round(item.avg).toLocaleString('pt-PT')} <span class="text-xs font-medium text-slate-300">un/dia</span></div>
+                                <div class="text-[9px] text-indigo-300 mt-1.5 flex items-center gap-1 pt-1 border-t border-slate-700 bg-slate-900/50 p-1 rounded"><i data-lucide="calculator" class="w-3 h-3"></i> Clique para somar/remover</div>
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-[10px] sm:text-xs text-slate-500 font-bold text-center uppercase tracking-wider bg-slate-50 w-full py-1.5 rounded-lg">${labelStr}</div>
+                    </div>`;
+                });
+                
+                html += `
+                <div class="w-full overflow-x-auto pb-4 custom-scrollbar">
+                    <div class="pt-12 px-2 sm:px-4 min-w-max">
+                        <div class="h-64 relative flex items-end justify-start sm:justify-around gap-6 sm:gap-10 border-b-2 border-slate-100 pb-2">
+                            ${mHtml}
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                html += `
+                <div class="flex-1 flex flex-col items-center justify-center text-center py-12 px-6 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                    <div class="bg-white p-4 rounded-full shadow-sm border border-slate-100 mb-4 text-indigo-500">
+                        <i data-lucide="layers" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-700 mb-1">Dados Insuficientes</h3>
+                    <p class="text-slate-500 text-sm max-w-sm">Anexe ficheiros correspondentes a diferentes meses para desbloquear este gráfico de evolução.</p>
+                </div>`;
+            }
+            html += `</div>`; 
+
+            // Coluna 2: Distribuição por Turno
+            html += `
+            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col w-full xl:col-span-1">
+                <div class="mb-6 border-b border-slate-100 pb-4">
+                    <div class="flex items-center space-x-2 ${isProd ? 'text-blue-600' : 'text-rose-600'} mb-1">
+                        <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                        <h2 class="text-xl font-bold text-slate-800">Por Turno</h2>
+                    </div>
+                    <p class="text-slate-500 text-sm">Média de ${isProd ? 'produção' : 'scrap'} diária por turno.</p>
+                </div>
+                <div class="flex-1 flex flex-col justify-center gap-5">`;
+            
+            if (sData.length > 0) {
+                const colorClass = isProd ? 'bg-blue-500' : 'bg-rose-500';
+                sData.forEach(item => {
+                    const pct = stats.avg > 0 ? (item.dailyAvg / stats.avg) * 100 : 0;
+                    html += `
+                    <div>
+                        <div class="flex justify-between text-sm font-bold text-slate-700 mb-1.5">
+                            <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i> Turno ${item.turno}</span>
+                            <span>${Math.round(item.dailyAvg).toLocaleString('pt-PT')} <span class="text-[10px] text-slate-400 font-medium">un/dia (${pct.toFixed(1)}%)</span></span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div class="${colorClass} h-2.5 rounded-full transition-all duration-1000" style="width: ${pct}%"></div>
+                        </div>
+                    </div>`;
+                });
+            } else {
+                html += `<div class="text-center text-slate-400 text-sm py-4">Sem dados de turnos disponíveis.</div>`;
+            }
+            
+            html += `
+                </div>
+            </div>`;
+            
+            html += `</div>`;
+            
+            container.innerHTML = html;
+        }
+
+        function renderImprovementsContent() {
+            const container = document.getElementById('improvements-content');
+            const list = processedState.improvementsWithStats;
+            
+            if (list.length === 0) {
+                container.innerHTML = `
+                <div class="bg-white py-24 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
+                    <div class="bg-purple-100 p-6 rounded-full mb-6 border-4 border-purple-50 text-purple-600 shadow-sm"><i data-lucide="target" class="w-12 h-12"></i></div>
+                    <h2 class="text-2xl font-black text-slate-800 mb-3">Nenhum projeto efetuado</h2>
+                    <p class="text-slate-500 max-w-md font-medium leading-relaxed">Aceda aos <strong>Dashboards Analíticos</strong>, selecione Produção ou Scrap, defina <strong>UMA</strong> Área/Máquina específica e introduza a data de melhoria.</p>
+                    <button onclick="setTab('dashboard')" class="mt-6 text-purple-600 bg-purple-50 hover:bg-purple-100 px-5 py-2.5 rounded-xl font-bold transition-colors">Voltar ao Dashboard</button>
+                </div>`;
+                return;
+            }
+
+            const listProd = list.filter(imp => imp.metric === 'prod');
+            const listScrap = list.filter(imp => imp.metric === 'scrap');
+
+            let html = '';
+
+            const renderMetricGroup = (metricList, metricType) => {
+                if (metricList.length === 0) return '';
+                
+                const isProd = metricType === 'prod';
+                
+                const sections = {
+                    placas: { title: "Setor de Placas", keywords: ['FUND', 'EMP'], icon: "layers", data: [] },
+                    montagem: { title: "Setor de Montagem", keywords: ['MONT'], icon: "settings", data: [] },
+                    formAcab: { title: "Formação & Acabamento", keywords: ['ACA', 'FOR'], icon: "zap", data: [] },
+                    outras: { title: "Outras Áreas", keywords: [], icon: "component", data: [] }
+                };
+
+                metricList.forEach(imp => {
+                    const areaUpper = imp.area.toUpperCase();
+                    if (areaUpper.includes('FUND') || areaUpper.includes('EMP')) sections.placas.data.push(imp);
+                    else if (areaUpper.includes('MONT')) sections.montagem.data.push(imp);
+                    else if (areaUpper.includes('ACA') || areaUpper.includes('FOR')) sections.formAcab.data.push(imp);
+                    else sections.outras.data.push(imp);
+                });
+
+                let groupHtml = `
+                <div class="mb-10 bg-slate-100 p-4 sm:p-6 rounded-2xl border border-slate-200">
+                    <h1 class="text-2xl font-black mb-6 flex items-center gap-3 ${isProd ? 'text-blue-900' : 'text-rose-900'}">
+                        <i data-lucide="${isProd ? 'package' : 'trash-2'}" class="w-8 h-8 ${isProd ? 'text-blue-500' : 'text-rose-500'}"></i> Projetos de ${isProd ? 'Produção' : 'Redução de Scrap'}
+                    </h1>
+                `;
+
+                Object.values(sections).forEach(sec => {
+                    if (sec.data.length === 0) return;
+
+                    const totalGain = sec.data.reduce((acc, imp) => acc + imp.stats.impactAbsolute, 0);
+                    const isTotalGood = isProd ? totalGain >= 0 : totalGain <= 0;
+                    
+                    const gainClass = isTotalGood ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-100 text-rose-800 border-rose-200';
+                    const gainIcon = totalGain >= 0 ? 'trending-up' : 'trending-down';
+                    const gainPrefix = totalGain > 0 ? '+' : '';
+
+                    groupHtml += `
+                    <div class="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+                            <div class="flex items-center gap-4">
+                                <div class="bg-slate-50 p-3 rounded-xl text-slate-600 border border-slate-200 shadow-sm">
+                                    <i data-lucide="${sec.icon}" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-black text-slate-800">${sec.title}</h2>
+                                    <span class="text-slate-500 text-xs font-bold mt-1 inline-block">${sec.data.length} projetos</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 px-5 py-2.5 rounded-xl border ${gainClass} text-sm font-black shadow-sm self-start lg:self-auto">
+                                <i data-lucide="${gainIcon}" class="w-5 h-5"></i>
+                                <span>Impacto Setor: ${gainPrefix}${Math.round(totalGain).toLocaleString('pt-PT')} un/dia</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    `;
+
+                    sec.data.forEach(imp => {
+                        const isImpGood = isProd ? imp.stats.impactAbsolute >= 0 : imp.stats.impactAbsolute <= 0;
+                        const iClass = isImpGood ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm' : 'bg-rose-50 text-rose-700 border border-rose-100 shadow-sm';
+                        const iIcon = imp.stats.impactAbsolute >= 0 ? 'arrow-up-right' : 'arrow-down-right';
+                        
+                        groupHtml += `
+                        <div class="bg-white rounded-2xl border-2 border-slate-100 hover:border-slate-300 transition-colors relative flex flex-col">
+                            <div class="bg-slate-50/80 border-b border-slate-100 p-4 flex justify-between items-center rounded-t-xl">
+                                <div class="pr-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-white px-2 py-0.5 rounded shadow-sm border border-slate-200 mb-1.5 inline-block">Ref: ${imp.month === 'Todos' ? 'Global' : formatMonthName(imp.month)}</span>
+                                    <h3 class="text-base sm:text-lg font-black text-slate-800 flex items-center flex-wrap gap-1 sm:gap-2">
+                                        ${imp.area} <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i> <span class="${isProd ? 'text-blue-700' : 'text-rose-700'}">${imp.machine}</span>
+                                    </h3>
+                                </div>
+                                <div class="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                                    <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                                        <i data-lucide="calendar" class="text-purple-500 w-3.5 h-3.5"></i>
+                                        ${new Date(imp.date + 'T00:00:00').toLocaleDateString('pt-PT')}
+                                    </div>
+                                    <button onclick="removeImprovementFromHistory('${imp.key}')" class="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg border border-slate-200 hover:border-red-200 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-red-200" title="Apagar Registo">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-5 flex-1 flex flex-col justify-between">
+                                <p class="text-slate-700 font-semibold mb-6 text-base flex items-start gap-2.5">
+                                    <i data-lucide="check-circle-2" class="text-emerald-500 shrink-0 mt-0.5 w-5 h-5"></i>
+                                    ${imp.description || 'Projeto sem descrição especificada'}
+                                </p>
+                                <div class="flex flex-wrap sm:flex-nowrap items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner gap-4">
+                                    <div class="text-center flex-1">
+                                        <p class="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wide mb-1 uppercase">Antes</p>
+                                        <p class="text-xl sm:text-2xl font-black text-slate-700">${Math.round(imp.stats.avgBefore).toLocaleString('pt-PT')}</p>
+                                        <p class="text-[9px] sm:text-[10px] text-slate-400 mt-1 uppercase font-medium">${imp.stats.daysBefore} dias analisados</p>
+                                    </div>
+                                    <div class="text-slate-300"><i data-lucide="arrow-right" class="w-5 h-5"></i></div>
+                                    <div class="text-center flex-1">
+                                        <p class="${isProd ? 'text-blue-500' : 'text-rose-500'} text-[10px] sm:text-xs font-bold tracking-wide mb-1 uppercase">Depois</p>
+                                        <p class="text-xl sm:text-2xl font-black ${isProd ? 'text-blue-600' : 'text-rose-600'}">${Math.round(imp.stats.avgAfter).toLocaleString('pt-PT')}</p>
+                                        <p class="text-[9px] sm:text-[10px] ${isProd ? 'text-blue-400/80' : 'text-rose-400/80'} mt-1 uppercase font-medium">${imp.stats.daysAfter} dias</p>
+                                    </div>
+                                    <div class="pl-0 sm:pl-4 mt-2 sm:mt-0 pt-3 sm:pt-0 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-slate-200 flex justify-center">
+                                        <div class="flex flex-col items-center justify-center py-2 px-3 sm:px-4 rounded-xl ${iClass}">
+                                            <div class="flex items-center gap-1">
+                                                <i data-lucide="${iIcon}" class="w-[18px] h-[18px]"></i>
+                                                <span class="text-xl sm:text-2xl font-black">${Math.round(Math.abs(imp.stats.impactAbsolute)).toLocaleString('pt-PT')}</span>
+                                            </div>
+                                            <span class="text-[9px] font-bold uppercase mt-1 tracking-wider text-center leading-tight">Ganho/Dia</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+
+                    groupHtml += `</div></div>`;
+                });
+                groupHtml += `</div>`;
+                return groupHtml;
+            };
+
+            html += renderMetricGroup(listProd, 'prod');
+            html += renderMetricGroup(listScrap, 'scrap');
+
+            container.innerHTML = html;
+        }
+
+        function renderAuditContent() {
+            const container = document.getElementById('audit-content');
+            const { months, totalMissingAlerts } = processedState.auditStats;
+
+            let html = '';
+
+            // Seção 1: Arquivos Carregados
+            html += `
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
+                <div class="flex items-center space-x-2 text-blue-600 mb-4 border-b border-slate-100 pb-3">
+                    <i data-lucide="file-check" class="w-5 h-5"></i>
+                    <h2 class="text-xl font-bold text-slate-800">Planilhas Importadas</h2>
+                </div>
+                <div class="flex flex-wrap gap-2">`;
+            
+            if (fileNames.length > 0) {
+                fileNames.forEach(f => {
+                    html += `
+                    <div class="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> ${f}
+                    </div>`;
+                });
+            } else {
+                html += `<p class="text-slate-500 text-sm">Nenhum ficheiro registado na memória do sistema.</p>`;
+            }
+            
+            html += `</div></div>`;
+
+            // Seção 2: Auditoria de Meses
+            html += `
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+                    <div>
+                        <div class="flex items-center space-x-2 text-rose-600 mb-1">
+                            <i data-lucide="calendar-search" class="w-5 h-5"></i>
+                            <h2 class="text-xl font-bold text-slate-800">Verificação de Dias</h2>
+                        </div>
+                        <p class="text-slate-500 text-sm">Auditoria cruzada com o calendário real para deteção de dias não importados.</p>
+                    </div>
+                    ${totalMissingAlerts > 0 ? `
+                        <div class="bg-rose-100 text-rose-700 px-4 py-2 rounded-xl border border-rose-200 font-bold flex items-center gap-2 text-sm shadow-sm">
+                            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                            Faltam dados em ${totalMissingAlerts} dias úteis
+                        </div>
+                    ` : `
+                        <div class="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl border border-emerald-200 font-bold flex items-center gap-2 text-sm shadow-sm">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i>
+                            Base de dados completa!
+                        </div>
+                    `}
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">`;
+
+            if (months.length > 0) {
+                months.forEach(m => {
+                    const isPerfect = m.missingWorking.length === 0;
+                    const cardClass = isPerfect ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-300 bg-rose-50/50 shadow-md';
+                    const titleClass = isPerfect ? 'text-emerald-800' : 'text-rose-800';
+                    
+                    html += `
+                    <div class="rounded-xl border-2 p-5 ${cardClass} flex flex-col justify-between transition-all">
+                        <div>
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-lg font-black uppercase tracking-wide ${titleClass}">${formatMonthName(m.month)}</h3>
+                                <span class="bg-white px-2 py-1 rounded-md text-xs font-bold border border-slate-200 text-slate-600">${m.existingCount}/${m.daysInMonth} dias presentes</span>
+                            </div>
+                            
+                            ${isPerfect ? `
+                                <div class="text-emerald-600 font-medium text-sm flex items-center gap-2 mt-4 bg-emerald-100/50 p-3 rounded-lg border border-emerald-100">
+                                    <i data-lucide="check-circle-2" class="w-5 h-5"></i> Todos os dias úteis registados!
+                                </div>
+                            ` : `
+                                <div class="mt-4">
+                                    <p class="text-rose-700 font-bold text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Faltam dados nestes dias:</p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        ${m.missingWorking.map(d => {
+                                            const parts = d.split('-');
+                                            return `<span class="bg-rose-500 text-white text-xs font-black px-2 py-1 rounded shadow-sm border border-rose-600">${parts[2]}/${parts[1]}</span>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                        
+                        ${m.missingIgnored.length > 0 ? `
+                            <div class="mt-5 pt-3 border-t ${isPerfect ? 'border-emerald-200' : 'border-rose-200/60'} text-xs font-medium ${isPerfect ? 'text-emerald-700/80' : 'text-rose-700/80'} flex items-start gap-1.5">
+                                <i data-lucide="eye-off" class="w-4 h-4 shrink-0"></i>
+                                <p>Existem ${m.missingIgnored.length} dias não importados mas ignorados propositalmente (ex: Fins de semana).</p>
+                            </div>
+                        ` : ''}
+                    </div>`;
+                });
+            } else {
+                html += `<div class="col-span-full text-center text-slate-400 py-8 font-medium">Não há dados suficientes para realizar a auditoria.</div>`;
+            }
+
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        // --- Funções Expostas ao Window ---
+        window.setTab = function(tab) {
+            activeTab = tab;
+            updateUI();
+        };
+
+        window.setMetric = function(metric) {
+            currentMetric = metric;
+            selectedCompareMonths = [];
+            updateUI();
+        };
+
+        window.updateFilters = function(source) {
+            selectedMonth = document.getElementById('filter-month').value;
+            selectedCompareMonths = [];
+            updateUI();
+        };
+
+        window.handleImprovementChange = function(field, value) {
+            const key = getCurrentImpKey();
+            if(!improvements[key]) improvements[key] = {};
+            improvements[key][field] = value;
+            saveData();
+            updateUI();
+            if (field === 'date' && value) showToast("Projeto registado com sucesso!", "success");
+        };
+
+        window.handleImprovementClear = function() {
+            const key = getCurrentImpKey();
+            delete improvements[key];
+            saveData();
+            updateUI();
+            showToast("Ação removida.", "info");
+        };
+
+        window.removeImprovementFromHistory = function(key) {
+            if(confirm("Tem a certeza que deseja eliminar definitivamente este projeto?")) {
+                delete improvements[key];
+                saveData();
+                updateUI();
+                showToast("Projeto apagado com sucesso.", "success");
+            }
+        };
+        
+        window.toggleDay = function(index) {
+            if (hiddenDays.includes(index)) {
+                hiddenDays = hiddenDays.filter(d => d !== index);
+            } else {
+                hiddenDays.push(index);
+            }
+            saveData();
+            updateUI();
+        };
+
+        // NOVO: Funções para Seleção de Meses no Gráfico
+        window.toggleMonthSelection = function(month) {
+            if (selectedCompareMonths.includes(month)) {
+                selectedCompareMonths = selectedCompareMonths.filter(m => m !== month);
+            } else {
+                selectedCompareMonths.push(month);
+            }
+            renderDashboardContent();
+            lucide.createIcons();
+        };
+
+        window.clearMonthSelection = function() {
+            selectedCompareMonths = [];
+            renderDashboardContent();
+            lucide.createIcons();
+        };
+
+        // --- Funções do Modal de Edição ---
+        window.openEditModal = function(date, currentTotal) {
+            if (
+                selectedAreas.length !== 1 || selectedAreas.includes('Todas') || 
+                selectedMachines.length !== 1 || selectedMachines.includes('Todas') ||
+                selectedModelos.length !== 1 || selectedModelos.includes('Todos') ||
+                selectedTurnos.length !== 1 || selectedTurnos.includes('Todos')
+            ) {
+                showToast("Filtre exatamente por UMA Área, Máquina, Modelo e Turno para editar o valor diário.", "warning");
+                return;
+            }
+            
+            editingDate = date;
+            const [y, m, d] = date.split('-');
+            document.getElementById('edit-modal-date').innerText = `${d}/${m}/${y}`;
+            document.getElementById('edit-modal-context').innerText = `${selectedMachines[0]} | ${selectedModelos[0]} | T${selectedTurnos[0]}`;
+            
+            const isProd = currentMetric === 'prod';
+            document.getElementById('edit-modal-label').innerText = isProd ? 'Total Produzido (Unidades)' : 'Total de Scrap (Unidades)';
+            
+            const input = document.getElementById('edit-prod-value');
+            input.value = currentTotal;
+            
+            document.getElementById('edit-include-avg').checked = !hiddenDates.includes(date);
+            
+            const modal = document.getElementById('edit-modal');
+            const content = document.getElementById('edit-modal-content');
+            modal.classList.remove('hide');
+            
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                input.focus();
+                input.select(); 
+            }, 10);
+            
+            document.addEventListener('keydown', handleEscKey);
+        };
+
+        window.closeEditModal = function() {
+            const modal = document.getElementById('edit-modal');
+            const content = document.getElementById('edit-modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hide');
+                editingDate = null;
+                const btn = document.getElementById('btn-save-edit');
+                btn.disabled = false;
+                document.getElementById('save-icon-normal').classList.remove('hide');
+                document.getElementById('save-icon-loading').classList.add('hide');
+            }, 300);
+            document.removeEventListener('keydown', handleEscKey);
+        };
+
+        function handleEscKey(e) {
+            if (e.key === 'Escape') closeEditModal();
+        }
+
+        window.saveEditedValue = function() {
+            const newValue = parseFloat(document.getElementById('edit-prod-value').value);
+            if (isNaN(newValue) || newValue < 0) {
+                showToast("Introduza um valor numérico válido (maior ou igual a 0).", "error");
+                return;
+            }
+            
+            const btn = document.getElementById('btn-save-edit');
+            btn.disabled = true;
+            document.getElementById('save-icon-normal').classList.add('hide');
+            document.getElementById('save-icon-loading').classList.remove('hide');
+
+            setTimeout(() => {
+                const targetArea = selectedAreas[0];
+                const targetMachine = selectedMachines[0];
+                const targetModelo = selectedModelos[0];
+                const targetTurno = selectedTurnos[0];
+
+                const existingIdx = rawData.findIndex(d => 
+                    d.date === editingDate && 
+                    d.area === targetArea && 
+                    d.maquina === targetMachine &&
+                    d.modelo === targetModelo &&
+                    d.turno === targetTurno
+                );
+                
+                if (existingIdx !== -1) {
+                    rawData[existingIdx][currentMetric] = newValue;
+                } else {
+                    const newObj = {
+                        date: editingDate,
+                        area: targetArea,
+                        maquina: targetMachine,
+                        modelo: targetModelo,
+                        turno: targetTurno,
+                        prod: 0,
+                        scrap: 0
+                    };
+                    newObj[currentMetric] = newValue;
+                    rawData.push(newObj);
+                }
+
+                const includeAvg = document.getElementById('edit-include-avg').checked;
+                if (includeAvg) {
+                    hiddenDates = hiddenDates.filter(d => d !== editingDate);
+                } else {
+                    if (!hiddenDates.includes(editingDate)) hiddenDates.push(editingDate);
+                }
+
+                closeEditModal();
+                saveData();
+                updateUI();
+                showToast("Valor atualizado com sucesso!", "success");
+            }, 400); 
+        };
+
+        function showError(msg) {
+            if(msg) {
+                document.getElementById('error-msg').innerText = msg;
+                document.getElementById('error-container').classList.remove('hide');
+            } else {
+                document.getElementById('error-container').classList.add('hide');
+            }
+        }
+
+        // --- Lógica de Carregamento de Ficheiros (Click e Drag&Drop) ---
+        function processUploadedFile(file) {
+            if (!file) return;
+            showError(null);
+
+            document.getElementById('file-count').innerText = "A processar ficheiro...";
+            document.getElementById('file-count').classList.remove('hide');
+
+            const finishProc = (parsed, name) => {
+                const newMonths = new Set(parsed.map(d => d.date.substring(0, 7)));
+                const filtered = rawData.filter(d => !newMonths.has(d.date.substring(0, 7)));
+                rawData = [...filtered, ...parsed];
+                
+                const dates = rawData.map(d => d.date).sort();
+                if (dates.length && !selectedMonth) selectedMonth = dates[dates.length-1].substring(0,7);
+                
+                if (!fileNames.includes(name)) fileNames.push(name);
+                saveData();
+                updateUI();
+                showToast("Ficheiro processado e importado!", "success");
+                const uploadInput = document.getElementById('file-upload');
+                if(uploadInput) uploadInput.value = '';
+            };
+
+            const parseDateStr = (raw) => {
+                if (raw.includes('/')) {
+                    const parts = raw.split('/');
+                    if (parts.length >= 3) {
+                        const d = parts[0].padStart(2, '0');
+                        const m = parts[1].padStart(2, '0');
+                        const y = parts[2].length === 2 ? '20' + parts[2] : parts[2].substring(0, 4);
+                        return `${y}-${m}-${d}`;
+                    }
+                } else if (raw.length >= 10) return raw.substring(0, 10);
+                return "";
+            };
+
+            const normStr = (str) => String(str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const lines = event.target.result.split(/\r?\n/).filter(line => line.trim().length > 0);
+                        if (lines.length < 2) throw new Error("O ficheiro CSV está vazio ou inválido.");
+                        let delim = ',';
+                        if (lines[0].includes('\t')) delim = '\t'; else if (lines[0].includes(';')) delim = ';';
+                        
+                        const splitR = (row) => {
+                            const res = []; let inQ = false, cur = "";
+                            for(let i=0; i<row.length; i++) {
+                                if(row[i] === '"') inQ = !inQ;
+                                else if(row[i] === delim && !inQ) { res.push(cur); cur = ""; }
+                                else cur += row[i];
+                            }
+                            res.push(cur); return res;
+                        };
+
+                        const rawHdrs = splitR(lines[0]);
+                        const hdrs = rawHdrs.map(normStr);
+                        const aIdx = hdrs.findIndex(h => h.includes('area'));
+                        const dIdx = hdrs.findIndex(h => h.includes('data'));
+                        const pIdx = hdrs.findIndex(h => h.includes('produc'));
+                        const mIdx = hdrs.findIndex(h => h.includes('maquina'));
+                        const sIdx = rawHdrs.findIndex((raw, i) => raw.includes('  S c r a p') || raw.includes(' S c r a p') || raw.includes('S c r a p') || hdrs[i].includes('scrap') || hdrs[i].includes('refugo') || hdrs[i].includes('perda'));
+                        
+                        const moIdx = hdrs.findIndex(h => h.includes('modelo') || h.includes('bateria') || h.includes('produto') || h.includes('descricao'));
+                        const tuIdx = hdrs.findIndex(h => h.includes('turno'));
+
+                        if (aIdx===-1 || dIdx===-1 || pIdx===-1) throw new Error("Faltam colunas obrigatórias (Área, Data, Produção).");
+
+                        const parsed = [];
+                        for(let i=1; i<lines.length; i++) {
+                            const c = splitR(lines[i]);
+                            const area = (c[aIdx] || '').replace(/"/g, '').trim() || 'Sem Área';
+                            const maq = mIdx!==-1 && c[mIdx] ? c[mIdx].replace(/"/g, '').trim() : 'Sem Máquina';
+                            const dt = parseDateStr((c[dIdx] || '').replace(/"/g, '').trim());
+                            const prod = parseFloat((c[pIdx] || '').replace(/"/g, '').trim().replace(',', '.')) || 0;
+                            const scrap = sIdx!==-1 && c[sIdx] ? parseFloat((c[sIdx] || '').replace(/"/g, '').trim().replace(',', '.')) || 0 : 0;
+                            
+                            const modelo = moIdx!==-1 && c[moIdx] ? c[moIdx].replace(/"/g, '').trim() : 'Geral';
+                            const turno = tuIdx!==-1 && c[tuIdx] ? c[tuIdx].replace(/"/g, '').trim() : 'Geral';
+                            
+                            if(dt && (prod > 0 || scrap > 0)) parsed.push({date: dt, prod, scrap, area, maquina: maq, modelo, turno});
+                        }
+                        if(parsed.length===0) throw new Error("Não foram encontrados dados numéricos válidos.");
+                        finishProc(parsed, file.name);
+                    } catch(err) { showError(err.message); updateUI(); }
+                };
+                reader.readAsText(file, 'ISO-8859-1');
+            } else {
+                if(!window.XLSX) { showError("A biblioteca de Excel ainda está a carregar, aguarde um momento."); updateUI(); return; }
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const wb = XLSX.read(new Uint8Array(event.target.result), {type: 'array', cellDates: true});
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const js = XLSX.utils.sheet_to_json(ws, {defval: ""});
+                        if(js.length===0) throw new Error("A planilha Excel parece estar vazia.");
+
+                        const keys = Object.keys(js[0]);
+                        const aKey = keys.find(k => normStr(k).includes('area'));
+                        const dKey = keys.find(k => normStr(k).includes('data'));
+                        const pKey = keys.find(k => normStr(k).includes('produc'));
+                        const mKey = keys.find(k => normStr(k).includes('maquina'));
+                        const sKey = keys.find(k => k.includes('  S c r a p') || k.includes(' S c r a p') || k.includes('S c r a p') || normStr(k).includes('scrap') || normStr(k).includes('refugo') || normStr(k).includes('perda'));
+                        
+                        const moKey = keys.find(k => normStr(k).includes('modelo') || normStr(k).includes('bateria') || normStr(k).includes('produto') || normStr(k).includes('descricao'));
+                        const tuKey = keys.find(k => normStr(k).includes('turno'));
+
+                        if(!aKey || !dKey || !pKey) throw new Error("Faltam colunas obrigatórias na planilha.");
+
+                        const parsed = [];
+                        for(let r of js) {
+                            const area = String(r[aKey] || 'Sem Área').trim();
+                            const maq = mKey ? String(r[mKey] || 'Sem Máquina').trim() : 'Sem Máquina';
+                            let dt = "";
+                            if(r[dKey] instanceof Date) {
+                                dt = `${r[dKey].getFullYear()}-${String(r[dKey].getMonth()+1).padStart(2,'0')}-${String(r[dKey].getDate()).padStart(2,'0')}`;
+                            } else if(typeof r[dKey] === 'string') {
+                                dt = parseDateStr(r[dKey]);
+                            }
+                            let prod = typeof r[pKey] === 'number' ? r[pKey] : parseFloat(String(r[pKey]).replace(/"/g,'').replace(',','.')) || 0;
+                            let scrap = sKey ? (typeof r[sKey] === 'number' ? r[sKey] : parseFloat(String(r[sKey]).replace(/"/g,'').replace(',','.')) || 0) : 0;
+                            
+                            const modelo = moKey && r[moKey] ? String(r[moKey]).trim() : 'Geral';
+                            const turno = tuKey && r[tuKey] ? String(r[tuKey]).trim() : 'Geral';
+                            
+                            if(dt && (prod > 0 || scrap > 0)) parsed.push({date: dt, prod, scrap, area, maquina: maq, modelo, turno});
+                        }
+                        if(parsed.length===0) throw new Error("Não foram encontrados dados válidos na planilha.");
+                        finishProc(parsed, file.name);
+                    } catch(err) { showError(err.message); updateUI(); }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        document.getElementById('file-upload').addEventListener('change', (e) => {
+            processUploadedFile(e.target.files[0]);
+        });
+
+        const dropzone = document.getElementById('header-dropzone');
+        const dropOverlay = document.getElementById('drop-overlay');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropzone.classList.add('dropzone-active');
+            dropOverlay.classList.remove('hide');
+            dropOverlay.classList.remove('opacity-0');
+        }
+
+        function unhighlight(e) {
+            dropzone.classList.remove('dropzone-active');
+            dropOverlay.classList.add('opacity-0');
+            setTimeout(() => dropOverlay.classList.add('hide'), 300);
+        }
+
+        dropzone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                processUploadedFile(files[0]);
+            }
+        }
+
+        lucide.createIcons();
+        loadData(); // Inicia o carregamento diretamente da sua base de dados
+    </script>
+</body>
+</html>
