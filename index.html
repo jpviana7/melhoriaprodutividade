@@ -4195,8 +4195,8 @@
                     <div class="chart-box h-72"><canvas id="chart-pbs-evol"></canvas></div>
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6">
-                    ${sectionHead('Distribuição por faixa', `${esc(formatMonthName(month))} · colaboradores`, '', 'bar-chart-3')}
-                    <div class="chart-box h-72"><canvas id="chart-pbs-faixa"></canvas></div>
+                    ${sectionHead('Avaliados x acima do limite', `${esc(formatMonthName(month))} · ${fmt(cur.length)} avaliados`, '', 'pie-chart')}
+                    <div class="chart-box h-72"><canvas id="chart-pbs-pizza"></canvas></div>
                 </section>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
@@ -4205,8 +4205,13 @@
                     <div class="chart-box h-72"><canvas id="chart-pbs-setor"></canvas></div>
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Distribuição por faixa', `${esc(formatMonthName(month))} · colaboradores`, '', 'bar-chart-3')}
+                    <div class="chart-box h-72"><canvas id="chart-pbs-faixa"></canvas></div>
+                </section>
+            </div>
+            <section class="print-break ${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
                     ${sectionHead('Destaques', 'Gerados a partir dos resultados do mês', '', 'sparkles')}
-                    <ul class="space-y-3 text-sm text-slate-600">
+                    <ul class="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-3 text-sm text-slate-600">
                         ${porSetor.length ? `<li>Setor com maior média: <strong class="text-slate-900">${esc(pbsSetorCurto(porSetor[0].s))}</strong> (${fmt(porSetor[0].media, 1)} µg/dL)</li>
                         <li>Menor média: <strong class="text-slate-900">${esc(pbsSetorCurto(porSetor[porSetor.length - 1].s))}</strong> (${fmt(porSetor[porSetor.length - 1].media, 1)} µg/dL)</li>` : ''}
                         ${prevM ? `<li><strong class="text-rose-600">${subiram.length}</strong> subiram e <strong class="text-emerald-600">${desceram.length}</strong> desceram em relação ao exame anterior.</li>` : ''}
@@ -4214,7 +4219,6 @@
                         ${media !== null && mediaPrev ? `<li>Média ${media <= mediaPrev ? 'caiu' : 'subiu'} de ${fmt(mediaPrev, 1)} para <strong class="text-slate-900">${fmt(media, 1)}</strong> µg/dL.</li>` : ''}
                     </ul>
                 </section>
-            </div>
             <section class="print-break ${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
                 ${sectionHead('Mapa por setor', 'Média de µg/dL por setor e mês · verde < 12 · amarelo 12–15 · vermelho acima de 15 (limite masculino)', '', 'grid-3x3')}
                 <div class="overflow-x-auto custom-scrollbar"><table class="hm-table text-xs">
@@ -4259,6 +4263,23 @@
                     plugins: { refLines: { h: [{ value: 15, color: '#E11D48', label: 'Limite H 15' }, { value: 10, color: '#F59E0B', label: 'Limite M 10' }] },
                         legend: { display: setor !== 'Todos', position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
                         tooltip: { ...tooltipStyle, callbacks: { title: (it) => formatMonthName(months[it[0].dataIndex]), label: (ctx) => ctx.raw == null ? null : `${ctx.dataset.label}: ${fmt(ctx.raw, 1)} µg/dL` } } } }
+            });
+            // Pizza: dentro x acima do limite, com o total e o % no centro
+            const nDentro = cur.length - acima.length;
+            const pctAcima = cur.length ? acima.length / cur.length * 100 : 0;
+            charts.pbsPizza = new Chart(document.getElementById('chart-pbs-pizza'), {
+                type: 'doughnut',
+                data: { labels: ['Dentro do limite', 'Acima do limite'], datasets: [{ data: [nDentro, acima.length], backgroundColor: ['#10B981', '#E11D48'], borderColor: C.card || '#fff', borderWidth: 3, hoverOffset: 6 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '62%', layout: { padding: 6 },
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 10, padding: 14, generateLabels: (ch) => ch.data.labels.map((l, i) => ({ text: `${l}: ${fmt(ch.data.datasets[0].data[i])} (${fmt(cur.length ? ch.data.datasets[0].data[i] / cur.length * 100 : 0, 1)}%)`, fillStyle: ch.data.datasets[0].backgroundColor[i], strokeStyle: ch.data.datasets[0].backgroundColor[i], pointStyle: 'circle', fontColor: C.text2, index: i })) } },
+                        tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${fmt(ctx.raw)} (${fmt(cur.length ? ctx.raw / cur.length * 100 : 0, 1)}%)` } } } },
+                plugins: [{ id: 'pbsCentro', afterDraw(ch) {
+                    const a = ch.getDatasetMeta(0).data[0]; if (!a) return;
+                    const { ctx } = ch, x = a.x, y = a.y;
+                    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#E11D48'; ctx.font = '700 26px Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillText(`${fmt(pctAcima, 1)}%`, x, y - 8);
+                    ctx.fillStyle = C.text3; ctx.font = '500 11px Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillText(`acima · ${fmt(acima.length)} de ${fmt(cur.length)}`, x, y + 16);
+                    ctx.restore(); } }]
             });
             // Distribuição por faixa
             const faixas = [...new Set(cur.map(d => d.faixa))].sort((a, b) => pbsFaixaInicio(a) - pbsFaixaInicio(b));
