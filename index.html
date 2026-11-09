@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moura · Painel de Produção</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#1B2F88">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Painel Moura">
     <link rel="icon" type="image/png" href="data:image/png;base64,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">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -445,6 +450,9 @@
                             <span id="saving-text">Sincronizado</span>
                         </p>
                     </div>
+                    <button onclick="toggleAvisos()" id="push-btn" class="icon-btn h-10 w-10 justify-center !px-0 relative hide" title="Avisos de produção no celular">
+                        <i data-lucide="bell" class="w-4 h-4"></i><span id="push-dot" class="hide absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500"></span>
+                    </button>
                     <button onclick="toggleTheme()" id="theme-btn" class="icon-btn h-10 w-10 justify-center !px-0" title="Modo escuro">
                         <i data-lucide="moon" class="w-4 h-4" id="theme-icon-moon"></i>
                         <i data-lucide="sun" class="w-4 h-4 hide" id="theme-icon-sun"></i>
@@ -6190,6 +6198,63 @@
                         options: astBarOpts({ plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${fmt(c.raw)} por turno · ${show[c.dataIndex].n} turnos` } }, refLines: { h: [{ value: media, color: '#94a3b8', label: 'Média' }] } }, scales: { x: axisX({ ticks: { color: C.text3, font: { size: 9 }, maxRotation: 50 } }), y: axisY({ ticks: { maxTicksLimit: 4, font: { size: 10 } } }) } }) } };
             }
         };
+
+
+        // ===== App instalável e avisos de produção no celular (Web Push) =====
+        // Chave pública VAPID (a privada fica só nas variáveis do Netlify)
+        const VAPID_PUBLIC = 'BPAyPXfgmgm-gAyigmkrSYhead3UJkisrsvVuFGlxUeju-MeE3CGG9LYAPY6oIMndt_omYqte2ggxFc12Zuc8N0';
+        const pushSuportado = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol === 'https:';
+        const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        let swReg = null;
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            navigator.serviceWorker.register('sw.js').then(r => { swReg = r; atualizarBotaoAvisos(); }).catch(e => console.warn('sw', e));
+        }
+        const b64ToBytes = (b64) => { const p = '='.repeat((4 - b64.length % 4) % 4); const raw = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); };
+        async function assinaturaAtual() { try { return swReg ? await swReg.pushManager.getSubscription() : null; } catch (e) { return null; } }
+        async function atualizarBotaoAvisos() {
+            const b = document.getElementById('push-btn'); if (!b) return;
+            const mostrar = pushSuportado() || (isIOS() && !isStandalone() && location.protocol === 'https:');
+            b.classList.toggle('hide', !mostrar);
+            const on = !!(await assinaturaAtual()) && Notification.permission === 'granted';
+            document.getElementById('push-dot').classList.toggle('hide', !on);
+            b.title = on ? 'Avisos de produção ativados neste aparelho (toque para desativar)' : 'Ativar avisos de produção neste aparelho';
+        }
+        window.toggleAvisos = async function() {
+            if (isIOS() && !isStandalone()) {
+                openTextModal('Avisos no iPhone', 'No iPhone, os avisos só funcionam com o app instalado:\n\n1. No Safari, toque em Compartilhar (quadrado com seta).\n2. Escolha "Adicionar à Tela de Início".\n3. Abra o Painel pelo ícone novo e toque no sino de novo.');
+                return;
+            }
+            if (!pushSuportado() || !swReg) { showToast('Este navegador não aceita avisos. Use o Chrome no Android ou o app instalado no iPhone.', 'warning'); return; }
+            const atual = await assinaturaAtual();
+            if (atual && Notification.permission === 'granted') {
+                openConfirmModal('Desativar os avisos de produção neste aparelho?', async () => {
+                    const id = (await sha256(atual.endpoint)).slice(0, 40);
+                    try { await deleteDoc(doc(db, 'dashboard_push', id)); } catch (e) { /* sem conexão */ }
+                    await atual.unsubscribe(); atualizarBotaoAvisos(); showToast('Avisos desativados neste aparelho.', 'info');
+                });
+                return;
+            }
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') { showToast('Permissão negada. Libere as notificações do site nas configurações do navegador.', 'warning'); return; }
+            try {
+                const sub = atual || await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
+                const id = (await sha256(sub.endpoint)).slice(0, 40);
+                await setDoc(doc(db, 'dashboard_push', id), { sub: JSON.stringify(sub), aparelho: navigator.userAgent.slice(0, 160), criado: new Date().toISOString() });
+                atualizarBotaoAvisos();
+                showToast('Avisos ativados: você recebe a produção de cada turno (14h, 22h, 6h) e o fechamento do dia.', 'success');
+            } catch (e) { console.error(e); showToast('Não foi possível ativar os avisos neste aparelho.', 'error'); }
+        };
+        // Link de um aviso: ?tab=bomdia&dia=AAAA-MM-DD&turno=1 abre o Bom Dia no dia e turno certos
+        (() => {
+            const q = new URLSearchParams(location.search);
+            if (!q.has('tab') && !q.has('dia')) return;
+            const tab = q.get('tab');
+            if (tab && ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements'].includes(tab)) activeTab = tab;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(q.get('dia') || '')) bomDiaDate = q.get('dia');
+            if (/^[123]$/.test(q.get('turno') || '')) bomDiaTurno = q.get('turno');
+            history.replaceState(null, '', location.pathname);
+        })();
 
         window.setTab = function(tab) {
             if (tab === 'audit' && !isAdmin()) { openAdmin(); return; }
