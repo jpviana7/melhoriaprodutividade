@@ -97,6 +97,23 @@
         html.dark #more-sheet .ms-tile.active { background: #2a43b8; color: #fff; }
         html.dark #more-sheet .ms-handle { background: #334155; }
 
+
+        /* Assistente */
+        #ast-fab { position: fixed; right: 20px; bottom: 20px; z-index: 65; display: inline-flex; align-items: center; gap: .5rem; height: 44px; padding: 0 1rem; border-radius: 999px;
+            background: #1B2F88; color: #fff; font-size: .875rem; font-weight: 600; box-shadow: 0 10px 28px -8px rgba(27,47,136,.6); transition: transform .15s, box-shadow .2s; }
+        #ast-fab:hover { transform: translateY(-2px); box-shadow: 0 14px 32px -8px rgba(27,47,136,.7); }
+        #ast-fab svg { color: #FFBB00; }
+        #ast-fab.hide, #ast-panel.hide, body.ast-on #ast-fab, html.presenting #ast-fab, html.capturing #ast-fab { display: none !important; }
+        #ast-panel { position: fixed; inset: 0; z-index: 78; }
+        #ast-panel .ast-bg { position: absolute; inset: 0; background: rgba(15,23,42,.35); animation: fadeBg .2s ease-out backwards; }
+        #ast-panel .ast-box { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: #fff; display: flex; flex-direction: column;
+            box-shadow: -16px 0 40px rgba(15,23,42,.2); animation: astIn .32s cubic-bezier(.2,.8,.2,1) backwards; }
+        @keyframes astIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+        html.dark #ast-panel .ast-box { background: #121b2d; }
+        @media (max-width: 640px) {
+            #ast-fab { bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; height: 42px; }
+            #ast-panel .ast-box { top: auto; left: 0; width: auto; height: 88vh; border-radius: 22px 22px 0 0; animation-name: sheetIn; padding-bottom: env(safe-area-inset-bottom); }
+        }
         /* ===== Celular ===== */
         @media (max-width: 640px) {
             html { -webkit-text-size-adjust: 100%; }
@@ -379,6 +396,19 @@
     </div>
 
     <!-- Notificações -->
+    <!-- Assistente: perguntas prontas -->
+    <button id="ast-fab" onclick="openAssistente()" class="no-print hide" title="Assistente: perguntas prontas sobre os dados"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Assistente</span></button>
+    <div id="ast-panel" class="no-print hide" role="dialog" aria-label="Assistente">
+        <div class="ast-bg" onclick="closeAssistente()"></div>
+        <div class="ast-box">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+                <div><p class="text-[15px] font-semibold text-slate-900 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-brand-amber"></i>Assistente</p>
+                    <p class="text-xs text-slate-500">Respostas automáticas com os dados do app</p></div>
+                <button onclick="closeAssistente()" class="icon-btn h-9 w-9 justify-center !px-0" aria-label="Fechar"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div id="ast-body" class="p-5 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
     <div id="toast-container" class="no-print fixed bottom-6 right-6 z-[70] flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- Overlay de Drag & Drop (página inteira) -->
@@ -2103,6 +2133,7 @@
 
             if (hasData) {
                 document.getElementById('tabs-container').classList.remove('hide');
+                document.getElementById('ast-fab').classList.remove('hide');
 
                 populateMultiSelect('year', ps.yearOptions, selectedYears);
                 populateMultiSelect('month', ps.monthNumOptions, selectedMonthNums, monthNumLabel, mm => monthNumLabel(mm).slice(0, 3));
@@ -5929,7 +5960,229 @@
         }
         // Sombra no cabeçalho ao rolar
         window.addEventListener('scroll', () => { const h = document.querySelector('header'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }, { passive: true });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMoreSheet(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMoreSheet(); if (ast.open) closeAssistente(); } });
+
+
+        // ===== Assistente: perguntas prontas respondidas com os dados do app (sem IA, sem custo) =====
+        const AST_PERGUNTAS = [
+            { id: 'porque', icon: 'search', titulo: 'Por que a linha ficou abaixo da meta?', params: ['linha', 'dia'] },
+            { id: 'ranking', icon: 'list-ordered', titulo: 'Quais linhas mais deixaram de produzir?', params: ['periodo'] },
+            { id: 'turnos', icon: 'clock', titulo: 'Qual turno está pior?', params: ['mes'] },
+            { id: 'perdas', icon: 'hourglass', titulo: 'Onde a linha mais perde tempo?', params: ['linha', 'mes'] },
+            { id: 'modelos', icon: 'battery', titulo: 'Quais baterias derrubam o ritmo da linha?', params: ['linha'] }
+        ];
+        const ast = { open: false, q: null, linha: null, dia: null, mes: null, periodo: '7' };
+        let astChart = null;
+        const astMont = () => rawData.filter(d => isMontagem(d.area) && d.prod > 0 && /^LIM\d+$/.test(d.maquina));
+        const astDias = () => [...new Set(astMont().map(d => d.date))].filter(isValidDay).sort();
+        const astLinhas = () => [...new Set(astMont().map(d => d.maquina))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+        const astFam = (f) => { const s = String(f || '(sem apontamento)'); return s === s.toUpperCase() && s.length > 3 ? s.charAt(0) + s.slice(1).toLowerCase() : s; };
+        // Baterias que uma hora parada tira da linha: pelo tempo de ciclo do modelo; sem ciclo, pelo ritmo da meta (meta do turno ÷ 8 h)
+        function astBatHora(line, ds, modelo) {
+            const c = modelo && typeof cicloOf === 'function' ? cicloOf(line, modelo) : null;
+            if (c) return 3600 / c;
+            const m = metaDay(line, ds); const n = activeTurnosOf(line, ds).length || 3;
+            return m ? m / n / 8 : null;
+        }
+        const astModeloPrincipal = (rows) => { const c = {}; rows.forEach(d => { c[d.modelo] = (c[d.modelo] || 0) + d.prod; }); return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || null; };
+
+        window.openAssistente = function(q) {
+            const dias = astDias(), linhas = astLinhas();
+            if (!dias.length) { showToast('Ainda não há produção da Montagem para analisar.', 'warning'); return; }
+            ast.open = true;
+            if (q) ast.q = q;
+            if (!ast.dia || !dias.includes(ast.dia)) ast.dia = (activeTab === 'bomdia' && typeof bomDiaDate !== 'undefined' && bomDiaDate && dias.includes(bomDiaDate)) ? bomDiaDate : dias[dias.length - 1];
+            if (!ast.mes) ast.mes = ast.dia.slice(0, 7);
+            if (!ast.linha || !linhas.includes(ast.linha)) {
+                // começa pela linha mais abaixo da meta no dia
+                const pior = linhas.map(l => { const m = metaDay(l, ast.dia); const p = sum(astMont().filter(d => d.date === ast.dia && d.maquina === l).map(d => d.prod)); return { l, g: m ? p - m : 0 }; }).sort((a, b) => a.g - b.g)[0];
+                ast.linha = pior ? pior.l : linhas[0];
+            }
+            document.getElementById('ast-panel').classList.remove('hide');
+            document.body.classList.add('ast-on');
+            renderAssistente();
+        };
+        window.closeAssistente = function() {
+            ast.open = false;
+            document.getElementById('ast-panel').classList.add('hide');
+            document.body.classList.remove('ast-on');
+            if (astChart) { astChart.destroy(); astChart = null; }
+        };
+        window.setAst = function(k, v) { ast[k] = v; renderAssistente(); };
+
+        function renderAssistente() {
+            const body = document.getElementById('ast-body');
+            if (!body) return;
+            if (astChart) { astChart.destroy(); astChart = null; }
+            const dias = astDias(), linhas = astLinhas();
+            const meses = [...new Set(dias.map(d => d.slice(0, 7)))].sort().reverse();
+            const q = AST_PERGUNTAS.find(x => x.id === ast.q);
+            const sel = (k, opts, val) => `<select onchange="setAst('${k}', this.value)" class="h-10 min-w-0 flex-1 bg-white border border-slate-200 text-slate-900 text-sm rounded-xl px-3 outline-none focus:border-brand-blue">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === val ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+            const paramsHtml = !q ? '' : `<div class="flex flex-wrap gap-2 mb-4">${q.params.map(p => p === 'linha' ? sel('linha', linhas.map(l => [l, l]), ast.linha)
+                : p === 'dia' ? sel('dia', [...dias].reverse().slice(0, 62).map(d => [d, fmtDate(d, { weekday: 'short', day: '2-digit', month: '2-digit' })]), ast.dia)
+                : p === 'mes' ? sel('mes', meses.map(m => [m, formatMonthName(m)]), ast.mes)
+                : sel('periodo', [['7', 'Últimos 7 dias'], ['15', 'Últimos 15 dias'], ['mes', 'Mês atual'], ['ant', 'Mês anterior']], ast.periodo)).join('')}</div>`;
+            let ans = { html: '', chart: null };
+            try { if (q) ans = AST_RESPOSTAS[q.id](); } catch (e) { console.error(e); ans = { html: '<p class="text-sm text-rose-600">Não consegui analisar com esses filtros.</p>' }; }
+            body.innerHTML = `
+                <div class="space-y-2 mb-4">${AST_PERGUNTAS.map(p => `<button onclick="setAst('q', '${p.id}')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm transition-colors ${p.id === ast.q ? 'bg-brand-navy text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100 ring-1 ring-inset ring-slate-200'}">
+                    <i data-lucide="${p.icon}" class="w-4 h-4 shrink-0 ${p.id === ast.q ? 'text-brand-yellow' : 'text-slate-400'}"></i><span class="font-medium">${p.titulo}</span></button>`).join('')}</div>
+                ${q ? `<div class="pt-4 border-t border-slate-100">${paramsHtml}<div class="ast-answer">${ans.html}</div>${ans.chart ? '<div class="chart-box mt-4" style="height:220px"><canvas id="ast-chart"></canvas></div>' : ''}</div>`
+                    : '<p class="text-sm text-slate-500">Escolha uma pergunta acima. As respostas cruzam produção, metas, perdas, scrap e modelos já importados no app.</p>'}`;
+            lucide.createIcons();
+            if (ans.chart && window.Chart) astChart = new Chart(document.getElementById('ast-chart'), ans.chart);
+        }
+
+        // Pedaços de resposta
+        const astLi = (icon, tone, html) => `<li class="flex items-start gap-2.5"><span class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${tone === 'bad' ? 'bg-rose-50 text-rose-600' : tone === 'good' ? 'bg-emerald-50 text-emerald-600' : tone === 'warn' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}"><i data-lucide="${icon}" class="w-3.5 h-3.5"></i></span><span class="text-sm text-slate-700 leading-snug pt-1">${html}</span></li>`;
+        const astHead = (title, sub, tone) => `<div class="rounded-xl p-3 mb-3 ${tone === 'bad' ? 'bg-rose-50 ring-1 ring-inset ring-rose-200' : tone === 'good' ? 'bg-emerald-50 ring-1 ring-inset ring-emerald-200' : 'bg-slate-50 ring-1 ring-inset ring-slate-200'}"><p class="text-sm font-semibold text-slate-900">${title}</p>${sub ? `<p class="text-xs text-slate-600 mt-0.5">${sub}</p>` : ''}</div>`;
+        const astBarOpts = (extra = {}) => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } }, scales: { x: axisX({ ticks: { color: C.text3, font: { size: 10 } } }), y: axisY({ ticks: { maxTicksLimit: 4, font: { size: 10 } } }) }, ...extra });
+        function astPeriodoDias() {
+            const dias = astDias(); const last = dias[dias.length - 1]; if (!last) return [];
+            if (ast.periodo === 'mes') return dias.filter(d => d.startsWith(last.slice(0, 7)));
+            if (ast.periodo === 'ant') { const [y, m] = last.split('-').map(Number); const p = new Date(y, m - 2, 1); const pm = `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}`; return dias.filter(d => d.startsWith(pm)); }
+            return dias.slice(-Number(ast.periodo || 7));
+        }
+
+        const AST_RESPOSTAS = {
+            // 1) Por que a linha ficou abaixo da meta no dia
+            porque() {
+                const L = ast.linha, D = ast.dia, mont = astMont();
+                const rows = mont.filter(d => d.date === D && d.maquina === L);
+                const prod = sum(rows.map(d => d.prod)), meta = metaDay(L, D);
+                if (!meta) return { html: astHead(`${L} · ${fmtDate(D)}`, 'Esta linha não tem meta definida neste dia.', '') };
+                const pct = prod / meta * 100, gap = prod - meta;
+                const head = astHead(`${L} fez ${fmt(prod)} de ${fmt(meta)} · ${fmt(pct, 0)}% da meta`, `${fmtDate(D, { weekday: 'long', day: '2-digit', month: '2-digit' })} · saldo ${signed(gap)} baterias`, gap >= 0 ? 'good' : 'bad');
+                const itens = [];
+                if (gap >= 0) itens.push(astLi('trophy', 'good', `A linha <strong>bateu a meta</strong> neste dia. Abaixo, o que ainda pesou.`));
+                // Turnos
+                const ts = TURNOS_BASE.map(t => { const p = sum(rows.filter(d => String(d.turno) === t).map(d => d.prod)); const m = turnoMeta(L, D, t); return { t, p, m, g: m ? p - m : null }; }).filter(x => x.m || x.p);
+                const piorT = ts.filter(x => x.g !== null).sort((a, b) => a.g - b.g)[0];
+                if (piorT && piorT.g < 0) itens.push(astLi('clock', 'bad', `O turno que mais pesou foi o <strong>${turnoShort(piorT.t)}</strong>: ${fmt(piorT.p)} de ${fmt(piorT.m)} (<strong>${signed(piorT.g)}</strong>), ${gap < 0 ? fmt(Math.min(100, piorT.g / gap * 100), 0) + '% do que faltou no dia' : 'mesmo com o dia na meta'}.`));
+                const parados = ts.filter(x => x.m && !x.p);
+                if (parados.length) itens.push(astLi('pause-circle', 'bad', `Sem produção registrada no ${parados.map(x => turnoShort(x.t)).join(', ')} (meta de ${fmt(sum(parados.map(x => x.m)))}).`));
+                // Ritmo normal da linha (10 dias anteriores)
+                const ant = astDias().filter(d => d < D).slice(-10);
+                const medAnt = ant.length ? sum(ant.map(d => sum(mont.filter(r => r.date === d && r.maquina === L).map(r => r.prod)))) / ant.length : null;
+                if (medAnt) { const dv = (prod - medAnt) / medAnt * 100; itens.push(astLi(dv < 0 ? 'trending-down' : 'trending-up', dv < -5 ? 'bad' : dv > 5 ? 'good' : '', `Em relação à média dos ${ant.length} dias anteriores (${fmt(medAnt)}/dia), a linha produziu <strong>${dv >= 0 ? '+' : ''}${fmt(dv, 0)}%</strong>.`)); }
+                // Perdas do dia
+                const pd = perdasData.filter(p => p.date === D && p.linha === L);
+                const hTot = sum(pd.map(p => p.h));
+                if (hTot > 0) {
+                    const bh = astBatHora(L, D, astModeloPrincipal(rows));
+                    const fam = {}; pd.forEach(p => { fam[p.familia] = (fam[p.familia] || 0) + p.h; });
+                    const top = Object.entries(fam).sort((a, b) => b[1] - a[1]);
+                    const comp = {}; pd.forEach(p => { const k = `${p.maquina} › ${p.componente}`; comp[k] = (comp[k] || 0) + p.h; });
+                    const topC = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
+                    itens.push(astLi('hourglass', 'warn', `<strong>${fmt(hTot, 1)} h</strong> de paradas${bh ? ` (≈ <strong>${fmt(hTot * bh)}</strong> baterias)` : ''}. Maior: <strong>${esc(astFam(top[0][0]))}</strong> ${fmt(top[0][1], 1)} h${top[1] ? `, depois ${esc(astFam(top[1][0]))} ${fmt(top[1][1], 1)} h` : ''}.${topC ? ` Ponto principal: ${esc(topC[0])} (${fmt(topC[1], 1)} h).` : ''}`));
+                    if (bh && gap < 0) { const cob = Math.min(100, hTot * bh / -gap * 100); itens.push(astLi('calculator', '', `As paradas explicam cerca de <strong>${fmt(cob, 0)}%</strong> do que faltou.${cob < 60 ? ' O resto deve vir de ritmo abaixo do normal, troca de modelo ou parada não apontada.' : ''}`)); }
+                } else if (gap < 0) itens.push(astLi('hourglass', '', 'Nenhuma parada registrada para esta linha neste dia (ou o relatório de perdas ainda não chegou).'));
+                // Modelos
+                const mods = {}; rows.forEach(d => { mods[d.modelo] = (mods[d.modelo] || 0) + d.prod; });
+                const ml = Object.entries(mods).sort((a, b) => b[1] - a[1]);
+                if (ml.length) {
+                    const antMods = new Set(mont.filter(r => ant.includes(r.date) && r.maquina === L).map(r => r.modelo));
+                    const novos = ml.filter(([m]) => !antMods.has(m));
+                    itens.push(astLi('battery', novos.length ? 'warn' : '', `Rodou ${ml.slice(0, 3).map(([m, q]) => `<strong>${esc(modeloCurto(m))}</strong> (${fmt(q)})`).join(', ')}${ml.length > 3 ? ` e mais ${ml.length - 3}` : ''}.${novos.length ? ` <strong>Troca de modelo:</strong> ${novos.map(([m]) => esc(modeloCurto(m))).join(', ')} não rodava nos dias anteriores.` : ''}`));
+                }
+                // Scrap
+                const sc = sum(scrapData.filter(s => s.date === D && s.maquina === L).map(s => s.qty));
+                if (sc) itens.push(astLi('trash-2', sc / Math.max(prod, 1) > 0.03 ? 'bad' : '', `Scrap no dia: <strong>${fmt(sc)}</strong> baterias (${fmt(sc / Math.max(prod + sc, 1) * 100, 1)}%).`));
+                return { html: head + `<ul class="space-y-2.5">${itens.join('')}</ul>`,
+                    chart: { type: 'bar', data: { labels: ts.map(x => turnoShort(x.t)), datasets: [
+                        { label: 'Produzido', data: ts.map(x => x.p), backgroundColor: ts.map(x => x.g !== null && x.g < 0 ? C.bad : C.good), borderRadius: 5, maxBarThickness: 44 },
+                        { label: 'Meta', data: ts.map(x => x.m || null), type: 'line', borderColor: '#94a3b8', backgroundColor: '#94a3b8', borderDash: [5, 4], pointRadius: 4, showLine: false }] },
+                        options: astBarOpts({ plugins: { legend: { display: false }, tooltip: { ...tooltipStyle }, barLabels: { formatter: (i) => [{ text: fmt(ts[i].p), color: C.text }] } } }) } };
+            },
+            // 2) Linhas que mais deixaram de produzir no período
+            ranking() {
+                const dias = astPeriodoDias(), set = new Set(dias), mont = astMont().filter(d => set.has(d.date));
+                const lst = astLinhas().map(l => { let p = 0, m = 0; dias.forEach(d => { const mt = metaDay(l, d); if (!mt) return; m += mt; p += sum(mont.filter(r => r.date === d && r.maquina === l).map(r => r.prod)); }); return { l, p, m, g: p - m }; }).filter(x => x.m).sort((a, b) => a.g - b.g);
+                if (!lst.length) return { html: astHead('Sem metas no período', '', '') };
+                const abaixo = lst.filter(x => x.g < 0);
+                const head = astHead(`${abaixo.length} de ${lst.length} linhas ficaram abaixo da meta`, `${fmtDate(dias[0], { day: '2-digit', month: '2-digit' })} a ${fmtDate(dias[dias.length - 1], { day: '2-digit', month: '2-digit' })} · ${dias.length} dias · total ${signed(sum(lst.map(x => x.g)))} baterias`, abaixo.length ? 'bad' : 'good');
+                const pdP = perdasData.filter(p => set.has(p.date));
+                const itens = abaixo.slice(0, 5).map((x, i) => {
+                    const fam = {}; pdP.filter(p => p.linha === x.l).forEach(p => { fam[p.familia] = (fam[p.familia] || 0) + p.h; });
+                    const t = Object.entries(fam).sort((a, b) => b[1] - a[1])[0];
+                    return astLi(i === 0 ? 'alert-triangle' : 'arrow-down-right', 'bad', `<strong>${x.l}</strong>: ${signed(x.g)} baterias (${fmt(x.p / x.m * 100, 0)}% da meta)${t ? ` · maior perda: ${esc(astFam(t[0]))} ${fmt(t[1], 1)} h` : ''}`);
+                });
+                const melhor = [...lst].sort((a, b) => b.g - a.g)[0];
+                if (melhor && melhor.g > 0) itens.push(astLi('trophy', 'good', `Melhor saldo: <strong>${melhor.l}</strong> ${signed(melhor.g)} (${fmt(melhor.p / melhor.m * 100, 0)}%).`));
+                return { html: head + `<ul class="space-y-2.5">${itens.join('')}</ul>`,
+                    chart: { type: 'bar', data: { labels: lst.map(x => x.l), datasets: [{ data: lst.map(x => x.g), backgroundColor: lst.map(x => x.g < 0 ? C.bad : C.good), borderRadius: 4 }] },
+                        options: astBarOpts({ indexAxis: 'y', scales: { x: axisY({ beginAtZero: true, ticks: { maxTicksLimit: 4, font: { size: 10 } } }), y: { grid: { display: false }, ticks: { color: C.text2, font: { size: 10, weight: '600' } } } },
+                            plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${signed(c.raw)} baterias` } } } }) } };
+            },
+            // 3) Turno pior no mês
+            turnos() {
+                const M = ast.mes, dias = astDias().filter(d => d.startsWith(M)), mont = astMont().filter(d => d.date.startsWith(M));
+                const ts = TURNOS_BASE.map(t => { let p = 0, m = 0; dias.forEach(d => astLinhas().forEach(l => { const mt = turnoMeta(l, d, t); if (!mt) return; m += mt; p += sum(mont.filter(r => r.date === d && r.maquina === l && String(r.turno) === t).map(r => r.prod)); }));
+                    const h = sum(perdasData.filter(x => x.date && x.date.startsWith(M) && String(x.turno) === t && /^LIM/.test(x.linha || '')).map(x => x.h));
+                    return { t, p, m, pct: m ? p / m * 100 : null, h }; }).filter(x => x.m);
+                if (!ts.length) return { html: astHead('Sem metas no mês', '', '') };
+                const pior = [...ts].sort((a, b) => a.pct - b.pct)[0], melhor = [...ts].sort((a, b) => b.pct - a.pct)[0];
+                const head = astHead(`Pior turno: ${turnoShort(pior.t)} com ${fmt(pior.pct, 0)}% da meta`, `${formatMonthName(M)} · saldo ${signed(pior.p - pior.m)} baterias`, pior.pct >= 100 ? 'good' : 'bad');
+                const itens = ts.map(x => astLi('clock', x.pct >= 100 ? 'good' : 'bad', `<strong>${turnoShort(x.t)}</strong>: ${fmt(x.p)} de ${fmt(x.m)} (${fmt(x.pct, 0)}%) · saldo ${signed(x.p - x.m)}${x.h ? ` · ${fmt(x.h, 1)} h paradas` : ''}`));
+                // Família que mais separa o pior do melhor turno
+                if (pior.t !== melhor.t) {
+                    const famOf = (t) => { const o = {}; perdasData.filter(x => x.date && x.date.startsWith(M) && String(x.turno) === t && /^LIM/.test(x.linha || '')).forEach(x => { o[x.familia] = (o[x.familia] || 0) + x.h; }); return o; };
+                    const a = famOf(pior.t), b = famOf(melhor.t);
+                    const dif = Object.keys(a).map(f => [f, a[f] - (b[f] || 0)]).sort((x, y) => y[1] - x[1])[0];
+                    if (dif && dif[1] > 0.5) itens.push(astLi('hourglass', 'warn', `O ${turnoShort(pior.t)} perdeu <strong>${fmt(dif[1], 1)} h a mais</strong> de ${esc(astFam(dif[0]))} que o ${turnoShort(melhor.t)}.`));
+                }
+                return { html: head + `<ul class="space-y-2.5">${itens.join('')}</ul>`,
+                    chart: { type: 'bar', data: { labels: ts.map(x => turnoShort(x.t)), datasets: [{ data: ts.map(x => +x.pct.toFixed(1)), backgroundColor: ts.map(x => x.pct >= 100 ? C.good : C.bad), borderRadius: 5, maxBarThickness: 48 }] },
+                        options: astBarOpts({ plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${fmt(c.raw, 1)}% da meta` } }, refLines: { h: [{ value: 100, color: '#94a3b8', label: 'Meta' }] }, barLabels: { formatter: (i) => [{ text: fmt(ts[i].pct, 0) + '%', color: C.text }] } } }) } };
+            },
+            // 4) Onde a linha mais perde tempo no mês
+            perdas() {
+                const L = ast.linha, M = ast.mes;
+                const pd = perdasData.filter(p => p.linha === L && p.date && p.date.startsWith(M));
+                const hTot = sum(pd.map(p => p.h));
+                if (!hTot) return { html: astHead(`${L} · ${formatMonthName(M)}`, 'Sem perdas registradas para esta linha no mês.', '') };
+                const dias = new Set(pd.map(p => p.date)).size;
+                const rows = astMont().filter(d => d.maquina === L && d.date.startsWith(M));
+                const bh = astBatHora(L, M + '-15', astModeloPrincipal(rows));
+                const fam = {}; pd.forEach(p => { fam[p.familia] = (fam[p.familia] || 0) + p.h; });
+                const fl = Object.entries(fam).sort((a, b) => b[1] - a[1]);
+                const comp = {}; pd.forEach(p => { const k = `${p.maquina} › ${p.componente}`; comp[k] = (comp[k] || 0) + p.h; });
+                const cl = Object.entries(comp).sort((a, b) => b[1] - a[1]).slice(0, 4);
+                const tt = {}; pd.forEach(p => { tt[p.turno] = (tt[p.turno] || 0) + p.h; });
+                const tl = Object.entries(tt).sort((a, b) => b[1] - a[1]);
+                const head = astHead(`${L} perdeu ${fmt(hTot, 1)} h em ${formatMonthName(M).toLowerCase()}`, `${dias} dias com parada · média ${fmt(hTot / dias, 1)} h/dia${bh ? ` · ≈ ${fmt(hTot * bh)} baterias` : ''}`, 'bad');
+                const itens = [astLi('layers', 'warn', `Maior família: <strong>${esc(astFam(fl[0][0]))}</strong> com ${fmt(fl[0][1], 1)} h (${fmt(fl[0][1] / hTot * 100, 0)}%)${fl[1] ? `; depois ${esc(astFam(fl[1][0]))} (${fmt(fl[1][1] / hTot * 100, 0)}%)` : ''}.`),
+                    ...cl.map(([k, h], i) => astLi(i === 0 ? 'wrench' : 'dot', i === 0 ? 'bad' : '', `${esc(k)}: <strong>${fmt(h, 1)} h</strong>${bh ? ` (≈ ${fmt(h * bh)} baterias)` : ''}`)),
+                    tl.length > 1 ? astLi('clock', '', `Turno com mais parada: <strong>${turnoShort(String(tl[0][0]))}</strong> (${fmt(tl[0][1], 1)} h).`) : ''];
+                const top = fl.slice(0, 6);
+                return { html: head + `<ul class="space-y-2.5">${itens.join('')}</ul>`,
+                    chart: { type: 'bar', data: { labels: top.map(([f]) => astFam(f)), datasets: [{ data: top.map(([, h]) => +h.toFixed(2)), backgroundColor: C.blue, borderRadius: 4 }] },
+                        options: astBarOpts({ plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${fmt(c.raw, 1)} h` } }, barLabels: { formatter: (i) => [{ text: fmt(top[i][1], 1), color: C.text }] } } }) } };
+            },
+            // 5) Modelos que derrubam o ritmo da linha (últimos 60 dias)
+            modelos() {
+                const L = ast.linha, dias = astDias().slice(-60), set = new Set(dias);
+                const rows = astMont().filter(d => d.maquina === L && set.has(d.date));
+                // Ritmo = baterias por turno, contando só os turnos em que o modelo rodou sozinho
+                const porTurno = {}; rows.forEach(d => { const k = d.date + '|' + d.turno; (porTurno[k] = porTurno[k] || []).push(d); });
+                const md = {}; let somaTodos = 0, nTodos = 0;
+                Object.values(porTurno).forEach(rs => { const tot = sum(rs.map(r => r.prod)); somaTodos += tot; nTodos++;
+                    if (rs.length === 1) { const o = md[rs[0].modelo] || (md[rs[0].modelo] = { s: 0, n: 0 }); o.s += tot; o.n++; } });
+                const media = nTodos ? somaTodos / nTodos : 0;
+                const lst = Object.entries(md).filter(([, o]) => o.n >= 2).map(([m, o]) => ({ m, r: o.s / o.n, n: o.n, dv: media ? (o.s / o.n - media) / media * 100 : 0 })).sort((a, b) => a.r - b.r);
+                if (!lst.length) return { html: astHead(`${L}`, 'Poucos turnos com um só modelo para comparar.', '') };
+                const head = astHead(`${L}: média de ${fmt(media)} baterias por turno`, `Últimos ${dias.length} dias · ritmo de cada bateria nos turnos em que rodou sozinha`, '');
+                const itens = lst.slice(0, 3).filter(x => x.dv < -3).map(x => astLi('trending-down', 'bad', `<strong>${esc(modeloCurto(x.m))}</strong>: ${fmt(x.r)}/turno (<strong>${fmt(x.dv, 0)}%</strong> do ritmo médio) · ${x.n} turnos`));
+                const rap = lst.filter(x => x.dv > 3).slice(-2).reverse();
+                rap.forEach(x => itens.push(astLi('trending-up', 'good', `<strong>${esc(modeloCurto(x.m))}</strong> rende mais: ${fmt(x.r)}/turno (+${fmt(x.dv, 0)}%) · ${x.n} turnos`)));
+                if (!itens.length) itens.push(astLi('check', 'good', 'Nenhuma bateria muda o ritmo de forma relevante (todas perto da média).'));
+                itens.push(astLi('info', '', `<span class="text-slate-500">Diferenças podem vir do tempo de ciclo de cada modelo; vale comparar com a meta da linha.</span>`));
+                const show = lst.slice(0, 10);
+                return { html: head + `<ul class="space-y-2.5">${itens.join('')}</ul>`,
+                    chart: { type: 'bar', data: { labels: show.map(x => modeloCurto(x.m)), datasets: [{ data: show.map(x => Math.round(x.r)), backgroundColor: show.map(x => x.dv < -3 ? C.bad : x.dv > 3 ? C.good : C.blue), borderRadius: 4 }] },
+                        options: astBarOpts({ plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${fmt(c.raw)} por turno · ${show[c.dataIndex].n} turnos` } }, refLines: { h: [{ value: media, color: '#94a3b8', label: 'Média' }] } }, scales: { x: axisX({ ticks: { color: C.text3, font: { size: 9 }, maxRotation: 50 } }), y: axisY({ ticks: { maxTicksLimit: 4, font: { size: 10 } } }) } }) } };
+            }
+        };
 
         window.setTab = function(tab) {
             if (tab === 'audit' && !isAdmin()) { openAdmin(); return; }
