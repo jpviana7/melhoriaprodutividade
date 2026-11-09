@@ -295,7 +295,9 @@
         .present-exit { display: none; }
         html.presenting .present-exit { display: inline-flex; }
         html.presenting #header-actions, html.presenting footer, html.presenting .present-btn { display: none !important; }
-        html.presenting main { max-width: 1680px; zoom: 1.12; }
+        /* Aumenta pelo tamanho da fonte (rem), não por zoom: com zoom o mouse perdia a posição nos gráficos */
+        html.presenting { font-size: 112%; }
+        html.presenting main { max-width: 1880px; }
         html.presenting header > div:last-child { max-width: 1680px; }
         html.capturing .fade-in { animation: none; }
 
