@@ -6,7 +6,11 @@ import { configurarVapid, getDoc, lerProducao, montarAvisos, enviar, agoraLocal,
 export const config = { path: '/api/aviso-teste' };
 
 export default async (req) => {
-  if (!configurarVapid()) return new Response('As variáveis VAPID não estão configuradas no Netlify.', { status: 500 });
+  if (!configurarVapid()) {
+    const falta = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'].filter(k => !process.env[k]);
+    return new Response(`As variáveis VAPID não chegaram a esta função. Faltando: ${falta.join(', ')}.\nConfira o valor de Production de cada uma e publique de novo (Deploys → Trigger deploy → Clear cache and deploy site).`,
+      { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
   const pedido = new URL(req.url).searchParams.get('dia');
   const cfg = (await getDoc('dashboard_config/settings')) || {};
   const fileNames = Array.isArray(cfg.fileNames) ? cfg.fileNames : [];
