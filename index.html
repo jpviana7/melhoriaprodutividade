@@ -445,6 +445,9 @@
                 <button onclick="setTab('perdas')" id="tab-perdas" class="tab-btn">
                     <i data-lucide="hourglass" class="w-4 h-4"></i> <span>Perdas</span>
                 </button>
+                <button onclick="setTab('pbs')" id="tab-pbs" class="tab-btn">
+                    <i data-lucide="droplet" class="w-4 h-4"></i> <span>PbS</span>
+                </button>
                 <button onclick="setTab('oee')" id="tab-oee" class="tab-btn">
                     <i data-lucide="gauge" class="w-4 h-4"></i> <span>OEE</span>
                 </button>
@@ -606,6 +609,9 @@
         <div id="view-perdas" class="space-y-6 fade-in hide">
             <div id="perdas-content"></div>
         </div>
+        <div id="view-pbs" class="space-y-6 fade-in hide">
+            <div id="pbs-content"></div>
+        </div>
         <div id="view-oee" class="space-y-6 fade-in hide">
             <div id="oee-content"></div>
         </div>
@@ -739,7 +745,7 @@
         let materialNames = {}; // código do material (sem zeros à esquerda) → descrição, aprendido das planilhas de produção
         let scrapMetas = {}; // meta de scrap em baterias por mês: { Montagem: 3000, 'Montagem 01': 500, LIM01: 200 }
         let fileNames = [];
-        let activeTab = (() => { try { const t = JSON.parse(localStorage.getItem('dash_tab')); return ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'oee', 'metas', 'improvements', 'audit'].includes(t) ? t : 'dashboard'; } catch (e) { return 'dashboard'; } })();
+        let activeTab = (() => { try { const t = JSON.parse(localStorage.getItem('dash_tab')); return ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements', 'audit'].includes(t) ? t : 'dashboard'; } catch (e) { return 'dashboard'; } })();
 
         // Período: anos e meses (multi-seleção). 'Todos' = sem restrição.
         let selectedYears = ['Todos'];
@@ -1470,6 +1476,7 @@
                     if (legacy.length) { scrapData = scrapData.filter(d => !(d.tipo === 'completa' && !d.fromProd)); persist({ scrapMonths: legacy.map(d => d.date.slice(0, 7)) }); }
                 } catch (e) { console.warn('scrap', e); scrapData = []; }
                 await loadPerdas();
+                await loadPbs();
                 aplicarCicloPadrao();
                 rawData = cleanRawRows(allData);
                 { const dd = dedupeProd(rawData, fileNames); if (dd.removed) { const keep = new Set(dd.rows); const meses = [...new Set(rawData.filter(d => !keep.has(d)).map(d => d.date.slice(0, 7)))]; rawData = dd.rows; persist({ months: meses }); setTimeout(() => showToast(`Removidos ${dd.removed} registros de produção duplicados.`, 'info'), 900); } }
@@ -2123,7 +2130,7 @@
                 badgeImp.innerText = impLen;
                 badgeImp.classList.toggle('hide', !impLen);
                 document.getElementById('audit-badge').classList.toggle('hide', ps.auditStats.totalMissingAlerts === 0);
-                ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'oee', 'metas', 'improvements', 'audit'].forEach(t => {
+                ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements', 'audit'].forEach(t => {
                     document.getElementById(`tab-${t}`).classList.toggle('active', activeTab === t);
                     document.getElementById(`view-${t}`).classList.toggle('hide', activeTab !== t);
                 });
@@ -2135,6 +2142,7 @@
                 else if (activeTab === 'gestao') renderGestaoContent();
                 else if (activeTab === 'scrap') renderScrapContent();
                 else if (activeTab === 'perdas') renderPerdasContent();
+                else if (activeTab === 'pbs') renderPbsContent();
                 else if (activeTab === 'oee') renderOeeContent();
                 else if (activeTab === 'metas') renderMetasContent();
                 else if (activeTab === 'improvements') renderImprovementsContent();
@@ -2142,7 +2150,7 @@
                 if (pendingEnter) { pendingEnter = false; requestAnimationFrame(() => animateView(activeTab)); }
             } else {
                 destroyCharts();
-                ['tabs-container', 'view-dashboard', 'view-bomdia', 'view-gestao', 'view-scrap', 'view-perdas', 'view-oee', 'view-metas', 'view-improvements', 'view-audit'].forEach(id => document.getElementById(id).classList.add('hide'));
+                ['tabs-container', 'view-dashboard', 'view-bomdia', 'view-gestao', 'view-scrap', 'view-perdas', 'view-pbs', 'view-oee', 'view-metas', 'view-improvements', 'view-audit'].forEach(id => document.getElementById(id).classList.add('hide'));
             }
             lucide.createIcons();
         }
@@ -4057,6 +4065,216 @@
             } catch (e) { console.warn('perdas', e); perdasData = []; }
         }
 
+
+        // ===== Aba PbS: chumbo no sangue dos colaboradores da Montagem (µg/dL) =====
+        // Cada mês fica num documento dashboard_pbs/AAAA-MM. Linha: { m, d, mat, nome, g, setor, faixa, r }
+        let pbsData = [];
+        const pbsState = { month: null, setor: 'Todos', busca: '' };
+        const getPbsCollection = () => collection(db, 'dashboard_pbs');
+        const getPbsDoc = (m) => doc(db, 'dashboard_pbs', m);
+        async function loadPbs() {
+            try {
+                const snap = await getDocs(getPbsCollection());
+                let all = []; snap.forEach(d => { const x = d.data().data; if (x) all = all.concat(unpackRows(x)); });
+                pbsData = all.filter(d => d && d.m && Number.isFinite(d.r));
+            } catch (e) { console.warn('pbs', e); pbsData = []; }
+        }
+        function persistPbs(months) {
+            const list = [...new Set(months)];
+            if (!list.length) return writeQueue;
+            const payloads = list.map(m => ({ m, rows: pbsData.filter(d => d.m === m) }));
+            writeQueue = writeQueue.then(async () => {
+                try {
+                    await Promise.all(payloads.map(({ m, rows }) => rows.length ? setDoc(getPbsDoc(m), { data: packRows(rows) }) : deleteDoc(getPbsDoc(m))));
+                    updateSyncStatus('success');
+                } catch (err) { console.error(err); updateSyncStatus('error'); showError('Não foi possível salvar os dados de PbS.'); }
+            });
+            return writeQueue;
+        }
+        // Planilha "Análise PbS": Matrícula, Colaborador, Gênero, Setor, Faixa de Resultados, Data do Exame, Data dos dados - Mês, Resultado estimado
+        function parsePbsTables(tables) {
+            for (const rows of tables) {
+                for (let hi = 0; hi < Math.min(rows.length, 10); hi++) {
+                    const h = (rows[hi] || []).map(normStr);
+                    const f = (p) => h.findIndex(x => x && p(x));
+                    const c = { res: f(x => x.startsWith('resultadoestimado')), faixa: f(x => x.startsWith('faixaderesultado')), mat: f(x => x.startsWith('matricula')),
+                        nome: f(x => x === 'colaborador' || x === 'nome'), gen: f(x => x.startsWith('genero') || x === 'sexo'), setor: f(x => x === 'setor'),
+                        exame: f(x => x.startsWith('datadoexame')), mes: f(x => x.startsWith('datadosdados')) };
+                    if (c.res === -1 || c.faixa === -1 || c.mat === -1) continue;
+                    const out = [];
+                    rows.slice(hi + 1).forEach(r => {
+                        if (!r) return;
+                        const v = parseFloat(String(r[c.res] ?? '').replace(',', '.'));
+                        const mat = String(r[c.mat] ?? '').trim();
+                        if (!Number.isFinite(v) || !mat) return;
+                        const d = c.exame !== -1 ? parseDate(r[c.exame]) : '';
+                        const mRef = c.mes !== -1 ? parseDate(r[c.mes]) : '';
+                        const m = (mRef || d).slice(0, 7);
+                        if (!m) return;
+                        out.push({ m, d, mat, nome: String(r[c.nome] ?? '').trim(), g: /^f/i.test(String(r[c.gen] ?? '').trim()) ? 'F' : 'M',
+                            setor: String(r[c.setor] ?? '').trim().toUpperCase() || 'SEM SETOR', faixa: String(r[c.faixa] ?? '').trim(), r: v });
+                    });
+                    return { rows: out };
+                }
+            }
+            return null;
+        }
+        // "LINHA MONTAGEM 04" -> "LIM04"; "MANUTENCAO MONTAGEM" -> "Manutenção Montagem"
+        const pbsSetorCurto = (s) => { const m = String(s).match(/LINHA\s+MONTAGEM\s+(\d+)/i); if (m) return 'LIM' + m[1].padStart(2, '0');
+            return String(s).replace(/\s*-\s*MONTAGEM$/i, '').toLowerCase().replace(/manutencao/, 'manutenção').replace(/gerencia/, 'gerência').replace(/(^|\s)\S/g, x => x.toUpperCase()).replace(/\bUgb\b/, 'UGB'); };
+        // Cor por nível (µg/dL)
+        const pbsCor = (v) => v >= 30 ? '#E11D48' : v >= 20 ? '#F59E0B' : v >= 10 ? '#38BDF8' : '#10B981';
+        const pbsFaixaInicio = (f) => { const m = String(f).match(/(\d+(?:,\d+)?)/); return m ? parseFloat(m[1].replace(',', '.')) : 0; };
+        window.setPbs = function(k, v) { pbsState[k] = v; destroyCharts(); renderPbsContent(); lucide.createIcons(); };
+        window.filterPbsTable = function(v) {
+            pbsState.busca = v; const q = normStr(v);
+            document.querySelectorAll('#pbs-table tbody tr').forEach(tr => { tr.style.display = !q || normStr(tr.dataset.k).includes(q) ? '' : 'none'; });
+        };
+
+        function renderPbsContent() {
+            const container = document.getElementById('pbs-content');
+            if (!pbsData.length) {
+                container.innerHTML = `<div class="${CARD} py-16 px-6 text-center"><div class="w-14 h-14 rounded-2xl bg-brand-yellow/15 text-brand-navy flex items-center justify-center mb-4 mx-auto"><i data-lucide="droplet" class="w-6 h-6"></i></div>
+                    <h2 class="text-lg font-semibold text-slate-900">Ainda não há dados de PbS</h2>
+                    <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Importe a planilha <strong>Análise PbS</strong> (Matrícula, Colaborador, Setor, Faixa de Resultados, Data do Exame, Resultado estimado) pelo botão Importar planilhas.</p></div>`;
+                return;
+            }
+            const st = pbsState;
+            const months = [...new Set(pbsData.map(d => d.m))].sort();
+            const month = st.month && months.includes(st.month) ? st.month : months[months.length - 1];
+            const idx = months.indexOf(month), prevM = idx > 0 ? months[idx - 1] : null;
+            const setores = [...new Set(pbsData.map(d => d.setor))].sort((a, b) => pbsSetorCurto(a).localeCompare(pbsSetorCurto(b), 'pt', { numeric: true }));
+            const setor = setores.includes(st.setor) ? st.setor : 'Todos';
+            const inS = (d) => setor === 'Todos' || d.setor === setor;
+            const avg = (a) => a.length ? sum(a.map(d => d.r)) / a.length : null;
+            const cur = pbsData.filter(d => d.m === month && inS(d));
+            const prev = prevM ? pbsData.filter(d => d.m === prevM && inS(d)) : [];
+            const media = avg(cur), mediaPrev = avg(prev);
+            const n20 = cur.filter(d => d.r >= 20).length, n30 = cur.filter(d => d.r >= 30).length;
+            const maior = cur.reduce((b, d) => !b || d.r > b.r ? d : b, null);
+            const delta = media !== null && mediaPrev ? (media - mediaPrev) / mediaPrev * 100 : null;
+            // Último resultado anterior de cada matrícula (para a variação)
+            const anterior = {};
+            pbsData.filter(d => d.m < month).sort((a, b) => a.m.localeCompare(b.m)).forEach(d => { anterior[d.mat] = d; });
+            const subiram = cur.filter(d => anterior[d.mat] && d.r > anterior[d.mat].r);
+            const desceram = cur.filter(d => anterior[d.mat] && d.r < anterior[d.mat].r);
+            // Médias por setor no mês
+            const porSetor = setores.map(s => { const a = pbsData.filter(d => d.m === month && d.setor === s); return { s, n: a.length, media: avg(a) }; }).filter(x => x.n).sort((a, b) => b.media - a.media);
+            const ultimos = months.slice(-12);
+
+            let html = `
+            <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">PbS · Chumbo no sangue</p>
+                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(formatMonthName(month))}${setor !== 'Todos' ? ` · ${esc(pbsSetorCurto(setor))}` : ''}</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Resultados em µg/dL · valor estimado pelo meio da faixa do exame</p></div>
+                    <select onchange="setPbs('month', this.value)" class="no-print h-10 bg-white border border-slate-200 text-slate-900 text-sm rounded-xl px-3 outline-none focus:border-brand-blue">
+                        ${[...months].reverse().map(m => `<option value="${m}" ${m === month ? 'selected' : ''}>${esc(formatMonthName(m))}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="no-print chip-row flex flex-wrap gap-2 mt-4">${['Todos', ...setores].map(s => `<button data-s="${esc(s)}" onclick="setPbs('setor', this.dataset.s)" class="h-9 px-3 rounded-lg text-sm font-semibold ${setor === s ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${s === 'Todos' ? 'Toda a Montagem' : esc(pbsSetorCurto(s))}</button>`).join('')}</div>
+            </section>
+            <div class="kpi-grid grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                ${kpiCard({ label: 'Média do mês (µg/dL)', value: media === null ? '—' : fmt(media, 1), accent: media === null ? C.blue : pbsCor(media),
+                    sub: delta === null ? `${cur.length} exames` : `<span class="font-semibold ${delta <= 0 ? 'text-emerald-600' : 'text-rose-600'}">${delta > 0 ? '▲ +' : '▼ '}${fmt(delta, 1)}%</span> vs ${esc(shortMonth(prevM))}` })}
+                ${kpiCard({ label: 'Avaliados', value: fmt(new Set(cur.map(d => d.mat)).size), accent: C.blue, sub: `${cur.filter(d => d.g === 'F').length} mulheres · ${cur.filter(d => d.g === 'M').length} homens` })}
+                ${kpiCard({ label: 'Com 20 µg/dL ou mais', value: fmt(n20), accent: '#F59E0B', sub: cur.length ? `${fmt(n20 / cur.length * 100, 1)}% dos avaliados` : '—' })}
+                ${kpiCard({ label: 'Com 30 µg/dL ou mais', value: fmt(n30), accent: '#E11D48', sub: maior ? `Maior: ${fmt(maior.r, 1)} (${esc(maior.faixa)})` : '—', subTone: n30 ? 'bad' : '' })}
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-2">
+                    ${sectionHead('Evolução da média', `${setor === 'Todos' ? 'Toda a Montagem' : esc(pbsSetorCurto(setor)) + ' x Montagem'} · µg/dL por mês`, '', 'trending-up')}
+                    <div class="chart-box h-72"><canvas id="chart-pbs-evol"></canvas></div>
+                </section>
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Distribuição por faixa', `${esc(formatMonthName(month))} · colaboradores`, '', 'bar-chart-3')}
+                    <div class="chart-box h-72"><canvas id="chart-pbs-faixa"></canvas></div>
+                </section>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-2">
+                    ${sectionHead('Média por setor', `${esc(formatMonthName(month))} · clique para filtrar`, '', 'layers')}
+                    <div class="chart-box h-72"><canvas id="chart-pbs-setor"></canvas></div>
+                </section>
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Destaques', 'Gerados a partir dos resultados do mês', '', 'sparkles')}
+                    <ul class="space-y-3 text-sm text-slate-600">
+                        ${porSetor.length ? `<li>Setor com maior média: <strong class="text-slate-900">${esc(pbsSetorCurto(porSetor[0].s))}</strong> (${fmt(porSetor[0].media, 1)} µg/dL)</li>
+                        <li>Menor média: <strong class="text-slate-900">${esc(pbsSetorCurto(porSetor[porSetor.length - 1].s))}</strong> (${fmt(porSetor[porSetor.length - 1].media, 1)} µg/dL)</li>` : ''}
+                        ${prevM ? `<li><strong class="text-rose-600">${subiram.length}</strong> subiram e <strong class="text-emerald-600">${desceram.length}</strong> desceram em relação ao exame anterior.</li>` : ''}
+                        <li>${n30 ? `<strong class="text-rose-600">${n30}</strong> ${n30 === 1 ? 'colaborador' : 'colaboradores'} com 30 µg/dL ou mais.` : 'Nenhum colaborador com 30 µg/dL ou mais.'}</li>
+                        ${media !== null && mediaPrev ? `<li>Média ${media <= mediaPrev ? 'caiu' : 'subiu'} de ${fmt(mediaPrev, 1)} para <strong class="text-slate-900">${fmt(media, 1)}</strong> µg/dL.</li>` : ''}
+                    </ul>
+                </section>
+            </div>
+            <section class="print-break ${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
+                ${sectionHead('Mapa por setor', 'Média de µg/dL por setor e mês · verde < 10 · azul 10–19 · amarelo 20–29 · vermelho 30+', '', 'grid-3x3')}
+                <div class="overflow-x-auto custom-scrollbar"><table class="hm-table text-xs">
+                    <thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="hm-sticky text-left py-1.5 pr-2">Setor</th>${ultimos.map(m => `<th class="py-1.5 px-0.5 text-center">${esc(shortMonth(m))}</th>`).join('')}</tr></thead>
+                    <tbody>${setores.map(s => `<tr><td class="hm-sticky py-0.5 pr-2 font-semibold text-slate-700 whitespace-nowrap">${esc(pbsSetorCurto(s))}</td>${ultimos.map(m => { const v = avg(pbsData.filter(d => d.m === m && d.setor === s));
+                        return `<td class="p-0.5">${v === null ? '<span class="hm-cell text-slate-300">·</span>' : `<span class="hm-cell text-white" style="background:${pbsCor(v)}" title="${esc(pbsSetorCurto(s))} · ${esc(formatMonthName(m))}: ${fmt(v, 1)} µg/dL">${fmt(v, 1)}</span>`}</td>`; }).join('')}</tr>`).join('')}</tbody>
+                </table></div>
+            </section>`;
+
+            // Lista nominal: só para quem entrou com a senha
+            const lista = [...cur].sort((a, b) => b.r - a.r);
+            html += `
+            <section class="print-break ${CARD} p-5 sm:p-6">
+                ${sectionHead('Colaboradores', `${esc(formatMonthName(month))} · do maior para o menor resultado`, isAdmin() ? `<input type="search" value="${esc(st.busca)}" oninput="filterPbsTable(this.value)" placeholder="Buscar nome, matrícula ou setor…" style="max-width:18rem" class="no-print h-9 w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-lg px-3 outline-none focus:border-brand-blue">` : '', 'users')}
+                ${!isAdmin() ? `<p class="text-sm text-slate-500">A lista com os nomes aparece só para quem entra com a senha (botão <strong>Usuário</strong>).</p>` : `
+                <div class="overflow-x-auto custom-scrollbar overflow-y-auto" style="max-height:32rem"><table id="pbs-table" class="w-full text-sm">
+                    <thead class="sticky top-0 bg-white"><tr class="text-[11px] uppercase tracking-wider text-slate-400 text-left">
+                        <th class="py-2 px-2 font-semibold">Colaborador</th><th class="py-2 px-2 font-semibold">Matrícula</th><th class="py-2 px-2 font-semibold">Setor</th>
+                        <th class="py-2 px-2 font-semibold text-right">µg/dL</th><th class="py-2 px-2 font-semibold">Faixa</th><th class="py-2 px-2 font-semibold text-right">Variação</th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">${lista.map(d => { const a = anterior[d.mat]; const dv = a ? d.r - a.r : null;
+                        return `<tr data-k="${esc(d.nome + ' ' + d.mat + ' ' + pbsSetorCurto(d.setor))}">
+                            <td class="py-2 px-2 text-slate-800">${esc(d.nome)}</td><td class="py-2 px-2 text-slate-500">${esc(d.mat)}</td><td class="py-2 px-2 text-slate-600 whitespace-nowrap">${esc(pbsSetorCurto(d.setor))}</td>
+                            <td class="py-2 px-2 text-right font-semibold"><span style="white-space:nowrap"><span class="inline-block w-2 h-2 rounded-full" style="margin-right:5px;background:${pbsCor(d.r)}"></span>${fmt(d.r, 1)}</span></td>
+                            <td class="py-2 px-2 text-slate-500 whitespace-nowrap">${esc(d.faixa)}</td>
+                            <td class="py-2 px-2 text-right text-xs whitespace-nowrap ${dv === null ? 'text-slate-400' : dv > 0 ? 'text-rose-600' : dv < 0 ? 'text-emerald-600' : 'text-slate-400'}">${dv === null ? '—' : dv === 0 ? '=' : (dv > 0 ? '▲ +' : '▼ ') + fmt(dv, 1)}</td></tr>`; }).join('')}</tbody>
+                </table></div>`}
+            </section>`;
+            container.innerHTML = html;
+            if (pbsState.busca) filterPbsTable(pbsState.busca);
+            if (!window.Chart) return;
+
+            // Evolução da média (setor escolhido x Montagem)
+            const serie = (fn) => months.map(m => avg(pbsData.filter(d => d.m === m && fn(d))));
+            charts.pbsEvol = new Chart(document.getElementById('chart-pbs-evol'), {
+                type: 'line',
+                data: { labels: months.map(m => shortMonth(m)), datasets: [
+                    { label: setor === 'Todos' ? 'Montagem' : pbsSetorCurto(setor), data: serie(inS), borderColor: C.navy, backgroundColor: C.navy, borderWidth: 2.5, pointRadius: months.map(m => m === month ? 5 : 2.5), tension: 0.3, spanGaps: true },
+                    ...(setor !== 'Todos' ? [{ label: 'Montagem', data: serie(() => true), borderColor: '#94a3b8', backgroundColor: '#94a3b8', borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true }] : [])
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: { x: axisX({ ticks: { color: C.text3, maxRotation: 0, autoSkipPadding: 8 } }), y: axisY({ ticks: { callback: v => fmt(v, 0) } }) },
+                    plugins: { legend: { display: setor !== 'Todos', position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
+                        tooltip: { ...tooltipStyle, callbacks: { title: (it) => formatMonthName(months[it[0].dataIndex]), label: (ctx) => ctx.raw == null ? null : `${ctx.dataset.label}: ${fmt(ctx.raw, 1)} µg/dL` } } } }
+            });
+            // Distribuição por faixa
+            const faixas = [...new Set(cur.map(d => d.faixa))].sort((a, b) => pbsFaixaInicio(a) - pbsFaixaInicio(b));
+            const cont = faixas.map(f => cur.filter(d => d.faixa === f).length);
+            charts.pbsFaixa = new Chart(document.getElementById('chart-pbs-faixa'), {
+                type: 'bar',
+                data: { labels: faixas.map(f => f.replace(/^De /i, '').replace(' até ', '–').replace(/^Apenas /i, '')), datasets: [{ data: cont, backgroundColor: faixas.map(f => pbsCor(pbsFaixaInicio(f))), borderRadius: 5, maxBarThickness: 36 }] },
+                options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18 } },
+                    scales: { x: axisX({ ticks: { color: C.text3, maxRotation: 45, font: { size: 10 } } }), y: axisY({ ticks: { maxTicksLimit: 5 } }) },
+                    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => faixas[it[0].dataIndex] + ' µg/dL', label: (ctx) => `${fmt(ctx.raw)} colaboradores (${fmt(cur.length ? ctx.raw / cur.length * 100 : 0, 1)}%)` } },
+                        barLabels: { formatter: (i) => [{ text: fmt(cont[i]), color: C.text }] } } }
+            });
+            // Média por setor
+            charts.pbsSetor = new Chart(document.getElementById('chart-pbs-setor'), {
+                type: 'bar',
+                data: { labels: porSetor.map(x => pbsSetorCurto(x.s)), datasets: [{ data: porSetor.map(x => +x.media.toFixed(2)), backgroundColor: porSetor.map(x => setor === 'Todos' || x.s === setor ? pbsCor(x.media) : C.muted), borderRadius: 5, maxBarThickness: 40 }] },
+                options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18 } },
+                    onClick: (e, els) => { if (els.length) { const s = porSetor[els[0].index].s; setTimeout(() => setPbs('setor', setor === s ? 'Todos' : s), 0); } },
+                    onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+                    scales: { x: axisX({ ticks: { color: C.text2, font: { weight: '600', size: 10 }, maxRotation: 45 } }), y: axisY({ ticks: { callback: v => fmt(v, 0) } }) },
+                    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${fmt(ctx.raw, 1)} µg/dL · ${porSetor[ctx.dataIndex].n} colaboradores` } },
+                        barLabels: { formatter: (i) => [{ text: fmt(porSetor[i].media, 1), color: C.text }] } } }
+            });
+        }
+
         // Área a partir da coluna de área (código do Sequor) ou do nome da linha
         const PERDA_AREA_COD = { MONT: 'Montagem', ACAB: 'Acabamento', EMPA: 'Empastamento', INSP: 'Inspeção', XGRA: 'Expansão', LPRO: 'Linha de produção' };
         function perdaArea(areaRaw, linhaRaw) {
@@ -5520,6 +5738,7 @@
             ['Detalhe por linha', ['UGB', 'Meta', 'Dif.']],
             ['Linhas da UGB por turno', ['Produzido', 'Meta/dia']],
             ['Por turno', ['Meta']],
+            ['Colaboradores', ['Matrícula', 'Faixa'], true],
             ['Por UGB', ['Produção']],
             ['Por linha (Pareto)', ['Completa', 'S/ tampa']],
             ['Modelos com defeito', ['Principal falha', 'Linhas']],
@@ -5604,7 +5823,7 @@
             countUp(view); growBars(view);
         }
         // Barra de abas do celular: 4 abas + "Mais"; indicador que desliza até a aba ativa
-        const EXTRA_TABS = [['perdas', 'hourglass', 'Perdas'], ['oee', 'gauge', 'OEE'], ['metas', 'flag', 'Metas'], ['improvements', 'target', 'Projetos'], ['audit', 'database', 'Dados']];
+        const EXTRA_TABS = [['perdas', 'hourglass', 'Perdas'], ['pbs', 'droplet', 'PbS'], ['oee', 'gauge', 'OEE'], ['metas', 'flag', 'Metas'], ['improvements', 'target', 'Projetos'], ['audit', 'database', 'Dados']];
         function setupMobileNav() {
             const nav = document.getElementById('tabs-container');
             if (!nav || document.getElementById('tab-more')) return;
@@ -6286,7 +6505,7 @@
             const errors = [];
             const changedMonths = new Set();
             let imported = 0, importedRows = 0, minD = '', maxD = '';
-            const pendingScrapMonths = [], pendingPerdas = []; let scrapImported = false;
+            const pendingScrapMonths = [], pendingPerdas = [], pendingPbs = []; let scrapImported = false;
 
             for (const file of files) {
                 fc.innerText = `Processando ${file.name}…`;
@@ -6298,6 +6517,18 @@
                         cicloModelos = cy.modelos; cicloLinhas = cy.linhas; cicloMoldes = cy.moldes; cicloFonte = `${file.name} · ${new Date().toLocaleDateString('pt-BR')}`;
                         persist({ config: true });
                         showToast(`Tempo de ciclo importado: ${Object.keys(cy.modelos).length} modelos, ${Object.keys(cy.linhas).length} linhas.`, 'success');
+                        continue;
+                    }
+                    // Planilha de chumbo no sangue (aba PbS): a planilha nova substitui os meses que ela traz
+                    const pb = parsePbsTables(tables);
+                    if (pb) {
+                        if (!pb.rows.length) throw new Error('Nenhum resultado de PbS encontrado na planilha.');
+                        const ms = new Set(pb.rows.map(d => d.m));
+                        const velhos = pbsData.filter(d => ms.has(d.m)).map(d => d.m);
+                        pbsData = pbsData.filter(d => !ms.has(d.m)).concat(pb.rows);
+                        pendingPbs.push(...velhos, ...ms);
+                        if (!fileNames.includes(file.name)) fileNames.push(file.name);
+                        imported++; importedRows += pb.rows.length;
                         continue;
                     }
                     const pd = parsePerdasTables(tables, file.name);
@@ -6394,6 +6625,7 @@
                 const months = [...changedMonths].sort();
                 persist({ config: true, months, scrapMonths: pendingScrapMonths });
                 persistPerdas(pendingPerdas);
+                persistPbs(pendingPbs);
                 const range = minD ? ` · ${fmtDate(minD, { day: '2-digit', month: '2-digit' })} a ${fmtDate(maxD, { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '';
                 showToast(`${imported === 1 ? '1 arquivo importado' : `${imported} arquivos importados`}: ${fmt(importedRows)} registros${range}.`, "success");
             }
