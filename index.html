@@ -6201,8 +6201,8 @@
 
 
         // ===== App instalável e avisos de produção no celular (Web Push) =====
-        // Chave pública VAPID (a privada fica só nas variáveis do Netlify)
-        const VAPID_PUBLIC = 'BPAyPXfgmgm-gAyigmkrSYhead3UJkisrsvVuFGlxUeju-MeE3CGG9LYAPY6oIMndt_omYqte2ggxFc12Zuc8N0';
+        // Chave pública VAPID: o servidor entrega; a privada fica só nas variáveis do Netlify
+        let VAPID_PUBLIC = ''; // vem do Netlify (/api/vapid-publica)
         const pushSuportado = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol === 'https:';
         const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -6238,6 +6238,8 @@
             const perm = await Notification.requestPermission();
             if (perm !== 'granted') { showToast('Permissão negada. Libere as notificações do site nas configurações do navegador.', 'warning'); return; }
             try {
+                if (!atual && !VAPID_PUBLIC) { try { VAPID_PUBLIC = (await (await fetch('/api/vapid-publica', { cache: 'no-store' })).json()).chave || ''; } catch (e) { /* sem servidor */ } }
+                if (!atual && !VAPID_PUBLIC) { showToast('Os avisos ainda não foram configurados no Netlify (chaves VAPID).', 'warning'); return; }
                 const sub = atual || await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
                 const id = (await sha256(sub.endpoint)).slice(0, 40);
                 await setDoc(doc(db, 'dashboard_push', id), { sub: JSON.stringify(sub), aparelho: navigator.userAgent.slice(0, 160), criado: new Date().toISOString() });
