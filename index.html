@@ -1687,6 +1687,13 @@
             });
             ps.modeloOptions = ['Todos', ...Array.from(modelosNoContexto).sort()];
             selectedModelos = keepValid(selectedModelos, ps.modeloOptions, 'Todos');
+            // Com bateria(s) escolhida(s), a lista de linhas mostra só as linhas onde ela(s) rodou(aram) no período
+            if (!selectedModelos.includes('Todos')) {
+                const linhasDoModelo = new Set();
+                rawData.forEach(d => { if (d.maquina && selectedModelos.includes(d.modelo) && periodSet.has(d.date.substring(0, 7)) && inArea(d) && inUgb(d)) linhasDoModelo.add(d.maquina); });
+                ps.machineOptions = ['Todas', ...ps.machineOptions.slice(1).filter(l => linhasDoModelo.has(l))];
+                selectedMachines = keepValid(selectedMachines, ps.machineOptions, 'Todas');
+            }
 
             const filtered = rawData.filter(d =>
                 inArea(d) && inUgb(d) &&
