@@ -3020,14 +3020,14 @@
             // Gráfico das linhas em quadradinhos (funciona no WhatsApp e no e-mail): 10 quadrados = 100% da meta
             const comMeta = m.lines.filter(l => l.pct !== null).sort((a, b) => a.line.localeCompare(b.line, 'pt', { numeric: true }));
             if (comMeta.length) {
-                out.push('', `*Linhas · % da meta* (${comMeta.filter(l => l.pct >= 100).length} de ${comMeta.length} na meta)`);
+                out.push('', `*Linhas · % da meta · saldo em baterias* (${comMeta.filter(l => l.pct >= 100).length} de ${comMeta.length} na meta)`);
                 comMeta.forEach(l => {
                     const ok = l.pct >= 100, n = ok ? 10 : Math.max(0, Math.min(9, Math.floor(l.pct / 10)));
-                    out.push(`${ok ? '✅' : '🔻'} ${l.line} ${(ok ? '🟩' : '🟥').repeat(n)}${'⬜'.repeat(10 - n)} ${fmt(l.pct, 0)}%`);
+                    out.push(`${ok ? '✅' : '🔻'} ${l.line} ${(ok ? '🟩' : '🟥').repeat(n)}${'⬜'.repeat(10 - n)} ${fmt(l.pct, 0)}% · ${signed(l.total - l.meta)}`);
                 });
             }
             const below = m.lines.filter(l => l.pct !== null && l.pct < 100).sort((a, b) => a.pct - b.pct);
-            if (below.length) out.push('', `*Abaixo da meta:* ${[...below].sort((a, b) => (a.total - a.meta) - (b.total - b.meta)).map(l => `${l.line} −${fmt(l.meta - l.total)}`).join(' · ')}`);
+            if (below.length && !comMeta.length) out.push('', `*Abaixo da meta:* ${[...below].sort((a, b) => (a.total - a.meta) - (b.total - b.meta)).map(l => `${l.line} −${fmt(l.meta - l.total)}`).join(' · ')}`);
             if (m.reduced.length) out.push(`_Menos turnos: ${m.reduced.map(r => `${r.line} ${r.turnos.length ? r.turnos.length + 'T' : 'parada'}`).join(', ')}_`);
             if (m.linesNoMeta.length) out.push(`_Sem meta definida: ${m.linesNoMeta.join(', ')}_`);
             if (m.mtd.pct !== null) {
