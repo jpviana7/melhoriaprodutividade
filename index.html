@@ -4122,8 +4122,14 @@
         // "LINHA MONTAGEM 04" -> "LIM04"; "MANUTENCAO MONTAGEM" -> "Manutenção Montagem"
         const pbsSetorCurto = (s) => { const m = String(s).match(/LINHA\s+MONTAGEM\s+(\d+)/i); if (m) return 'LIM' + m[1].padStart(2, '0');
             return String(s).replace(/\s*-\s*MONTAGEM$/i, '').toLowerCase().replace(/manutencao/, 'manutenção').replace(/gerencia/, 'gerência').replace(/(^|\s)\S/g, x => x.toUpperCase()).replace(/\bUgb\b/, 'UGB'); };
-        // Cor por nível (µg/dL)
-        const pbsCor = (v) => v >= 30 ? '#E11D48' : v >= 20 ? '#F59E0B' : v >= 10 ? '#38BDF8' : '#10B981';
+        // Limite de chumbo no sangue (µg/dL): homem 15, mulher 10. "Perto" = a partir de 80% do limite
+        const PBS_LIMITE = { M: 15, F: 10 };
+        const pbsLim = (d) => PBS_LIMITE[d.g === 'F' ? 'F' : 'M'];
+        const pbsAcima = (d) => d.r > pbsLim(d);
+        const pbsPerto = (d) => !pbsAcima(d) && d.r >= pbsLim(d) * 0.8;
+        // Cor de uma pessoa (pelo limite do gênero) ou de uma média/faixa (pelo limite masculino, 15)
+        const pbsCorP = (d) => pbsAcima(d) ? '#E11D48' : pbsPerto(d) ? '#F59E0B' : '#10B981';
+        const pbsCor = (v) => v > 15 ? '#E11D48' : v >= 12 ? '#F59E0B' : '#10B981';
         const pbsFaixaInicio = (f) => { const m = String(f).match(/(\d+(?:,\d+)?)/); return m ? parseFloat(m[1].replace(',', '.')) : 0; };
         window.setPbs = function(k, v) { pbsState[k] = v; destroyCharts(); renderPbsContent(); lucide.createIcons(); };
         window.filterPbsTable = function(v) {
@@ -4150,7 +4156,8 @@
             const cur = pbsData.filter(d => d.m === month && inS(d));
             const prev = prevM ? pbsData.filter(d => d.m === prevM && inS(d)) : [];
             const media = avg(cur), mediaPrev = avg(prev);
-            const n20 = cur.filter(d => d.r >= 20).length, n30 = cur.filter(d => d.r >= 30).length;
+            const acima = cur.filter(pbsAcima), perto = cur.filter(pbsPerto);
+            const acimaPrev = prev.filter(pbsAcima).length;
             const maior = cur.reduce((b, d) => !b || d.r > b.r ? d : b, null);
             const delta = media !== null && mediaPrev ? (media - mediaPrev) / mediaPrev * 100 : null;
             // Último resultado anterior de cada matrícula (para a variação)
@@ -4178,8 +4185,9 @@
                 ${kpiCard({ label: 'Média do mês (µg/dL)', value: media === null ? '—' : fmt(media, 1), accent: media === null ? C.blue : pbsCor(media),
                     sub: delta === null ? `${cur.length} exames` : `<span class="font-semibold ${delta <= 0 ? 'text-emerald-600' : 'text-rose-600'}">${delta > 0 ? '▲ +' : '▼ '}${fmt(delta, 1)}%</span> vs ${esc(shortMonth(prevM))}` })}
                 ${kpiCard({ label: 'Avaliados', value: fmt(new Set(cur.map(d => d.mat)).size), accent: C.blue, sub: `${cur.filter(d => d.g === 'F').length} mulheres · ${cur.filter(d => d.g === 'M').length} homens` })}
-                ${kpiCard({ label: 'Com 20 µg/dL ou mais', value: fmt(n20), accent: '#F59E0B', sub: cur.length ? `${fmt(n20 / cur.length * 100, 1)}% dos avaliados` : '—' })}
-                ${kpiCard({ label: 'Com 30 µg/dL ou mais', value: fmt(n30), accent: '#E11D48', sub: maior ? `Maior: ${fmt(maior.r, 1)} (${esc(maior.faixa)})` : '—', subTone: n30 ? 'bad' : '' })}
+                ${kpiCard({ label: 'Acima do limite', value: fmt(acima.length), accent: '#E11D48', subTone: acima.length ? 'bad' : 'good',
+                    sub: cur.length ? `${fmt(acima.length / cur.length * 100, 1)}% · ${acima.filter(d => d.g === 'M').length} H (>15) · ${acima.filter(d => d.g === 'F').length} M (>10)${prevM ? ` · era ${acimaPrev}` : ''}` : '—' })}
+                ${kpiCard({ label: 'Perto do limite', value: fmt(perto.length), accent: '#F59E0B', sub: `80% a 100% do limite${maior ? ` · maior: ${fmt(maior.r, 1)}` : ''}` })}
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
                 <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-2">
@@ -4202,13 +4210,13 @@
                         ${porSetor.length ? `<li>Setor com maior média: <strong class="text-slate-900">${esc(pbsSetorCurto(porSetor[0].s))}</strong> (${fmt(porSetor[0].media, 1)} µg/dL)</li>
                         <li>Menor média: <strong class="text-slate-900">${esc(pbsSetorCurto(porSetor[porSetor.length - 1].s))}</strong> (${fmt(porSetor[porSetor.length - 1].media, 1)} µg/dL)</li>` : ''}
                         ${prevM ? `<li><strong class="text-rose-600">${subiram.length}</strong> subiram e <strong class="text-emerald-600">${desceram.length}</strong> desceram em relação ao exame anterior.</li>` : ''}
-                        <li>${n30 ? `<strong class="text-rose-600">${n30}</strong> ${n30 === 1 ? 'colaborador' : 'colaboradores'} com 30 µg/dL ou mais.` : 'Nenhum colaborador com 30 µg/dL ou mais.'}</li>
+                        <li>${acima.length ? `<strong class="text-rose-600">${acima.length}</strong> ${acima.length === 1 ? 'colaborador acima' : 'colaboradores acima'} do limite (homem 15 · mulher 10 µg/dL)${(() => { const c = {}; acima.forEach(d => { c[d.setor] = (c[d.setor] || 0) + 1; }); const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return t ? `, mais em <strong class="text-slate-900">${esc(pbsSetorCurto(t[0]))}</strong> (${t[1]})` : ''; })()}.` : 'Nenhum colaborador acima do limite (homem 15 · mulher 10 µg/dL).'}</li>
                         ${media !== null && mediaPrev ? `<li>Média ${media <= mediaPrev ? 'caiu' : 'subiu'} de ${fmt(mediaPrev, 1)} para <strong class="text-slate-900">${fmt(media, 1)}</strong> µg/dL.</li>` : ''}
                     </ul>
                 </section>
             </div>
             <section class="print-break ${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
-                ${sectionHead('Mapa por setor', 'Média de µg/dL por setor e mês · verde < 10 · azul 10–19 · amarelo 20–29 · vermelho 30+', '', 'grid-3x3')}
+                ${sectionHead('Mapa por setor', 'Média de µg/dL por setor e mês · verde < 12 · amarelo 12–15 · vermelho acima de 15 (limite masculino)', '', 'grid-3x3')}
                 <div class="overflow-x-auto custom-scrollbar"><table class="hm-table text-xs">
                     <thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="hm-sticky text-left py-1.5 pr-2">Setor</th>${ultimos.map(m => `<th class="py-1.5 px-0.5 text-center">${esc(shortMonth(m))}</th>`).join('')}</tr></thead>
                     <tbody>${setores.map(s => `<tr><td class="hm-sticky py-0.5 pr-2 font-semibold text-slate-700 whitespace-nowrap">${esc(pbsSetorCurto(s))}</td>${ultimos.map(m => { const v = avg(pbsData.filter(d => d.m === m && d.setor === s));
@@ -4220,7 +4228,7 @@
             const lista = [...cur].sort((a, b) => b.r - a.r);
             html += `
             <section class="print-break ${CARD} p-5 sm:p-6">
-                ${sectionHead('Colaboradores', `${esc(formatMonthName(month))} · do maior para o menor resultado`, isAdmin() ? `<input type="search" value="${esc(st.busca)}" oninput="filterPbsTable(this.value)" placeholder="Buscar nome, matrícula ou setor…" style="max-width:18rem" class="no-print h-9 w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-lg px-3 outline-none focus:border-brand-blue">` : '', 'users')}
+                ${sectionHead('Colaboradores', `${esc(formatMonthName(month))} · do maior para o menor · vermelho = acima do limite (H 15 · M 10)`, isAdmin() ? `<input type="search" value="${esc(st.busca)}" oninput="filterPbsTable(this.value)" placeholder="Buscar nome, matrícula ou setor…" style="max-width:18rem" class="no-print h-9 w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-lg px-3 outline-none focus:border-brand-blue">` : '', 'users')}
                 ${!isAdmin() ? `<p class="text-sm text-slate-500">A lista com os nomes aparece só para quem entra com a senha (botão <strong>Usuário</strong>).</p>` : `
                 <div class="overflow-x-auto custom-scrollbar overflow-y-auto" style="max-height:32rem"><table id="pbs-table" class="w-full text-sm">
                     <thead class="sticky top-0 bg-white"><tr class="text-[11px] uppercase tracking-wider text-slate-400 text-left">
@@ -4228,8 +4236,8 @@
                         <th class="py-2 px-2 font-semibold text-right">µg/dL</th><th class="py-2 px-2 font-semibold">Faixa</th><th class="py-2 px-2 font-semibold text-right">Variação</th></tr></thead>
                     <tbody class="divide-y divide-slate-100">${lista.map(d => { const a = anterior[d.mat]; const dv = a ? d.r - a.r : null;
                         return `<tr data-k="${esc(d.nome + ' ' + d.mat + ' ' + pbsSetorCurto(d.setor))}">
-                            <td class="py-2 px-2 text-slate-800">${esc(d.nome)}</td><td class="py-2 px-2 text-slate-500">${esc(d.mat)}</td><td class="py-2 px-2 text-slate-600 whitespace-nowrap">${esc(pbsSetorCurto(d.setor))}</td>
-                            <td class="py-2 px-2 text-right font-semibold"><span style="white-space:nowrap"><span class="inline-block w-2 h-2 rounded-full" style="margin-right:5px;background:${pbsCor(d.r)}"></span>${fmt(d.r, 1)}</span></td>
+                            <td class="py-2 px-2 text-slate-800">${esc(d.nome)}${d.g === 'F' ? ' <span class="text-[10px] text-slate-400">(F)</span>' : ''}</td><td class="py-2 px-2 text-slate-500">${esc(d.mat)}</td><td class="py-2 px-2 text-slate-600 whitespace-nowrap">${esc(pbsSetorCurto(d.setor))}</td>
+                            <td class="py-2 px-2 text-right font-semibold"><span style="white-space:nowrap"><span class="inline-block w-2 h-2 rounded-full" style="margin-right:5px;background:${pbsCorP(d)}"></span><span class="${pbsAcima(d) ? 'text-rose-600' : ''}">${fmt(d.r, 1)}</span></span></td>
                             <td class="py-2 px-2 text-slate-500 whitespace-nowrap">${esc(d.faixa)}</td>
                             <td class="py-2 px-2 text-right text-xs whitespace-nowrap ${dv === null ? 'text-slate-400' : dv > 0 ? 'text-rose-600' : dv < 0 ? 'text-emerald-600' : 'text-slate-400'}">${dv === null ? '—' : dv === 0 ? '=' : (dv > 0 ? '▲ +' : '▼ ') + fmt(dv, 1)}</td></tr>`; }).join('')}</tbody>
                 </table></div>`}
@@ -4248,7 +4256,8 @@
                 ] },
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                     scales: { x: axisX({ ticks: { color: C.text3, maxRotation: 0, autoSkipPadding: 8 } }), y: axisY({ ticks: { callback: v => fmt(v, 0) } }) },
-                    plugins: { legend: { display: setor !== 'Todos', position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
+                    plugins: { refLines: { h: [{ value: 15, color: '#E11D48', label: 'Limite H 15' }, { value: 10, color: '#F59E0B', label: 'Limite M 10' }] },
+                        legend: { display: setor !== 'Todos', position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
                         tooltip: { ...tooltipStyle, callbacks: { title: (it) => formatMonthName(months[it[0].dataIndex]), label: (ctx) => ctx.raw == null ? null : `${ctx.dataset.label}: ${fmt(ctx.raw, 1)} µg/dL` } } } }
             });
             // Distribuição por faixa
@@ -4256,7 +4265,7 @@
             const cont = faixas.map(f => cur.filter(d => d.faixa === f).length);
             charts.pbsFaixa = new Chart(document.getElementById('chart-pbs-faixa'), {
                 type: 'bar',
-                data: { labels: faixas.map(f => f.replace(/^De /i, '').replace(' até ', '–').replace(/^Apenas /i, '')), datasets: [{ data: cont, backgroundColor: faixas.map(f => pbsCor(pbsFaixaInicio(f))), borderRadius: 5, maxBarThickness: 36 }] },
+                data: { labels: faixas.map(f => f.replace(/^De /i, '').replace(' até ', '–').replace(/^Apenas /i, '')), datasets: [{ data: cont, backgroundColor: faixas.map(f => { const v = pbsFaixaInicio(f); return v >= 15 ? '#E11D48' : v >= 10 ? '#F59E0B' : '#10B981'; }), borderRadius: 5, maxBarThickness: 36 }] },
                 options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18 } },
                     scales: { x: axisX({ ticks: { color: C.text3, maxRotation: 45, font: { size: 10 } } }), y: axisY({ ticks: { maxTicksLimit: 5 } }) },
                     plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => faixas[it[0].dataIndex] + ' µg/dL', label: (ctx) => `${fmt(ctx.raw)} colaboradores (${fmt(cur.length ? ctx.raw / cur.length * 100 : 0, 1)}%)` } },
