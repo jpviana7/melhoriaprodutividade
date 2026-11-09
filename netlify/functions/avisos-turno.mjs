@@ -26,14 +26,14 @@ const val = (v) => {
   if ('timestampValue' in v) return v.timestampValue;
   return null;
 };
-async function getDoc(path) {
+export async function getDoc(path) {
   const r = await fetch(`${BASE}/${path}?key=${API_KEY}`);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`Firestore ${path}: ${r.status}`);
   const j = await r.json();
   return Object.fromEntries(Object.entries(j.fields || {}).map(([k, x]) => [k, val(x)]));
 }
-async function listDocs(col) {
+export async function listDocs(col) {
   const out = []; let tok = '';
   do {
     const r = await fetch(`${BASE}/${col}?key=${API_KEY}&pageSize=100${tok ? `&pageToken=${tok}` : ''}`);
@@ -49,10 +49,10 @@ async function setDoc(path, fields) {
   await fetch(`${BASE}/${path}?key=${API_KEY}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, x]) => [k, enc(x)])) }) });
 }
-const delDoc = (path) => fetch(`${BASE}/${path}?key=${API_KEY}`, { method: 'DELETE' });
+export const delDoc = (path) => fetch(`${BASE}/${path}?key=${API_KEY}`, { method: 'DELETE' });
 
 // Mesmo formato compacto do app (meses grandes)
-function unpackRows(txt) {
+export function unpackRows(txt) {
   if (!txt) return [];
   const o = JSON.parse(txt);
   if (Array.isArray(o)) return o;
@@ -61,15 +61,15 @@ function unpackRows(txt) {
 }
 
 // ---------- Datas no horário local ----------
-const agoraLocal = () => new Date(Date.now() + TZ_OFFSET_H * 3600e3); // campos UTC = hora local
-const ymd = (d) => d.toISOString().slice(0, 10);
-const addDias = (ds, n) => ymd(new Date(Date.parse(ds + 'T12:00:00Z') + n * 86400e3));
-const ddmm = (ds) => `${ds.slice(8, 10)}/${ds.slice(5, 7)}`;
-const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
-const signed = (n) => `${n >= 0 ? '+' : '−'}${fmt(Math.abs(n))}`;
+export const agoraLocal = () => new Date(Date.now() + TZ_OFFSET_H * 3600e3); // campos UTC = hora local
+export const ymd = (d) => d.toISOString().slice(0, 10);
+export const addDias = (ds, n) => ymd(new Date(Date.parse(ds + 'T12:00:00Z') + n * 86400e3));
+export const ddmm = (ds) => `${ds.slice(8, 10)}/${ds.slice(5, 7)}`;
+export const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
+export const signed = (n) => `${n >= 0 ? '+' : '−'}${fmt(Math.abs(n))}`;
 
 // ---------- Metas: mesma regra do app (aba Metas, metas por mês, calendário, turnos da linha) ----------
-function metasDe(cfg) {
+export function metasDe(cfg) {
   const J = (k, def) => { try { return cfg && cfg[k] ? JSON.parse(cfg[k]) : def; } catch (e) { return def; } };
   const metas = J('metas', {}), metasLinha = J('metasLinha', {}), metasMesLinha = J('metasMesLinha', {}), metaHist = J('metaHist', {}), dayPlan = J('dayPlan', {}), turnosLinha = J('turnosLinha', {});
   const reportFor = (month) => { const ms = Object.keys(metas).filter(m => metas[m] && Object.keys(metas[m]).length).sort(); if (!ms.length) return {}; return metas[ms.filter(m => m <= month).pop() || ms[0]]; };
@@ -83,7 +83,7 @@ function metasDe(cfg) {
 }
 
 // Produção da Montagem num dia, por linha e turno (sem duplicados: vale a planilha mais recente de cada dia/linha/turno)
-function producaoDoDia(rows, ds, fileNames) {
+export function producaoDoDia(rows, ds, fileNames) {
   const pos = new Map((fileNames || []).map((n, i) => [n, i]));
   const doDia = rows.filter(d => d && d.date === ds && /^montagem$/i.test(d.area || '') && /^LIM\d+$/.test(d.maquina || '') && Number(d.prod) > 0);
   const best = new Map();
@@ -98,7 +98,7 @@ function producaoDoDia(rows, ds, fileNames) {
 }
 
 // Resumo de um turno (ou do dia inteiro com turnos = ['1','2','3'])
-function resumo(por, ds, turnos, M) {
+export function resumo(por, ds, turnos, M) {
   const linhas = [...new Set([...Object.keys(por)])].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
   let prod = 0, prodComMeta = 0, meta = 0; const porLinha = [];
   linhas.forEach(l => {
@@ -110,12 +110,53 @@ function resumo(por, ds, turnos, M) {
   const abaixo = porLinha.filter(x => x.p < x.m).sort((a, b) => (a.p - a.m) - (b.p - b.m));
   return { prod, meta, pct, naMeta: porLinha.length - abaixo.length, comMeta: porLinha.length, abaixo };
 }
-const linhaAbaixo = (r) => r.abaixo.length ? `Abaixo: ${r.abaixo.slice(0, 4).map(x => `${x.l} ${signed(x.p - x.m)}`).join(' · ')}${r.abaixo.length > 4 ? ` +${r.abaixo.length - 4}` : ''}` : 'Todas as linhas na meta 👏';
+export const linhaAbaixo = (r) => r.abaixo.length ? `Abaixo: ${r.abaixo.slice(0, 4).map(x => `${x.l} ${signed(x.p - x.m)}`).join(' · ')}${r.abaixo.length > 4 ? ` +${r.abaixo.length - 4}` : ''}` : 'Todas as linhas na meta 👏';
+
+// Monta os avisos de um dia: turnos pedidos e, se 'dia' estiver em tipos, o fechamento
+export function montarAvisos(rows, ds, cfg, tipos, prefixo = '') {
+  const M = metasDe(cfg), por = producaoDoDia(rows, ds, Array.isArray(cfg.fileNames) ? cfg.fileNames : []);
+  const out = [];
+  tipos.filter(t => t !== 'dia').forEach(t => {
+    if (!Object.values(por).some(x => x[t] > 0)) return;
+    const r = resumo(por, ds, [t], M), ok = r.pct !== null && r.pct >= 100;
+    out.push({ key: `${ds}|T${t}`, title: `${prefixo}${ok ? '✅' : '🔻'} T0${t} · ${ddmm(ds)}: ${fmt(r.prod)} peças${r.pct !== null ? ` (${Math.round(r.pct)}%)` : ''}`,
+      body: `${r.comMeta ? `${r.naMeta} de ${r.comMeta} linhas na meta · ` : ''}${linhaAbaixo(r)}`, url: `./?tab=bomdia&dia=${ds}&turno=${t}` });
+  });
+  if (tipos.includes('dia') && Object.keys(por).length) {
+    const d = resumo(por, ds, TURNOS, M), okd = d.pct !== null && d.pct >= 100;
+    const porT = TURNOS.map(t => `T0${t} ${fmt(Object.values(por).reduce((s, x) => s + (x[t] || 0), 0))}`).join(' · ');
+    out.push({ key: `${ds}|DIA`, title: `${prefixo}${okd ? '✅' : '🔻'} Fechamento ${ddmm(ds)}: ${fmt(d.prod)} peças${d.pct !== null ? ` (${Math.round(d.pct)}%)` : ''}`,
+      body: `${porT}${d.meta ? ` · saldo ${signed(d.prod - d.meta)}` : ''}\n${d.comMeta ? `${d.naMeta} de ${d.comMeta} linhas na meta · ` : ''}${linhaAbaixo(d)}`, url: `./?tab=bomdia&dia=${ds}` });
+  }
+  return out;
+}
+export async function lerProducao(meses) {
+  let rows = [];
+  for (const m of meses) { const d = await getDoc(`dashboard_raw_data/${m}`); if (d && d.data) rows = rows.concat(unpackRows(d.data)); }
+  return rows;
+}
+export function configurarVapid() {
+  const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY;
+  if (!pub || !priv) return false;
+  webpush.setVapidDetails((process.env.VAPID_SUBJECT || 'mailto:avisos@example.com').replace(/\s|<|>/g, ''), pub, priv);
+  return true;
+}
+// Envia a todos os aparelhos inscritos; tira da lista os que não existem mais
+export async function enviar(avisos) {
+  const subs = await listDocs('dashboard_push');
+  let ok = 0, removidos = 0;
+  for (const a of avisos) {
+    for (const s of subs) {
+      let sub; try { sub = JSON.parse(s.sub); } catch (e) { continue; }
+      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: a.key }), { TTL: 6 * 3600 }); ok++; }
+      catch (e) { if (e.statusCode === 404 || e.statusCode === 410) { await delDoc(`dashboard_push/${s.id}`); removidos++; } else console.log('push', e.statusCode, e.body); }
+    }
+  }
+  return { ok, removidos, aparelhos: subs.length };
+}
 
 export default async () => {
-  const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv) { console.log('VAPID não configurado'); return new Response('sem VAPID'); }
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:avisos@example.com', pub, priv);
+  if (!configurarVapid()) { console.log('VAPID não configurado'); return new Response('sem VAPID'); }
 
   const agora = agoraLocal(), hoje = ymd(agora), h = agora.getUTCHours() + agora.getUTCMinutes() / 60;
   // Turnos que já terminaram e ainda podem ser avisados (até 6 h depois do fim)
@@ -138,42 +179,13 @@ export default async () => {
   const prontos = falta.filter(p => chegada >= p.fim);
   if (!prontos.length) return new Response('aguardando dados');
 
-  const M = metasDe(cfg);
-  const fileNames = Array.isArray(cfg.fileNames) ? cfg.fileNames : [];
-  const meses = [...new Set(prontos.map(p => p.ds.slice(0, 7)))];
-  let rows = [];
-  for (const m of meses) { const d = await getDoc(`dashboard_raw_data/${m}`); if (d && d.data) rows = rows.concat(unpackRows(d.data)); }
-
-  const avisos = [];
-  for (const p of prontos) {
-    const por = producaoDoDia(rows, p.ds, fileNames);
-    const temTurno = Object.values(por).some(x => x[p.t] > 0);
-    if (!temTurno) continue; // ainda não chegou a produção deste turno
-    const r = resumo(por, p.ds, [p.t], M);
-    const ok = r.pct !== null && r.pct >= 100;
-    avisos.push({ key: `${p.ds}|T${p.t}`, title: `${ok ? '✅' : '🔻'} T0${p.t} · ${ddmm(p.ds)}: ${fmt(r.prod)} peças${r.pct !== null ? ` (${Math.round(r.pct)}%)` : ''}`,
-      body: `${r.comMeta ? `${r.naMeta} de ${r.comMeta} linhas na meta · ` : ''}${linhaAbaixo(r)}`, url: `./?tab=bomdia&dia=${p.ds}&turno=${p.t}` });
-    if (p.t === '3') { // fechamento do dia anterior
-      const d = resumo(por, p.ds, TURNOS, M), okd = d.pct !== null && d.pct >= 100;
-      const porT = TURNOS.map(t => `T0${t} ${fmt(Object.values(por).reduce((s, x) => s + (x[t] || 0), 0))}`).join(' · ');
-      avisos.push({ key: `${p.ds}|DIA`, title: `${okd ? '✅' : '🔻'} Fechamento ${ddmm(p.ds)}: ${fmt(d.prod)} peças${d.pct !== null ? ` (${Math.round(d.pct)}%)` : ''}`,
-        body: `${porT}${d.meta ? ` · saldo ${signed(d.prod - d.meta)}` : ''}\n${d.comMeta ? `${d.naMeta} de ${d.comMeta} linhas na meta · ` : ''}${linhaAbaixo(d)}`, url: `./?tab=bomdia&dia=${p.ds}` });
-    }
-  }
+  const rows = await lerProducao([...new Set(prontos.map(p => p.ds.slice(0, 7)))]);
+  const avisos = prontos.flatMap(p => montarAvisos(rows, p.ds, cfg, p.t === '3' ? ['3', 'dia'] : [p.t]));
   if (!avisos.length) return new Response('sem produção do turno ainda');
-
-  const subs = await listDocs('dashboard_push');
-  let ok = 0, removidos = 0;
-  for (const a of avisos) {
-    for (const s of subs) {
-      let sub; try { sub = JSON.parse(s.sub); } catch (e) { continue; }
-      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: a.key }), { TTL: 6 * 3600 }); ok++; }
-      catch (e) { if (e.statusCode === 404 || e.statusCode === 410) { await delDoc(`dashboard_push/${s.id}`); removidos++; } else console.log('push', e.statusCode, e.body); }
-    }
-    enviados[a.key] = new Date().toISOString();
-  }
+  const res = await enviar(avisos);
+  avisos.forEach(a => { enviados[a.key] = new Date().toISOString(); });
   // guarda só os últimos 60 registros
   const keep = Object.fromEntries(Object.entries(enviados).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 60));
   await setDoc('dashboard_config/avisos', { enviados: JSON.stringify(keep) });
-  return new Response(`avisos: ${avisos.map(a => a.key).join(', ')} · entregas ${ok} · removidos ${removidos}`);
+  return new Response(`avisos: ${avisos.map(a => a.key).join(', ')} · entregas ${res.ok} · removidos ${res.removidos}`);
 };
