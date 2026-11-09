@@ -1,14 +1,14 @@
 // Teste dos avisos: abra /api/aviso-teste no navegador. Manda a todos os aparelhos com o sino ativado
 // o fechamento do último dia com produção (ou de ?dia=AAAA-MM-DD) e os turnos desse dia, marcados como TESTE.
 // Não mexe no registro dos avisos automáticos.
-import { configurarVapid, getDoc, lerProducao, montarAvisos, enviar, agoraLocal, ymd, addDias, producaoDoDia } from './avisos-turno.mjs';
+import { env, configurarVapid, getDoc, lerProducao, montarAvisos, enviar, agoraLocal, ymd, addDias, producaoDoDia } from './avisos-turno.mjs';
 
 export const config = { path: '/api/aviso-teste' };
 
 export default async (req) => {
   if (!configurarVapid()) {
-    const falta = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'].filter(k => !process.env[k]);
-    return new Response(`As variáveis VAPID não chegaram a esta função. Faltando: ${falta.join(', ')}.\nConfira o valor de Production de cada uma e publique de novo (Deploys → Trigger deploy → Clear cache and deploy site).`,
+    const falta = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'].filter(k => !env(k));
+    return new Response(`As variáveis VAPID não chegaram a esta função. Faltando: ${falta.join(', ')}.\nDiagnóstico: contexto=${env('CONTEXT') || '?'} · site=${env('SITE_NAME') || env('URL') || '?'} · VAPID vistas=${Object.keys(process.env).filter(k => /VAPID/i.test(k)).join(', ') || 'nenhuma'}.\nConfira o valor de Production de cada uma e publique de novo (Deploys → Trigger deploy → Clear cache and deploy site).`,
       { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
   const pedido = new URL(req.url).searchParams.get('dia');
