@@ -5,6 +5,9 @@
 // Variáveis no Netlify: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (ex.: mailto:alguem@empresa.com).
 import webpush from 'web-push';
 
+// Variáveis do Netlify: nas funções novas ficam em Netlify.env; process.env fica como reserva
+export const env = (k) => { try { const v = globalThis.Netlify && globalThis.Netlify.env && globalThis.Netlify.env.get(k); if (v) return v; } catch (e) { /* */ } return process.env[k]; };
+
 export const config = { schedule: '*/10 * * * *' };
 
 const PROJECT = 'producao-252be';
@@ -136,9 +139,9 @@ export async function lerProducao(meses) {
   return rows;
 }
 export function configurarVapid() {
-  const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY;
+  const pub = env('VAPID_PUBLIC_KEY'), priv = env('VAPID_PRIVATE_KEY');
   if (!pub || !priv) return false;
-  webpush.setVapidDetails((process.env.VAPID_SUBJECT || 'mailto:avisos@example.com').replace(/\s|<|>/g, ''), pub, priv);
+  webpush.setVapidDetails((env('VAPID_SUBJECT') || 'mailto:avisos@example.com').replace(/\s|<|>/g, ''), pub, priv);
   return true;
 }
 // Envia a todos os aparelhos inscritos; tira da lista os que não existem mais
