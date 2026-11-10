@@ -646,6 +646,7 @@
             /* UGBs numa grade fixa (sem rolar para o lado) */
             #ugb-buttons { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; overflow: visible; margin: 0; padding: 0; width: 100%; }
             #ugb-buttons > button { height: 2.5rem; padding: 0 .25rem; font-weight: 600; white-space: nowrap; }
+            #ugb-buttons > button:first-child:nth-last-child(4n + 3) { grid-column: span 2; } /* sobra uma casa na grade: "Todas" ocupa duas */
             [id^="pdd-"]:not(.hide), [id^="sdd-"]:not(.hidden):not(.hide), #oee-dd-month:not(.hide), .dd-list { bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
         }
     </style>
@@ -2047,7 +2048,7 @@
             const ugbSet = new Set();
             rawData.forEach(d => { if (inArea(d) && d.ugb) ugbSet.add(d.ugb); });
             ps.ugbOptions = [...ugbSet].sort((a, b) => (a === 'Sem UGB') - (b === 'Sem UGB') || a.localeCompare(b));
-            if (selectedUgb !== 'Todas' && !ugbSet.has(selectedUgb)) selectedUgb = 'Todas';
+            if (selectedUgb !== 'Todas' && (!ugbSet.has(selectedUgb) || selectedUgb === 'Sem UGB')) selectedUgb = 'Todas'; // 'Sem UGB' não é mais opção de filtro
             const inUgb = (d) => selectedUgb === 'Todas' || d.ugb === selectedUgb;
             ps.lineUgb = {};
             rawData.forEach(d => {
@@ -2510,7 +2511,7 @@
             const showUgb = ps.ugbOptions.length > 1 || (ps.ugbOptions.length === 1 && ps.ugbOptions[0] !== 'Sem UGB');
             document.getElementById('ugb-row').classList.toggle('hide', !showUgb);
             if (showUgb) {
-                document.getElementById('ugb-buttons').innerHTML = ['Todas', ...ps.ugbOptions].map(u => {
+                document.getElementById('ugb-buttons').innerHTML = ['Todas', ...ps.ugbOptions.filter(u => u !== 'Sem UGB')].map(u => {
                     const on = selectedUgb === u;
                     return `<button data-ugb="${esc(u)}" onclick="setUgb(this.dataset.ugb)" class="h-8 px-3 rounded-lg text-sm font-medium transition-colors ${on
                         ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'}"><span class="hidden sm:inline">${u === 'Todas' ? 'Todas as UGBs' : esc(u)}</span><span class="sm:hidden">${u === 'Todas' ? 'Todas' : esc(u.replace(/^Montagem\s*/, 'M'))}</span></button>`;
