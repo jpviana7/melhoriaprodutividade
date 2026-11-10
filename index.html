@@ -4730,14 +4730,14 @@
         const cicloOf = (line, modelo) => { const mo = cicloModelos[normStr(modelo)]; const v = mo ? (cicloLinhas[line] || {})[normStr(mo)] : null; return v > 0 ? v : null; };
         const temCiclo = () => Object.keys(cicloLinhas).length > 0;
 
-        function oeeCompute() {
+        function oeeCompute(mesesForcados = null) {
             const st = oeeState;
             const montPerdas = perdasData.filter(d => d.date && d.area === 'Montagem' && /^LIM\d+$/.test(d.linha));
             const montProd = rawData.filter(d => isMontagem(d.area) && /^LIM\d+$/.test(d.maquina) && TURNOS_BASE.includes(String(d.turno)));
             const monthsP = new Set(montPerdas.map(d => d.date.slice(0, 7)));
             const months = [...new Set(montProd.map(d => d.date.slice(0, 7)))].filter(m => monthsP.has(m)).sort();
             if (!months.length) return { months, empty: true };
-            const M = st.months.filter(m => months.includes(m)).sort();
+            const M = (mesesForcados || st.months).filter(m => months.includes(m)).sort();
             const sel = M.length ? M : [months[months.length - 1]];
             const inSel = (ds) => sel.includes(ds.slice(0, 7));
             const okLine = (l) => (st.ugb === 'Todas' || ugbOf({ area: 'Montagem', maquina: l }) === st.ugb) && (st.linha === 'Todas' || l === st.linha);
@@ -4866,15 +4866,13 @@
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(mName)} · ${esc(escopo)}${st.turno !== 'Todos' ? ' · Turno ' + st.turno.padStart(2, '0') : ''}</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Desempenho pelo ${R.usaCiclo ? `<strong>tempo de ciclo</strong> (${fmt(R.cobertura * 100, 0)}% da produção com ciclo cadastrado; o resto usa o ritmo da meta)` : '<strong>ritmo da meta</strong> (meta do turno ÷ 8 h)'}</p></div>
                     <div class="no-print flex flex-wrap items-center gap-2">
-                        <div class="oee-dd relative"><button onclick="oeeDD()" class="h-9 min-w-[10rem] px-3 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm flex items-center justify-between gap-2 hover:border-brand-blue">${esc(st.months.length ? (st.months.length === 1 ? formatMonthName(st.months[0]) : st.months.length + ' meses') : 'Último mês (' + MONTH_NAMES[+R.sel[0].slice(5, 7) - 1] + ')')}<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i></button>
-                            <div id="oee-dd-month" class="hide absolute right-0 z-30 mt-1 min-w-[12rem] rounded-xl border border-slate-200 bg-white shadow-lg p-1">
-                                <button onclick="setOee('month', '__ultimo')" class="w-full text-left px-2.5 py-1.5 rounded-lg text-sm hover:bg-slate-50 ${!st.months.length ? 'font-semibold text-slate-900' : 'text-slate-700'}">Último mês</button>
-                                ${[...R.months].reverse().map(m => `<button onclick="setOee('month', '${m}')" class="w-full text-left px-2.5 py-1.5 rounded-lg text-sm hover:bg-slate-50 flex items-center gap-2 ${st.months.includes(m) ? 'font-semibold text-slate-900' : 'text-slate-700'}"><span class="w-4">${st.months.includes(m) ? '✓' : ''}</span>${esc(formatMonthName(m))}</button>`).join('')}
-                            </div></div>
                         ${seg('turno', [['Todos', 'Todos'], ['1', 'T01'], ['2', 'T02'], ['3', 'T03']])}
                     </div>
                 </div>
-                <div class="no-print chip-row flex flex-wrap gap-2 mt-4">${['Todas', ...ugbs].map(u => `<button data-u="${esc(u)}" onclick="setOee('ugb', this.dataset.u)" class="h-9 px-3 rounded-lg text-sm font-semibold ${st.ugb === u ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${u === 'Todas' ? 'Toda a Montagem' : esc(u)}</button>`).join('')}</div>
+                <div class="no-print mt-4"><p class="filter-label mb-1.5">Mês <span class="normal-case font-normal tracking-normal text-slate-400">· toque em mais de um para somar</span></p>
+                    <div class="chip-row flex flex-wrap gap-1.5"><button onclick="setOee('month', '__ultimo')" class="h-8 px-3 rounded-full text-xs font-semibold ${!st.months.length ? 'bg-brand-navy text-white' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'}">Último mês</button>
+                    ${[...R.months].reverse().map(m => { const on = st.months.includes(m) || (!st.months.length && R.sel.includes(m)); return `<button onclick="setOee('month', '${m}')" class="h-8 px-3 rounded-full text-xs font-semibold ${on ? (st.months.length ? 'bg-brand-navy text-white' : 'bg-brand-blue/10 text-brand-navy ring-1 ring-inset ring-brand-blue/30') : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'}">${esc(shortMonth(m))}</button>`; }).join('')}</div></div>
+                <div class="no-print chip-row flex flex-wrap gap-2 mt-3">${['Todas', ...ugbs].map(u => `<button data-u="${esc(u)}" onclick="setOee('ugb', this.dataset.u)" class="h-9 px-3 rounded-lg text-sm font-semibold ${st.ugb === u ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${u === 'Todas' ? 'Toda a Montagem' : esc(u)}</button>`).join('')}</div>
                 <div class="no-print chip-row flex flex-wrap gap-1.5 mt-2">${['Todas', ...lineOpts].map(l => `<button data-l="${esc(l)}" onclick="setOee('linha', this.dataset.l)" class="h-8 px-2.5 rounded-lg text-xs font-semibold ${st.linha === l ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'}">${l === 'Todas' ? 'Todas as linhas' : esc(l)}</button>`).join('')}</div>
                 <div class="no-print flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 text-sm text-slate-600">
                     <label class="flex items-center gap-2"><input type="checkbox" ${st.planejadas ? 'checked' : ''} onchange="setOee('planejadas', this.checked)"> Paradas planejadas não contam como perda</label>
@@ -4927,6 +4925,11 @@
                 </section>
             </div>
 
+            ${R.months.length > 1 ? `<section class="print-break ${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
+                ${sectionHead('Evolução mensal', `${esc(escopo)}${st.turno !== 'Todos' ? ' · Turno ' + st.turno.padStart(2, '0') : ''} · OEE e os três fatores, mês a mês · toque num mês para abri-lo`, '', 'trending-up')}
+                <div class="chart-box h-72"><canvas id="chart-oee-evol"></canvas></div>
+            </section>` : ''}
+
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
                 <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-2">
                     ${sectionHead('Onde o OEE se perde', 'Dos 100% possíveis até o OEE: quanto cada fator tirou (pontos percentuais)', '', 'bar-chart-3')}
@@ -4958,6 +4961,23 @@
             </section>
 `;
             if (!window.Chart) return;
+            // Evolução mensal (mesmos filtros de UGB, linha e turno)
+            if (R.months.length > 1 && document.getElementById('chart-oee-evol')) {
+                const ev = R.months.map(m => ({ m, t: oeeCompute([m]).total }));
+                const pc = (v) => v === null || !Number.isFinite(v) ? null : +(v * 100).toFixed(1);
+                const ds = (label, key, cor, w, dash) => ({ label, data: ev.map(e => pc(key === 'P' ? (e.t.P === null ? null : Math.min(e.t.P, 1)) : e.t[key])), borderColor: cor, backgroundColor: cor, borderWidth: w, borderDash: dash || [], pointRadius: key === 'OEE' ? ev.map(e => R.sel.includes(e.m) ? 6 : 3.5) : 2, pointHoverRadius: 6, tension: 0.3, spanGaps: true, fill: false });
+                charts.oeeEvol = new Chart(document.getElementById('chart-oee-evol'), {
+                    type: 'line',
+                    data: { labels: ev.map(e => shortMonth(e.m)), datasets: [ds('OEE', 'OEE', C.navy, 3), ds('Disponibilidade', 'A', '#38BDF8', 1.5, [4, 3]), ds('Desempenho', 'P', '#F59E0B', 1.5, [4, 3]), ds('Qualidade', 'Q', '#10B981', 1.5, [4, 3])] },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 8 } },
+                        onClick: (e, els) => { if (els.length) { const m = ev[els[0].index].m; oeeState.months = [m]; setTimeout(() => { destroyCharts(); renderOeeContent(); lucide.createIcons(); }, 0); } },
+                        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+                        scales: { x: axisX({ ticks: { color: C.text3 } }), y: axisY({ beginAtZero: false, suggestedMin: 30, max: 100, ticks: { callback: v => v + '%', maxTicksLimit: 6 } }) },
+                        plugins: { legend: { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 14, font: { size: 11 } } },
+                            refLines: { h: [{ value: st.meta, color: '#94a3b8', label: 'Referência ' + fmt(st.meta, 0) + '%' }] },
+                            tooltip: { ...tooltipStyle, callbacks: { title: (it) => formatMonthName(ev[it[0].dataIndex].m), label: (c) => c.raw == null ? null : `${c.dataset.label}: ${fmt(c.raw, 1)}%` } } } }
+                });
+            }
             // Cascata: 100% → − disponibilidade → − desempenho → − qualidade → OEE
             const cur1 = 1, cur2 = cur1 - perdaA, cur3 = cur2 - perdaP, cur4 = cur3 - perdaQ;
             const etapas = [['Possível', [0, 1], '#94a3b8'], ['− Disponibilidade', [cur2, cur1], '#38BDF8'], ['− Desempenho', [cur3, cur2], '#F59E0B'], ['− Qualidade', [cur4, cur3], '#E11D48'], ['OEE', [0, cur4], toneHex(T.OEE, meta)]];
