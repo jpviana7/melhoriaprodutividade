@@ -130,6 +130,12 @@
         @media (max-width: 900px) { .oee-filtros { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 520px) { .oee-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .oee-dd-ativo { border-color: #006FB9 !important; box-shadow: inset 0 0 0 1px #006FB9; }
+        .sc-filt > div { min-width: 9.5rem; }
+        @media (max-width: 640px) { .sc-filt > div { min-width: 0; } }
+        .fx-grid { display: grid; gap: .625rem; }
+        .fx-grid3 { grid-template-columns: repeat(3, minmax(0, 13rem)); }
+        .fx-grid2 { grid-template-columns: repeat(2, minmax(0, 15rem)); }
+        @media (max-width: 640px) { .fx-grid3, .fx-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         /* Assistente */
         #ast-fab { position: fixed; right: 20px; bottom: 20px; z-index: 65; display: inline-flex; align-items: center; gap: .5rem; height: 44px; padding: 0 1rem; border-radius: 999px;
             background: #1B2F88; color: #fff; font-size: .875rem; font-weight: 600; box-shadow: 0 10px 28px -8px rgba(27,47,136,.6); transition: transform .15s, box-shadow .2s; }
@@ -200,7 +206,6 @@
             .sc-filt { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .625rem !important; }
             .sc-filt > .sdd { min-width: 0; }
             .sc-filt > .sdd > button { width: 100%; min-width: 0 !important; }
-            .sc-filt > .sdd:nth-child(5) { grid-column: 1 / -1; }
             .sc-filt > button { grid-column: 1 / -1; }
             /* Tabelas: rolam dentro do cartão (nunca a página) e com menos folga entre colunas */
             div:has(> table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -3537,7 +3542,7 @@
 
         // --- Aba Gestão por UGB: acumulado do mês de uma UGB, por turno e por linha ---
         let gestaoUgb = null, gestaoTurno = null, gestaoLinha = null;
-        window.setGestao = function(field, v) { if (field === 'ugb') { gestaoUgb = v; gestaoLinha = null; } else if (field === 'linha') gestaoLinha = v === gestaoLinha ? null : v; else gestaoTurno = v === gestaoTurno ? null : v; destroyCharts(); renderGestaoContent(); lucide.createIcons(); };
+        window.setGestao = function(field, v) { if (field === 'ugb') { gestaoUgb = v; gestaoLinha = null; } else if (field === 'linha') gestaoLinha = v; else gestaoTurno = v; destroyCharts(); renderGestaoContent(); lucide.createIcons(); };
         // Acumulado até `date` (dias válidos) para um conjunto de linhas e turnos (sel = null: todos)
         function mtdFor(lines, date, sel) {
             const month = date.slice(0, 7);
@@ -3644,14 +3649,10 @@
                         <button onclick="shiftBomDia(1)" ${idx === days.length - 1 ? 'disabled' : ''} class="icon-btn h-10 w-10 justify-center disabled:opacity-40" aria-label="Dia seguinte"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
                     </div>
                 </div>
-                <div class="no-print chip-row flex flex-wrap gap-2 mt-4">${ugbs.map(u => `<button data-u="${esc(u)}" onclick="setGestao('ugb', this.dataset.u)" class="h-10 px-4 rounded-xl text-sm font-semibold ${u === gestaoUgb ? 'bg-brand-navy text-white' : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-100'}">${esc(u)}</button>`).join('')}</div>
-                <div class="no-print chip-row flex flex-wrap items-center gap-2 mt-3"><span class="filter-label mr-1">Linha</span>
-                    <button onclick="setGestao('linha', null)" class="h-8 px-3 rounded-lg text-sm font-medium ${!gestaoLinha ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">Todas</button>
-                    ${linhasUgb.map(l => `<button onclick="setGestao('linha', '${l}')" class="h-8 px-3 rounded-lg text-sm font-medium ${gestaoLinha === l ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">${esc(l)}</button>`).join('')}
-                </div>
-                <div class="no-print chip-row flex flex-wrap items-center gap-2 mt-3"><span class="filter-label mr-1">Turno</span>
-                    <button onclick="setGestao('turno', null)" class="h-8 px-3 rounded-lg text-sm font-medium ${!gestaoTurno ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">Todos</button>
-                    ${TURNOS_BASE.map(t => `<button onclick="setGestao('turno', '${t}')" class="h-8 px-3 rounded-lg text-sm font-medium ${gestaoTurno === t ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">${tLabel(t)}</button>`).join('')}
+                <div class="no-print fx-grid fx-grid3 mt-4">
+                    ${fxDD('g-ugb', 'UGB', gestaoUgb, ugbs.map(u => fxOpt(`setGestao('ugb', '${u}')`, u === gestaoUgb, u)).join(''))}
+                    ${fxDD('g-linha', 'Linha', gestaoLinha || 'Todas', fxOpt(`setGestao('linha', null)`, !gestaoLinha, 'Todas', true) + linhasUgb.map(l => fxOpt(`setGestao('linha', '${l}')`, gestaoLinha === l, l)).join(''), !!gestaoLinha)}
+                    ${fxDD('g-turno', 'Turno', gestaoTurno ? 'Turno ' + gestaoTurno.padStart(2, '0') : 'Todos', fxOpt(`setGestao('turno', null)`, !gestaoTurno, 'Todos', true) + TURNOS_BASE.map(t => fxOpt(`setGestao('turno', '${t}')`, gestaoTurno === t, 'Turno ' + t.padStart(2, '0'))).join(''), !!gestaoTurno)}
                 </div>
             </section>
             <section class="${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
@@ -3881,15 +3882,15 @@
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">Scrap · Montagem</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(mName)}${st.ugb !== 'Todas' ? ` · ${esc(st.ugb)}` : ''}${st.lines.length ? ` · ${esc(st.lines.join(', '))}` : ''}${st.turnos.length ? ` · ${esc(st.turnos.map(t => t === 'Sem turno' ? t : 'T' + t.padStart(2, '0')).join(', '))}` : ''}${st.modelos.length ? ` · ${st.modelos.length === 1 ? esc(st.modelos[0]) : st.modelos.length + ' modelos'}` : ''}</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Taxa = scrap ÷ produção (peças OK) do mesmo período, UGB, linha e turno</p></div>
+</div>
                     <div class="sc-ctrl no-print flex flex-wrap items-center gap-2">
-                        ${seg('tipo', [['total', 'Total'], ['completa', 'Bateria completa'], ['semtampa', 'Sem tampa']])}
                         ${seg('unit', [['pct', '%'], ['ppm', 'PPM']])}
                         <button onclick="exportScrapExcel()" class="icon-btn h-9" title="Baixar os dados filtrados em Excel"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Excel</button>
                     </div>
                 </div>
-                <div class="no-print chip-row flex flex-wrap gap-2 mt-4">${['Todas', ...ugbsAll].map(u => `<button data-u="${esc(u)}" onclick="toggleScrap('ugb', this.dataset.u)" class="h-9 px-3 rounded-lg text-sm font-semibold ${st.ugb === u ? 'bg-brand-navy text-white' : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-100'}">${u === 'Todas' ? 'Toda a Montagem' : esc(u)}</button>`).join('')}</div>
                 <div class="sc-filt no-print flex flex-wrap items-end gap-3 mt-4">
+                    ${fxDD('s-tipo', 'Tipo', { total: 'Total', completa: 'Bateria completa', semtampa: 'Sem tampa' }[st.tipo], [['total', 'Total'], ['completa', 'Bateria completa'], ['semtampa', 'Sem tampa']].map(([v, l]) => fxOpt(`setScrap('tipo', '${v}')`, st.tipo === v, l, v === 'total')).join(''), st.tipo !== 'total')}
+                    ${fxDD('s-ugb', 'UGB', st.ugb === 'Todas' ? 'Toda a Montagem' : st.ugb, ['Todas', ...ugbsAll].map(u => fxOpt(`setScrap('ugb', '${u}')`, st.ugb === u, u === 'Todas' ? 'Toda a Montagem' : u, u === 'Todas')).join(''), st.ugb !== 'Todas')}
                     ${sdd('year', 'Ano', viewYear, years.map(y => sddItem(`setScrapYear('${y}')`, y === viewYear, y, true)).join(''))}
                     ${sdd('month', 'Mês', !st.months.length ? 'Último (' + MONTH_NAMES[+month.slice(5, 7) - 1] + ')' : M.length === 1 ? MONTH_NAMES[+month.slice(5, 7) - 1] : mName.startsWith('Ano') ? 'Ano inteiro' : M.length + ' meses',
                         sddItem("setScrap('month', 'Todas')", !st.months.length, 'Último mês', true) + [...months].reverse().filter(m => m.startsWith(viewYear)).map(m => sddItem(`toggleScrap('month', '${m}')`, st.months.includes(m), MONTH_NAMES[+m.slice(5, 7) - 1])).join(''))}
@@ -4279,12 +4280,13 @@
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">PbS · Chumbo no sangue</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(formatMonthName(month))}${setor !== 'Todos' ? ` · ${esc(pbsSetorCurto(setor))}` : ''}</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Resultados em µg/dL · valor estimado pelo meio da faixa do exame</p></div>
-                    <select onchange="setPbs('month', this.value)" class="no-print h-10 bg-white border border-slate-200 text-slate-900 text-sm rounded-xl px-3 outline-none focus:border-brand-blue">
-                        ${[...months].reverse().map(m => `<option value="${m}" ${m === month ? 'selected' : ''}>${esc(formatMonthName(m))}</option>`).join('')}
-                    </select>
+</div>
+
                 </div>
-                <div class="no-print chip-row flex flex-wrap gap-2 mt-4">${['Todos', ...setores].map(s => `<button data-s="${esc(s)}" onclick="setPbs('setor', this.dataset.s)" class="h-9 px-3 rounded-lg text-sm font-semibold ${setor === s ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${s === 'Todos' ? 'Toda a Montagem' : esc(pbsSetorCurto(s))}</button>`).join('')}</div>
+                <div class="no-print fx-grid fx-grid2 mt-4">
+                    ${fxDD('p-mes', 'Mês', formatMonthName(month), [...months].reverse().map(m => fxOpt(`setPbs('month', '${m}')`, m === month, formatMonthName(m))).join(''))}
+                    ${fxDD('p-setor', 'Setor', setor === 'Todos' ? 'Toda a Montagem' : pbsSetorCurto(setor), ['Todos', ...setores].map(x => fxOpt(`setPbs('setor', '${x}')`, setor === x, x === 'Todos' ? 'Toda a Montagem' : pbsSetorCurto(x), x === 'Todos')).join(''), setor !== 'Todos')}
+                </div>
             </section>
             <div class="kpi-grid grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 ${kpiCard({ label: 'Média do mês (µg/dL)', value: media === null ? '—' : fmt(media, 1), accent: media === null ? C.blue : pbsCor(media),
@@ -6583,6 +6585,15 @@
             history.replaceState(null, '', location.pathname);
         })();
 
+
+        // Listas de filtro simples (usadas em Gestão, Scrap e PbS): botão + lista; fecha ao escolher ou ao tocar fora
+        const fxOpt = (acao, on, label, all = false) => `<label class="dd-option ${all ? 'is-all' : ''}" onclick="event.preventDefault(); fxFechar(); ${acao}"><input type="radio" ${on ? 'checked' : ''} tabindex="-1"><span>${esc(label)}</span></label>`;
+        const fxDD = (id, titulo, resumo, itens, ativo = false) => `<div class="flex flex-col gap-1 min-w-0"><span class="filter-label">${titulo}</span>
+            <div class="relative fx-dd"><button onclick="fxAbrir('${id}')" class="dd-btn ${ativo ? 'oee-dd-ativo' : ''}"><span class="truncate">${esc(resumo)}</span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i></button>
+            <div id="fxdd-${id}" class="dd-list hide">${itens}</div></div></div>`;
+        window.fxFechar = () => document.querySelectorAll('[id^="fxdd-"]').forEach(x => x.classList.add('hide'));
+        window.fxAbrir = function(id) { const el = document.getElementById('fxdd-' + id); if (!el) return; const abrir = el.classList.contains('hide'); fxFechar(); if (abrir) el.classList.remove('hide'); };
+        document.addEventListener('click', (e) => { if (e.target.isConnected && !e.target.closest('.fx-dd')) fxFechar(); });
         window.setTab = function(tab) {
             if (tab === 'audit' && !isAdmin()) { openAdmin(); return; }
             if (window.innerWidth <= 640) window.scrollTo({ top: 0 });
