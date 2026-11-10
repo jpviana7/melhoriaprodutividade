@@ -3985,7 +3985,7 @@
             const pctCls = (p) => p === null ? 'text-slate-400' : p >= 100 ? 'text-emerald-600' : 'text-rose-600';
             const blk = (label, value, sub, cls = 'text-slate-900') => `<div class="min-w-0"><p class="filter-label truncate">${label}</p><p class="text-xl sm:text-2xl font-semibold tracking-tight mt-1.5 ${cls}">${comUnidade(value)}</p><p class="text-[11px] text-slate-500 mt-1 leading-snug">${sub}</p></div>`;
             const mName = MONTH_NAMES[+month.slice(5, 7) - 1].toLowerCase();
-            setHero('gestao', { periodo: `${gestaoLinha || gestaoUgb} · ${mName}`, frase: `${fmt(r.prod)} baterias · meta até o dia ${fmt(r.metaToDate)}`, pct: r.pct });
+            setHero('gestao', { periodo: `${gestaoLinha || gestaoUgb} · ${mName}`, frase: `${fmt(r.prod)} baterias · meta até o dia ${fmt(r.metaToDate)}`, pct: r.pct, txt: r.pct === null ? '' : pf(r.pct) + '%' });
             const tLabel = (t) => `Turno ${String(t).padStart(2, '0')}`;
             const idx = days.indexOf(date);
             const row = (name, x, extra = '') => `<tr class="hover:bg-slate-50/60 ${extra}">
@@ -7121,7 +7121,7 @@
             window.addEventListener('resize', () => { segMem.clear(); document.querySelectorAll('.seg-pill').forEach(p => p.dataset.k = ''); animarSegs(); });
         })();
 
-        const TITULO_ABA = { dashboard: 'Dashboard', bomdia: 'Bom Dia', gestao: 'Gestão', scrap: 'Scrap', perdas: 'Perdas', pbs: 'PbS', oee: 'OEE', metas: 'Metas', improvements: 'Projetos', audit: 'Dados' };
+        const TITULO_ABA = { dashboard: 'Montagem', bomdia: 'Bom Dia', gestao: 'Gestão', scrap: 'Scrap', perdas: 'Perdas', pbs: 'PbS', oee: 'OEE', metas: 'Metas', improvements: 'Projetos', audit: 'Dados' };
         // Painel do topo: cada aba informa o período, uma frase e, quando há meta, a carga da bateria (% da meta)
         const heroInfo = {};
         const HERO_PADRAO = { scrap: 'Baterias refugadas e taxa de scrap', perdas: 'Horas paradas por família, máquina e componente', pbs: 'Chumbo no sangue', oee: 'Disponibilidade × desempenho × qualidade',
@@ -7138,7 +7138,7 @@
             if (tem) {
                 b.dataset.tom = info.tom || (info.pct >= 100 ? 'ok' : info.pct >= 90 ? 'warn' : 'bad');
                 b.classList.toggle('cheia', info.cheia !== undefined ? info.cheia : info.pct >= 100);
-                b.querySelector('.batt-num').textContent = info.txt || fmt(info.pct < 100 ? Math.floor(info.pct) : Math.round(info.pct)) + '%';
+                b.querySelector('.batt-num').textContent = info.txt || fmt(info.pct, 0) + '%';
                 b.querySelector('.batt-leg').textContent = info.legenda || 'da meta';
                 if (trocou) { fill.style.transition = 'none'; fill.style.width = '0%'; fill.offsetWidth; fill.style.transition = ''; } // carrega do zero ao entrar na aba
                 fill.style.width = Math.max(6, Math.min(100, info.pct)) + '%';
