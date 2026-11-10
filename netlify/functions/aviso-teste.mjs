@@ -24,8 +24,8 @@ export default async (req) => {
     dia = null;
   }
   if (!dia) return new Response('Não achei produção da Montagem nos últimos dias.', { status: 404 });
-  const avisos = montarAvisos(rows, dia, cfg, ['dia'], 'TESTE · ');
-  const res = await enviar(avisos);
+  const res = await enviar([{ ds: dia, tipos: ['dia'] }], rows, cfg, { prefixo: 'TESTE · ', ignorarTipos: true });
+  const avisos = res.exemplo;
   const txt = `Teste enviado (${dia}) para ${res.aparelhos} aparelho(s): ${res.ok} entregue(s)${res.removidos ? `, ${res.removidos} inscrição(ões) vencida(s) removida(s)` : ''}.\n\n` + avisos.map(a => `${a.title}\n${a.body}`).join('\n\n');
   return new Response(res.aparelhos ? txt : 'Nenhum aparelho com o sino ativado ainda. Ative no celular (sino no topo do Painel) e abra este endereço de novo.\n\n' + txt,
     { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });

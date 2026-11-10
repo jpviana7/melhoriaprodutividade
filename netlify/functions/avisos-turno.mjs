@@ -15,6 +15,9 @@ const API_KEY = 'AIzaSyCmzrUb5z4ux5B62WfzOD8fd9z-kpqcJqc'; // a mesma chave púb
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 const TZ_OFFSET_H = -3; // America/Recife (sem horário de verão)
 const TURNOS = ['1', '2', '3'];
+// UGBs da Montagem (mesmo mapa do app)
+const UGB_MONTAGEM = { 3: 'Montagem 01', 5: 'Montagem 01', 1: 'Montagem 02', 2: 'Montagem 02', 11: 'Montagem 02', 12: 'Montagem 03', 14: 'Montagem 03', 4: 'Montagem 04', 13: 'Montagem 04', 6: 'Montagem 05', 8: 'Montagem 05', 9: 'Montagem 06', 10: 'Montagem 06' };
+export const ugbDaLinha = (l) => UGB_MONTAGEM[Number(String(l).replace(/\D/g, ''))] || 'Sem UGB';
 const FIM = { '1': 14, '2': 22, '3': 6 }; // hora local em que o turno termina
 
 // ---------- Firestore (REST) ----------
@@ -116,8 +119,10 @@ export function resumo(por, ds, turnos, M) {
 export const linhaAbaixo = (r) => r.abaixo.length ? `Abaixo: ${r.abaixo.slice(0, 4).map(x => `${x.l} ${signed(x.p - x.m)}`).join(' · ')}${r.abaixo.length > 4 ? ` +${r.abaixo.length - 4}` : ''}` : 'Todas as linhas na meta 👏';
 
 // Monta os avisos de um dia: turnos pedidos e, se 'dia' estiver em tipos, o fechamento
-export function montarAvisos(rows, ds, cfg, tipos, prefixo = '') {
-  const M = metasDe(cfg), por = producaoDoDia(rows, ds, Array.isArray(cfg.fileNames) ? cfg.fileNames : []);
+export function montarAvisos(rows, ds, cfg, tipos, prefixo = '', ugb = 'Todas') {
+  const M = metasDe(cfg), porTudo = producaoDoDia(rows, ds, Array.isArray(cfg.fileNames) ? cfg.fileNames : []);
+  const por = ugb === 'Todas' ? porTudo : Object.fromEntries(Object.entries(porTudo).filter(([l]) => ugbDaLinha(l) === ugb));
+  if (ugb !== 'Todas') prefixo += ugb.replace('Montagem ', 'M') + ' · ';
   const out = [];
   tipos.filter(t => t !== 'dia').forEach(t => {
     if (!Object.values(por).some(x => x[t] > 0)) return;
@@ -144,18 +149,29 @@ export function configurarVapid() {
   webpush.setVapidDetails((env('VAPID_SUBJECT') || 'mailto:avisos@example.com').replace(/\s|<|>/g, ''), pub, priv);
   return true;
 }
-// Envia a todos os aparelhos inscritos; tira da lista os que não existem mais
-export async function enviar(avisos) {
+// Preferências de cada aparelho (escolhidas no sino): UGB e quais avisos recebe
+export const prefsDe = (s) => { let p = {}; try { p = JSON.parse(s.prefs || '{}'); } catch (e) { p = {}; }
+  return { ugb: p.ugb || 'Todas', t1: p.t1 !== false, t2: p.t2 !== false, t3: p.t3 !== false, dia: p.dia !== false }; };
+const querAviso = (p, key) => key.endsWith('|DIA') ? p.dia : p['t' + key.slice(-1)];
+// Envia os avisos dos eventos [{ ds, tipos }] para cada aparelho, já filtrados pela UGB e pelos avisos que ele escolheu
+export async function enviar(eventos, rows, cfg, { prefixo = '', ignorarTipos = false } = {}) {
   const subs = await listDocs('dashboard_push');
+  const cache = {}, chaves = new Set();
+  const avisosDa = (ugb) => cache[ugb] || (cache[ugb] = eventos.flatMap(e => montarAvisos(rows, e.ds, cfg, e.tipos, prefixo, ugb)));
   let ok = 0, removidos = 0;
-  for (const a of avisos) {
-    for (const s of subs) {
-      let sub; try { sub = JSON.parse(s.sub); } catch (e) { continue; }
-      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: a.key }), { TTL: 6 * 3600 }); ok++; }
-      catch (e) { if (e.statusCode === 404 || e.statusCode === 410) { await delDoc(`dashboard_push/${s.id}`); removidos++; } else console.log('push', e.statusCode, e.body); }
+  for (const s of subs) {
+    let sub; try { sub = JSON.parse(s.sub); } catch (e) { continue; }
+    const p = prefsDe(s);
+    for (const a of avisosDa(p.ugb)) {
+      chaves.add(a.key);
+      if (!ignorarTipos && !querAviso(p, a.key)) continue;
+      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: `${a.key}|${p.ugb}` }), { TTL: 6 * 3600 }); ok++; }
+      catch (e) { if (e.statusCode === 404 || e.statusCode === 410) { await delDoc(`dashboard_push/${s.id}`); removidos++; break; } else console.log('push', e.statusCode, e.body); }
     }
   }
-  return { ok, removidos, aparelhos: subs.length };
+  // Chaves dos avisos que existem (mesmo sem aparelhos), para o registro
+  eventos.forEach(e => montarAvisos(rows, e.ds, cfg, e.tipos).forEach(a => chaves.add(a.key)));
+  return { ok, removidos, aparelhos: subs.length, chaves: [...chaves], exemplo: avisosDa('Todas') };
 }
 
 export default async () => {
@@ -183,12 +199,12 @@ export default async () => {
   if (!prontos.length) return new Response('aguardando dados');
 
   const rows = await lerProducao([...new Set(prontos.map(p => p.ds.slice(0, 7)))]);
-  const avisos = prontos.flatMap(p => montarAvisos(rows, p.ds, cfg, p.t === '3' ? ['3', 'dia'] : [p.t]));
-  if (!avisos.length) return new Response('sem produção do turno ainda');
-  const res = await enviar(avisos);
-  avisos.forEach(a => { enviados[a.key] = new Date().toISOString(); });
+  const eventos = prontos.map(p => ({ ds: p.ds, tipos: p.t === '3' ? ['3', 'dia'] : [p.t] }));
+  if (!eventos.some(e => montarAvisos(rows, e.ds, cfg, e.tipos).length)) return new Response('sem produção do turno ainda');
+  const res = await enviar(eventos, rows, cfg);
+  res.chaves.forEach(k => { enviados[k] = new Date().toISOString(); });
   // guarda só os últimos 60 registros
   const keep = Object.fromEntries(Object.entries(enviados).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 60));
   await setDoc('dashboard_config/avisos', { enviados: JSON.stringify(keep) });
-  return new Response(`avisos: ${avisos.map(a => a.key).join(', ')} · entregas ${res.ok} · removidos ${res.removidos}`);
+  return new Response(`avisos: ${res.chaves.join(', ')} · entregas ${res.ok} · removidos ${res.removidos}`);
 };
