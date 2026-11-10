@@ -643,6 +643,9 @@
             #tabs-container .tab-btn.active svg { filter: drop-shadow(0 0 7px rgba(255,187,0,.75)); }
             #tab-ind { height: 3px; box-shadow: 0 0 12px 2px rgba(255,187,0,.85); }
             #ast-fab { bottom: calc(82px + env(safe-area-inset-bottom)); }
+            /* UGBs numa grade fixa (sem rolar para o lado) */
+            #ugb-buttons { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; overflow: visible; margin: 0; padding: 0; width: 100%; }
+            #ugb-buttons > button { height: 2.5rem; padding: 0 .25rem; font-weight: 600; white-space: nowrap; }
             [id^="pdd-"]:not(.hide), [id^="sdd-"]:not(.hidden):not(.hide), #oee-dd-month:not(.hide), .dd-list { bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
         }
     </style>
@@ -2510,7 +2513,7 @@
                 document.getElementById('ugb-buttons').innerHTML = ['Todas', ...ps.ugbOptions].map(u => {
                     const on = selectedUgb === u;
                     return `<button data-ugb="${esc(u)}" onclick="setUgb(this.dataset.ugb)" class="h-8 px-3 rounded-lg text-sm font-medium transition-colors ${on
-                        ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'}">${u === 'Todas' ? 'Todas as UGBs' : esc(u)}</button>`;
+                        ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'}"><span class="hidden sm:inline">${u === 'Todas' ? 'Todas as UGBs' : esc(u)}</span><span class="sm:hidden">${u === 'Todas' ? 'Todas' : esc(u.replace(/^Montagem\s*/, 'M'))}</span></button>`;
                 }).join('');
             }
         }
