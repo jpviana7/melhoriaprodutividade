@@ -6242,7 +6242,7 @@
             } catch (e) { console.error(e); showToast('Não foi possível ativar os avisos neste aparelho.', 'error'); }
         };
         // Escolhas de cada aparelho: UGB e quais avisos recebe (guardadas junto da inscrição)
-        const PREFS_PADRAO = { ugb: 'Todas', t1: true, t2: true, t3: true, dia: true };
+        const PREFS_PADRAO = { ugb: 'Todas', t1: true, t2: true, dia: true };
         window.abrirPrefsAvisos = abrirPrefsAvisos;
         async function abrirPrefsAvisos(sub) {
             const id = (await sha256(sub.endpoint)).slice(0, 40);
@@ -6263,7 +6263,7 @@
                     <select data-k="ugb" class="w-full h-10 bg-white border border-slate-200 text-slate-900 text-sm rounded-xl px-3 outline-none focus:border-brand-blue mb-3">
                         <option value="Todas" ${prefs.ugb === 'Todas' ? 'selected' : ''}>Toda a Montagem</option>${ugbs.map(u => `<option value="${esc(u)}" ${prefs.ugb === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select>
                     <p class="filter-label mb-1">O que receber</p>
-                    <div class="divide-y divide-slate-100">${chk('t1', 'Turno 01', 'Depois das 14:00')}${chk('t2', 'Turno 02', 'Depois das 22:00')}${chk('t3', 'Turno 03', 'Depois das 06:00')}${chk('dia', 'Fechamento do dia anterior', 'Depois das 06:00')}</div>
+                    <div class="divide-y divide-slate-100">${chk('t1', 'Turno 01', 'Depois das 14:00')}${chk('t2', 'Turno 02', 'Depois das 22:00')}${chk('dia', 'Fechamento do dia anterior', 'Depois das 06:00 · inclui o Turno 03')}</div>
                 </div>
                 <div class="px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button data-acao="desativar" class="text-sm font-medium text-rose-600 hover:underline">Desativar avisos</button>
@@ -6283,11 +6283,11 @@
                 if (acao === 'salvar') {
                     const p = { ugb: m.querySelector('[data-k="ugb"]').value };
                     m.querySelectorAll('input[data-k]').forEach(i => { p[i.dataset.k] = i.checked; });
-                    if (!p.t1 && !p.t2 && !p.t3 && !p.dia) { showToast('Marque pelo menos um aviso, ou use "Desativar avisos".', 'warning'); return; }
+                    if (!p.t1 && !p.t2 && !p.dia) { showToast('Marque pelo menos um aviso, ou use "Desativar avisos".', 'warning'); return; }
                     try {
                         await setDoc(doc(db, 'dashboard_push', id), { ...(dados || { sub: JSON.stringify(sub), aparelho: navigator.userAgent.slice(0, 160), criado: new Date().toISOString() }), prefs: JSON.stringify(p) });
                         fechar();
-                        const qual = [p.t1 && 'T01', p.t2 && 'T02', p.t3 && 'T03', p.dia && 'fechamento'].filter(Boolean).join(', ');
+                        const qual = [p.t1 && 'T01', p.t2 && 'T02', p.dia && 'fechamento'].filter(Boolean).join(', ');
                         showToast(`Avisos salvos: ${qual} · ${p.ugb === 'Todas' ? 'toda a Montagem' : p.ugb}.`, 'success');
                     } catch (err) { showToast('Não foi possível salvar. Verifique a internet.', 'error'); }
                 }

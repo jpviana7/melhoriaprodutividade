@@ -1,5 +1,5 @@
 // Avisos no celular (Web Push) quando o relatório de cada turno chega:
-//   T01 (fim 14:00), T02 (fim 22:00), T03 (fim 06:00) e o fechamento do dia anterior (junto com o T03).
+//   T01 (fim 14:00), T02 (fim 22:00) e, depois das 06:00, o fechamento do dia anterior (que já traz o T03).
 // Roda a cada 10 minutos no Netlify. Só avisa quando a produção do turno já está no banco (vinda do robô ou
 // importada à mão) e o robô gravou depois do fim do turno; cada aviso sai uma vez só (registro em dashboard_config/avisos).
 // Variáveis no Netlify: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (ex.: mailto:alguem@empresa.com).
@@ -151,7 +151,7 @@ export function configurarVapid() {
 }
 // Preferências de cada aparelho (escolhidas no sino): UGB e quais avisos recebe
 export const prefsDe = (s) => { let p = {}; try { p = JSON.parse(s.prefs || '{}'); } catch (e) { p = {}; }
-  return { ugb: p.ugb || 'Todas', t1: p.t1 !== false, t2: p.t2 !== false, t3: p.t3 !== false, dia: p.dia !== false }; };
+  return { ugb: p.ugb || 'Todas', t1: p.t1 !== false, t2: p.t2 !== false, dia: p.dia !== false }; };
 const querAviso = (p, key) => key.endsWith('|DIA') ? p.dia : p['t' + key.slice(-1)];
 // Envia os avisos dos eventos [{ ds, tipos }] para cada aparelho, já filtrados pela UGB e pelos avisos que ele escolheu
 export async function enviar(eventos, rows, cfg, { prefixo = '', ignorarTipos = false } = {}) {
@@ -187,7 +187,9 @@ export default async () => {
 
   const log = (await getDoc('dashboard_config/avisos')) || {};
   let enviados = {}; try { enviados = JSON.parse(log.enviados || '{}'); } catch (e) { enviados = {}; }
-  const falta = pendentes.filter(p => !enviados[`${p.ds}|T${p.t}`]);
+  // O fim do T03 vira só o fechamento do dia (que já traz o T03)
+  const chaveDe = (p) => p.t === '3' ? `${p.ds}|DIA` : `${p.ds}|T${p.t}`;
+  const falta = pendentes.filter(p => !enviados[chaveDe(p)]);
   if (!falta.length) return new Response('já avisado');
 
   // Os dados chegaram depois do fim do turno? (hora da última gravação do robô, ou da última planilha importada no app)
@@ -199,7 +201,7 @@ export default async () => {
   if (!prontos.length) return new Response('aguardando dados');
 
   const rows = await lerProducao([...new Set(prontos.map(p => p.ds.slice(0, 7)))]);
-  const eventos = prontos.map(p => ({ ds: p.ds, tipos: p.t === '3' ? ['3', 'dia'] : [p.t] }));
+  const eventos = prontos.map(p => ({ ds: p.ds, tipos: p.t === '3' ? ['dia'] : [p.t] }));
   if (!eventos.some(e => montarAvisos(rows, e.ds, cfg, e.tipos).length)) return new Response('sem produção do turno ainda');
   const res = await enviar(eventos, rows, cfg);
   res.chaves.forEach(k => { enviados[k] = new Date().toISOString(); });
