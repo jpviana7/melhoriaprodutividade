@@ -463,6 +463,85 @@
         html.dark .ios-list { background: #2c2c2e; }
         .ios-list > li { border-color: var(--sep) !important; }
 
+
+        /* ===== Sistema de design: cores, controles e tipografia ===== */
+        :root { --tint: #1B2F88; --blue: #006FB9; --fill: rgba(118,118,128,.12); --fill-2: rgba(118,118,128,.2); --inset: #F2F2F7;
+            --ok: #30A46C; --ok-t: #218358; --ok-bg: #E9F7EF; --ok-ring: #B4DFC4;
+            --bad: #E5484D; --bad-t: #CD2B31; --bad-bg: #FFF0F0; --bad-ring: #F9C6C6; }
+        html.dark { --tint: #9FB0FF; --blue: #5CB2EE; --fill: rgba(118,118,128,.24); --fill-2: rgba(118,118,128,.36); --inset: #2c2c2e;
+            --ok-t: #4CC38A; --ok-bg: rgba(48,164,108,.16); --ok-ring: rgba(48,164,108,.4);
+            --bad-t: #FF6369; --bad-bg: rgba(229,72,77,.16); --bad-ring: rgba(229,72,77,.4); }
+        /* Fonte do sistema nos aparelhos Apple (San Francisco); Inter nos demais */
+        body, .font-sans, button, input, select, textarea { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+        ::selection { background: rgba(0,111,185,.2); }
+        /* Cores de estado: um vermelho e um verde só, mais sóbrios */
+        .text-rose-600, .text-rose-500, .hover\:text-rose-600:hover { color: var(--bad-t); }
+        .text-rose-700 { color: #B4232A; }
+        .bg-rose-500, .bg-rose-600 { background-color: var(--bad); }
+        .bg-rose-50, .hover\:bg-rose-50:hover { background-color: var(--bad-bg); }
+        .ring-rose-200 { --tw-ring-color: var(--bad-ring); }
+        .border-rose-200 { border-color: var(--bad-ring); }
+        .text-emerald-600 { color: var(--ok-t); }
+        .text-emerald-700 { color: #18794E; }
+        .bg-emerald-500 { background-color: var(--ok); }
+        .bg-emerald-50 { background-color: var(--ok-bg); }
+        .ring-emerald-200 { --tw-ring-color: var(--ok-ring); }
+        html.dark .text-rose-600, html.dark .text-rose-500, html.dark .hover\:text-rose-600:hover { color: var(--bad-t) !important; }
+        html.dark .text-rose-700 { color: #FF8589 !important; }
+        html.dark .text-emerald-600 { color: var(--ok-t) !important; }
+        html.dark .text-emerald-700 { color: #6FD3A2 !important; }
+        html.dark .bg-rose-50, html.dark .hover\:bg-rose-50:hover { background-color: var(--bad-bg) !important; }
+        html.dark .bg-emerald-50 { background-color: var(--ok-bg) !important; }
+        html.dark .border-rose-200, html.dark .ring-rose-200 { border-color: var(--bad-ring) !important; --tw-ring-color: var(--bad-ring) !important; }
+        html.dark .ring-emerald-200 { --tw-ring-color: var(--ok-ring) !important; }
+        /* Controles preenchidos, sem contorno */
+        .icon-btn { background: var(--fill); border-color: transparent; border-radius: 10px; color: #334155; font-weight: 600; }
+        .icon-btn:hover { background: var(--fill-2); }
+        .dd-btn { background: var(--fill); border-color: transparent; border-radius: 10px; }
+        .dd-btn:hover { background: var(--fill-2); border-color: transparent; }
+        html.dark .dd-btn, html.dark .icon-btn { background: var(--fill); border-color: transparent; }
+        html.dark .dd-btn:hover, html.dark .icon-btn:hover { background: var(--fill-2); border-color: transparent; }
+        .seg { background: var(--fill); border-radius: 9px; }
+        .seg-pill { border-radius: 7px; }
+        .seg button.active { font-weight: 600; }
+        html :is(main, [id$="-modal"], #ast-panel) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), select, textarea) {
+            background-color: var(--fill) !important; border-color: transparent !important; }
+        html :is(main, [id$="-modal"], #ast-panel) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), select, textarea):focus {
+            background-color: var(--card) !important; border-color: var(--blue) !important; }
+        html :is(main, #_) .ios-grp input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]) { background-color: transparent !important; }
+        html :is(main, #_) .ios-grp input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):focus { background-color: var(--card) !important; }
+        button.ring-slate-200, span.ring-slate-200\/70, main button.border.border-slate-200 { background-color: var(--fill); border-color: transparent; --tw-ring-color: transparent; }
+        button.ring-slate-200:hover, main button.border.border-slate-200:hover { background-color: var(--fill-2); border-color: transparent; }
+        html.dark button.ring-slate-200, html.dark span.ring-slate-200\/70, html.dark main button.border.border-slate-200 { background-color: var(--fill) !important; border-color: transparent !important; --tw-ring-color: transparent !important; }
+        /* Blocos dentro de cartões: fundo suave no lugar de borda */
+        .inset { background: var(--inset); border-radius: 14px; --cell: var(--inset); }
+        tr[class*="bg-slate-50"] { --cell: #F8FAFC; }
+        html.dark tr[class*="bg-slate-50"] { --cell: #2c2c2e; }
+        /* Rótulos */
+        .filter-label { color: var(--lbl2); letter-spacing: .05em; }
+        .eyebrow { display: none; }
+        html.capturing .eyebrow { display: block; }
+        .unit.pct { margin-left: .06em; }
+        h2 { letter-spacing: -.01em; }
+        @media (min-width: 641px) { #lt p { display: none; } }
+        @media (max-width: 640px) {
+            #area-buttons { display: none !important; }
+            .kpi-label { font-size: 11px; }
+            .card.p-6 { padding: 1.25rem; }
+            .overflow-x-auto > table th:first-child, .overflow-x-auto > table td:first-child { background: var(--cell, var(--card)) !important; }
+            /* Cabeçalho: ícones soltos, sem caixa */
+            header #header-actions { gap: 0 !important; }
+            header .icon-btn { background: transparent !important; width: 2.5rem; padding: 0 !important; justify-content: center; color: var(--tint); }
+            header .icon-btn svg { width: 21px; height: 21px; }
+            header #header-actions > button.bg-brand-navy { width: 2.25rem; height: 2.25rem; padding: 0; justify-content: center; border-radius: 50%; margin-left: .375rem; }
+            /* Assistente: botão redondo, só o ícone */
+            #ast-fab { width: 52px; height: 52px; padding: 0; justify-content: center; right: 14px; box-shadow: 0 8px 24px -6px rgba(27,47,136,.55); }
+            #ast-fab span { display: none; }
+            #ast-fab svg { width: 22px; height: 22px; }
+        }
+        html.dark .card.card { border-color: transparent !important; }
+        html.dark #tabs-container .tab-btn.active { color: var(--tint); }
+        @media print { .eyebrow { display: block; } }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -2229,14 +2308,14 @@
         // --- Identidade visual (cores da marca Moura) ---
         const C = {
             yellow: '#FFBB00', amber: '#FCA901', blue: '#006FB9', navy: '#1B2F88', ink: '#171715',
-            grid: '#EEF1F5', muted: '#D5DCE6', mutedNavy: '#C3CCEA', good: '#059669', bad: '#E11D48',
+            grid: '#EEF1F5', muted: '#D5DCE6', mutedNavy: '#C3CCEA', good: '#30A46C', bad: '#E5484D',
             text: '#0f172a', text2: '#475569', text3: '#64748b', axis: '#e2e8f0', off: '#E5E9F0', label: '#334155'
         };
         const THEME_COLORS = {
-            claro: { navy: '#1B2F88', blue: '#006FB9', grid: '#EEF1F5', muted: '#D5DCE6', mutedNavy: '#C3CCEA', good: '#059669', bad: '#E11D48',
+            claro: { navy: '#1B2F88', blue: '#006FB9', grid: '#EEF1F5', muted: '#D5DCE6', mutedNavy: '#C3CCEA', good: '#30A46C', bad: '#E5484D',
                      text: '#0f172a', text2: '#475569', text3: '#64748b', axis: '#e2e8f0', off: '#E5E9F0', label: '#334155', card: '#ffffff' },
-            escuro: { navy: '#6D83F2', blue: '#3B9BE0', grid: '#1C2638', muted: '#334155', mutedNavy: '#34406B', good: '#10B981', bad: '#F43F5E',
-                      text: '#F1F5F9', text2: '#CBD5E1', text3: '#94A3B8', axis: '#2A3650', off: '#2A3650', label: '#CBD5E1', card: '#121b2d' }
+            escuro: { navy: '#6D83F2', blue: '#3B9BE0', grid: '#1C2638', muted: '#334155', mutedNavy: '#34406B', good: '#3CB179', bad: '#F2555A',
+                      text: '#F1F5F9', text2: '#CBD5E1', text3: '#94A3B8', axis: '#2A3650', off: '#2A3650', label: '#CBD5E1', card: '#1c1c1e' }
         };
         const isDark = () => document.documentElement.classList.contains('dark');
         function applyThemeColors() {
@@ -2455,7 +2534,7 @@
                 if (!opts || (!opts.h && !opts.v)) return;
                 const { ctx, chartArea: { left, right, top, bottom }, scales: { x, y } } = chart;
                 ctx.save();
-                ctx.font = '600 10px Inter, ui-sans-serif, system-ui, sans-serif';
+                ctx.font = '600 10px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif';
                 ctx.textBaseline = 'middle';
                 const pill = (text, px, py, bg, fg) => {
                     const tw = ctx.measureText(text).width + 12;
@@ -2514,7 +2593,7 @@
                         const mx = mk && mk.data[i] && Number.isFinite(mk.data[i].x) && mk.data[i].skip !== true ? mk.data[i].x + 8 : 0;
                         let x = Math.max(bar.x, mx) + 6;
                         lines.forEach((ln, j) => {
-                            ctx.font = j === 0 ? '600 11px Inter, ui-sans-serif, system-ui, sans-serif' : '600 10px Inter, ui-sans-serif, system-ui, sans-serif';
+                            ctx.font = j === 0 ? '600 11px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif' : '600 10px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif';
                             ctx.fillStyle = ln.color || C.label;
                             ctx.strokeText(ln.text, x, bar.y);
                             ctx.fillText(ln.text, x, bar.y);
@@ -2525,12 +2604,15 @@
                     // Tela pequena: rótulo que não cabe na largura da barra não é desenhado (evita números encavalados)
                     const step = meta.data.length > 1 ? Math.abs(meta.data[1].x - meta.data[0].x) : Infinity;
                     const slot = chart.width < 520 ? step - 2 : Infinity;
-                    lines = lines.filter((ln, j) => { ctx.font = j === 0 ? '500 11px Inter, ui-sans-serif, system-ui, sans-serif' : '600 10px Inter, ui-sans-serif, system-ui, sans-serif'; return ctx.measureText(ln.text).width <= slot; });
+                    lines = lines.filter((ln, j) => { ctx.font = j === 0 ? '500 11px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif' : '600 10px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif'; return ctx.measureText(ln.text).width <= slot; });
+                    // Com traço de meta acima da barra, o rótulo sobe para não ficar em cima dele
+                    const tr = (chart.data.datasets[1] || {}).pointStyle === 'line' ? chart.getDatasetMeta(1).data[i] : null;
+                    const topo = tr && tr.skip !== true && Number.isFinite(tr.y) && tr.y < bar.y + 4 ? Math.min(bar.y, tr.y - 2) : bar.y;
                     lines.forEach((ln, j) => {
-                        ctx.font = j === 0 && lines.length > 1 ? '500 11px Inter, ui-sans-serif, system-ui, sans-serif' : '600 10px Inter, ui-sans-serif, system-ui, sans-serif';
+                        ctx.font = j === 0 && lines.length > 1 ? '500 11px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif' : '600 10px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif';
                         ctx.fillStyle = ln.color || C.label;
-                        ctx.strokeText(ln.text, bar.x, bar.y - 7 - (lines.length - 1 - j) * 13);
-                        ctx.fillText(ln.text, bar.x, bar.y - 7 - (lines.length - 1 - j) * 13);
+                        ctx.strokeText(ln.text, bar.x, topo - 7 - (lines.length - 1 - j) * 13);
+                        ctx.fillText(ln.text, bar.x, topo - 7 - (lines.length - 1 - j) * 13);
                     });
                 });
                 ctx.restore();
@@ -2539,7 +2621,7 @@
 
         if (window.Chart) {
             Chart.register(refLinesPlugin, barLabelsPlugin);
-            Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+            Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif';
             Chart.defaults.font.size = 11;
             if (window.matchMedia('(max-width: 640px)').matches) Chart.defaults.font.size = 10;
             // Gráficos entram crescendo (desligado para quem pediu menos movimento)
@@ -2555,8 +2637,8 @@
         window.addEventListener('afterprint', () => { if (darkBeforePrint) { document.documentElement.classList.add('dark'); applyThemeColors(); destroyCharts(); updateUI(); } });
 
         const tooltipStyle = {
-            backgroundColor: '#171715', titleColor: 'rgba(255,255,255,.6)', bodyColor: '#fff', footerColor: C.yellow,
-            padding: 10, cornerRadius: 10, displayColors: false, caretSize: 5,
+            backgroundColor: 'rgba(28,28,30,.94)', titleColor: 'rgba(255,255,255,.6)', bodyColor: '#fff', footerColor: C.yellow,
+            padding: 12, cornerRadius: 12, displayColors: false, caretSize: 5,
             titleFont: { size: 11, weight: '500' }, bodyFont: { size: 13, weight: '600' }, footerFont: { size: 10, weight: '500' }
         };
         const axisY = (extra = {}) => ({ beginAtZero: true, grid: { color: C.grid }, border: { display: false }, ticks: { padding: 6, callback: (v) => fmt(v) }, ...extra });
@@ -2569,7 +2651,7 @@
         // "28.710 bat" -> número + unidade menor em cinza
         function comUnidade(v) {
             const m = String(v).match(/^([+−-]?[\d.,]+)\s*([%A-Za-zÀ-ú/µ°][^<>]{0,14})$/);
-            return m ? `<span>${m[1]}</span><span class="unit">${m[2]}</span>` : v;
+            return m ? `<span>${m[1]}</span><span class="unit${m[2] === '%' ? ' pct' : ''}">${m[2]}</span>` : v;
         }
         function kpiCard({ label, value, sub, accent, subTone, bar = null }) {
             const subCls = subTone === 'good' ? 'text-emerald-600' : subTone === 'bad' ? 'text-rose-600' : 'text-slate-500';
@@ -2594,9 +2676,9 @@
         function heatColor(pct) {
             if (pct === null || !Number.isFinite(pct)) return { bg: 'transparent', fg: C.text3 };
             let rgb, a;
-            if (pct >= 100) { rgb = '5,150,105'; a = 0.2 + 0.55 * Math.min(1, (pct - 100) / 20); }
+            if (pct >= 100) { rgb = '48,164,108'; a = 0.2 + 0.55 * Math.min(1, (pct - 100) / 20); }
             else if (pct >= 90) { rgb = '245,158,11'; a = 0.3 + 0.25 * (100 - pct) / 10; }
-            else { rgb = '225,29,72'; a = 0.32 + 0.5 * Math.min(1, (90 - pct) / 30); }
+            else { rgb = '229,72,77'; a = 0.32 + 0.5 * Math.min(1, (90 - pct) / 30); }
             return { bg: `rgba(${rgb},${a.toFixed(2)})`, fg: a > 0.56 ? '#fff' : C.text };
         }
         window.openBomDia = function(ds) { bomDiaDate = ds; bomDiaTurno = null; setTab('bomdia'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -3390,7 +3472,7 @@
             let html = `
             <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div class="min-w-0">
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">Bom dia · Montagem${bomDiaTurno !== null ? ` · ${esc(turnoLabel(bomDiaTurno))}` : ''}</p>
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber eyebrow">Bom dia · Montagem${bomDiaTurno !== null ? ` · ${esc(turnoLabel(bomDiaTurno))}` : ''}</p>
                     <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5 first-letter:uppercase">${dateLabel}</h2>
                     <p class="text-xs text-slate-500 mt-0.5">${date === lastDay ? 'Último dia com produção' : date === refDay ? 'Penúltimo dia com produção' : `Dados até ${fmtDate(lastDay)}`}<span class="no-capture hidden sm:inline"> · use ← → para mudar o dia</span></p>
                     ${bomDiaUpdatedHtml()}
@@ -3619,13 +3701,16 @@
 
             // Turno rodando: cores e rótulos pela projeção até o fim do turno
             const projV = (vals) => liveOn ? vals.map(v => v / live.frac) : null;
+            const metaTraco = (c) => { const el = c.chart.getDatasetMeta(0).data[c.dataIndex]; return el && el.width ? el.width / 2 + 3 : 14; };
             const combo = (id, labels, values, metasArr, titles, pcts, horizontal = false, proj = null) => new Chart(document.getElementById(id), {
                 data: {
                     labels,
                     datasets: [
                         { type: 'bar', label: 'Peças OK', data: values, backgroundColor: pcts.map(p => p === null ? C.blue : p >= 100 ? C.good : C.bad), borderRadius: 5, maxBarThickness: horizontal ? 22 : 56, order: 2 },
-                        { type: 'line', label: 'Meta', data: metasArr, borderColor: '#94a3b8', backgroundColor: '#94a3b8', borderWidth: horizontal ? 0 : 2, showLine: !horizontal,
-                          pointStyle: horizontal ? 'line' : 'circle', pointRotation: horizontal ? 90 : 0, pointRadius: horizontal ? 9 : 4, pointBorderWidth: horizontal ? 3 : 1, pointHoverRadius: horizontal ? 10 : 5, spanGaps: true, tension: 0.25, order: 1 }
+                        // Meta: um traço na altura da meta de cada barra (categorias independentes não se ligam por linha)
+                        { type: 'line', label: 'Meta', data: metasArr, borderColor: C.text2, backgroundColor: C.text2, borderWidth: 0, showLine: false,
+                          pointStyle: 'line', pointRotation: horizontal ? 90 : 0, pointBorderWidth: horizontal ? 3 : 2.5,
+                          pointRadius: horizontal ? 9 : metaTraco, pointHoverRadius: horizontal ? 10 : metaTraco, spanGaps: true, order: 1 }
                     ]
                 },
                 options: {
@@ -3802,7 +3887,7 @@
             container.innerHTML = `
             <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">Gestão por UGB</p>
+                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber eyebrow">Gestão por UGB</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(gestaoUgb)} <span class="text-sm font-normal text-slate-500">· ${gestaoLinha ? esc(gestaoLinha) : linhasUgb.join(', ')}</span></h2>
                         <p class="text-xs text-slate-500 mt-0.5">Acumulado de ${mName} até ${fmtDate(date)}</p></div>
                     <div class="no-print flex items-center gap-2">
@@ -3835,7 +3920,7 @@
                 ${sectionHead('Linhas da UGB por turno', `Média por dia, saldo em baterias contra a meta até o dia e quanto cada turno precisa tirar por dia para fechar a meta de ${mName}${r.remaining ? ` (${r.remaining} dias restantes)` : ''}`, '', 'table')}
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 ${[...lineTurno, { l: 'Total da UGB', all: mtdFor(lines, date, null), t: perTurno }].map(L => `
-                    <div class="rounded-xl border border-slate-200/80 p-4 ${L.l === 'Total da UGB' ? 'bg-slate-50' : ''}">
+                    <div class="inset p-4">
                         <div class="flex items-baseline justify-between mb-2">
                             <h3 class="text-sm font-semibold text-slate-900">${esc(L.l)}</h3>
                             <span class="text-xs text-slate-500">Saldo no mês: <strong class="${saldoCls(L.all)}">${saldoTxt(L.all)}</strong> · precisa ${L.all.needed === null ? '—' : fmt(L.all.needed)}/dia</span>
@@ -4042,7 +4127,7 @@
             ${semRefugo ? `<div class="mb-4 rounded-xl px-4 py-3 text-sm bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200 flex items-start gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 shrink-0"></i><span>Sem scrap de <strong>bateria completa</strong> em ${esc(mName.toLowerCase())}: ele vem da coluna <strong>Refugo</strong> da planilha de produção. Importe de novo a planilha de produção deste mês (as importadas antes desta versão não guardaram o Refugo).</span></div>` : ''}
             <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">Scrap · Montagem</p>
+                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber eyebrow">Scrap · Montagem</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(mName)}${st.ugb !== 'Todas' ? ` · ${esc(st.ugb)}` : ''}${st.lines.length ? ` · ${esc(st.lines.join(', '))}` : ''}${st.turnos.length ? ` · ${esc(st.turnos.map(t => t === 'Sem turno' ? t : 'T' + t.padStart(2, '0')).join(', '))}` : ''}${st.modelos.length ? ` · ${st.modelos.length === 1 ? esc(st.modelos[0]) : st.modelos.length + ' modelos'}` : ''}</h2>
 </div>
                     <div class="sc-ctrl no-print flex flex-wrap items-center gap-2">
@@ -4398,8 +4483,8 @@
         const pbsAcima = (d) => d.r > pbsLim(d);
         const pbsPerto = (d) => !pbsAcima(d) && d.r >= pbsLim(d) * 0.8;
         // Cor de uma pessoa (pelo limite do gênero) ou de uma média/faixa (pelo limite masculino, 15)
-        const pbsCorP = (d) => pbsAcima(d) ? '#E11D48' : pbsPerto(d) ? '#F59E0B' : '#10B981';
-        const pbsCor = (v) => v > 15 ? '#E11D48' : v >= 12 ? '#F59E0B' : '#10B981';
+        const pbsCorP = (d) => pbsAcima(d) ? '#E5484D' : pbsPerto(d) ? '#F59E0B' : '#30A46C';
+        const pbsCor = (v) => v > 15 ? '#E5484D' : v >= 12 ? '#F59E0B' : '#30A46C';
         const pbsFaixaInicio = (f) => { const m = String(f).match(/(\d+(?:,\d+)?)/); return m ? parseFloat(m[1].replace(',', '.')) : 0; };
         window.setPbs = function(k, v) { pbsState[k] = v; destroyCharts(); renderPbsContent(); lucide.createIcons(); };
         window.filterPbsTable = function(v) {
@@ -4442,7 +4527,7 @@
             let html = `
             <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">PbS · Chumbo no sangue</p>
+                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber eyebrow">PbS · Chumbo no sangue</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(formatMonthName(month))}${setor !== 'Todos' ? ` · ${esc(pbsSetorCurto(setor))}` : ''}</h2>
 </div>
 
@@ -4456,7 +4541,7 @@
                 ${kpiCard({ label: 'Média do mês (µg/dL)', value: media === null ? '—' : fmt(media, 1), accent: media === null ? C.blue : pbsCor(media),
                     sub: delta === null ? `${cur.length} exames` : `<span class="font-semibold ${delta <= 0 ? 'text-emerald-600' : 'text-rose-600'}">${delta > 0 ? '▲ +' : '▼ '}${fmt(delta, 1)}%</span> vs ${esc(shortMonth(prevM))}` })}
                 ${kpiCard({ label: 'Avaliados', value: fmt(new Set(cur.map(d => d.mat)).size), accent: C.blue, sub: `${cur.filter(d => d.g === 'F').length} mulheres · ${cur.filter(d => d.g === 'M').length} homens` })}
-                ${kpiCard({ label: 'Acima do limite', value: fmt(acima.length), accent: '#E11D48', subTone: acima.length ? 'bad' : 'good',
+                ${kpiCard({ label: 'Acima do limite', value: fmt(acima.length), accent: '#E5484D', subTone: acima.length ? 'bad' : 'good',
                     sub: cur.length ? `${fmt(acima.length / cur.length * 100, 1)}% · ${acima.filter(d => d.g === 'M').length} H (>15) · ${acima.filter(d => d.g === 'F').length} M (>10)${prevM ? ` · era ${acimaPrev}` : ''}` : '—' })}
                 ${kpiCard({ label: 'Perto do limite', value: fmt(perto.length), accent: '#F59E0B', sub: `80% a 100% do limite${maior ? ` · maior: ${fmt(maior.r, 1)}` : ''}` })}
             </div>
@@ -4531,7 +4616,7 @@
                 ] },
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                     scales: { x: axisX({ ticks: { color: C.text3, maxRotation: 0, autoSkipPadding: 8 } }), y: axisY({ ticks: { callback: v => fmt(v, 0) } }) },
-                    plugins: { refLines: { h: [{ value: 15, color: '#E11D48', label: 'Limite H 15' }, { value: 10, color: '#F59E0B', label: 'Limite M 10' }] },
+                    plugins: { refLines: { h: [{ value: 15, color: '#E5484D', label: 'Limite H 15' }, { value: 10, color: '#F59E0B', label: 'Limite M 10' }] },
                         legend: { display: setor !== 'Todos', position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
                         tooltip: { ...tooltipStyle, callbacks: { title: (it) => formatMonthName(months[it[0].dataIndex]), label: (ctx) => ctx.raw == null ? null : `${ctx.dataset.label}: ${fmt(ctx.raw, 1)} µg/dL` } } } }
             });
@@ -4540,7 +4625,7 @@
             const pctAcima = cur.length ? acima.length / cur.length * 100 : 0;
             charts.pbsPizza = new Chart(document.getElementById('chart-pbs-pizza'), {
                 type: 'doughnut',
-                data: { labels: ['Dentro do limite', 'Acima do limite'], datasets: [{ data: [nDentro, acima.length], backgroundColor: ['#10B981', '#E11D48'], borderColor: C.card || '#fff', borderWidth: 3, hoverOffset: 6 }] },
+                data: { labels: ['Dentro do limite', 'Acima do limite'], datasets: [{ data: [nDentro, acima.length], backgroundColor: ['#30A46C', '#E5484D'], borderColor: C.card || '#fff', borderWidth: 3, hoverOffset: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '62%', layout: { padding: 6 },
                     plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 10, padding: 14, generateLabels: (ch) => ch.data.labels.map((l, i) => ({ text: `${l}: ${fmt(ch.data.datasets[0].data[i])} (${fmt(cur.length ? ch.data.datasets[0].data[i] / cur.length * 100 : 0, 1)}%)`, fillStyle: ch.data.datasets[0].backgroundColor[i], strokeStyle: ch.data.datasets[0].backgroundColor[i], pointStyle: 'circle', fontColor: C.text2, index: i })) } },
                         tooltip: { ...tooltipStyle, callbacks: { label: (ctx) => `${ctx.label}: ${fmt(ctx.raw)} (${fmt(cur.length ? ctx.raw / cur.length * 100 : 0, 1)}%)` } } } },
@@ -4548,8 +4633,8 @@
                     const a = ch.getDatasetMeta(0).data[0]; if (!a) return;
                     const { ctx } = ch, x = a.x, y = a.y;
                     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillStyle = '#E11D48'; ctx.font = '700 26px Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillText(`${fmt(pctAcima, 1)}%`, x, y - 8);
-                    ctx.fillStyle = C.text3; ctx.font = '500 11px Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillText(`acima · ${fmt(acima.length)} de ${fmt(cur.length)}`, x, y + 16);
+                    ctx.fillStyle = '#E5484D'; ctx.font = '700 26px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillText(`${fmt(pctAcima, 1)}%`, x, y - 8);
+                    ctx.fillStyle = C.text3; ctx.font = '500 11px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif'; ctx.fillText(`acima · ${fmt(acima.length)} de ${fmt(cur.length)}`, x, y + 16);
                     ctx.restore(); } }]
             });
             // Distribuição por faixa
@@ -4557,7 +4642,7 @@
             const cont = faixas.map(f => cur.filter(d => d.faixa === f).length);
             charts.pbsFaixa = new Chart(document.getElementById('chart-pbs-faixa'), {
                 type: 'bar',
-                data: { labels: faixas.map(f => f.replace(/^De /i, '').replace(' até ', '–').replace(/^Apenas /i, '')), datasets: [{ data: cont, backgroundColor: faixas.map(f => { const v = pbsFaixaInicio(f); return v >= 15 ? '#E11D48' : v >= 10 ? '#F59E0B' : '#10B981'; }), borderRadius: 5, maxBarThickness: 36 }] },
+                data: { labels: faixas.map(f => f.replace(/^De /i, '').replace(' até ', '–').replace(/^Apenas /i, '')), datasets: [{ data: cont, backgroundColor: faixas.map(f => { const v = pbsFaixaInicio(f); return v >= 15 ? '#E5484D' : v >= 10 ? '#F59E0B' : '#30A46C'; }), borderRadius: 5, maxBarThickness: 36 }] },
                 options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18 } },
                     scales: { x: axisX({ ticks: { color: C.text3, maxRotation: 45, font: { size: 10 } } }), y: axisY({ ticks: { maxTicksLimit: 5 } }) },
                     plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => faixas[it[0].dataIndex] + ' µg/dL', label: (ctx) => `${fmt(ctx.raw)} colaboradores (${fmt(cur.length ? ctx.raw / cur.length * 100 : 0, 1)}%)` } },
@@ -4774,7 +4859,7 @@
             container.innerHTML = `
             <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">Perdas de produção</p>
+                    <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber eyebrow">Perdas de produção</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(scopeTxt)}</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Horas paradas por família, máquina e componente · clique nas barras para filtrar (clique de novo para tirar)</p></div>
                     <div class="no-print flex flex-wrap items-center gap-2">
@@ -5033,7 +5118,7 @@
             const resumoDia = !st.dias.length ? 'Todos' : st.dias.length <= 3 ? st.dias.join(', ') : `${st.dias.length} dias`;
             return `<section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div class="min-w-0"><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">OEE</p>
+                    <div class="min-w-0"><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber eyebrow">OEE</p>
                         <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${titulo}</h2></div>
                     <div class="no-print flex items-center gap-2">${oeeModoSeg()}
                         <div class="relative oee-dd"><button onclick="oeeDD('opcoes')" class="icon-btn h-9" title="Opções do cálculo"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i><span class="hidden sm:inline">Opções</span></button>
@@ -5086,7 +5171,7 @@
             if (R.empty) { container.innerHTML = `<div class="${CARD} py-16 text-center text-sm text-slate-500">Ainda não há produção da Montagem.</div>`; return; }
             const T = R.total, meta = st.meta / 100;
             const pct = (v) => v === null || !Number.isFinite(v) ? '—' : fmt(v * 100, 1) + '%';
-            const toneHex = (v, ref) => v === null ? '#94a3b8' : v >= ref ? '#10B981' : v >= ref * 0.85 ? '#F59E0B' : '#E11D48';
+            const toneHex = (v, ref) => v === null ? '#94a3b8' : v >= ref ? '#30A46C' : v >= ref * 0.85 ? '#F59E0B' : '#E5484D';
             const ring = (v, size, big = false) => { const p = v === null ? 0 : Math.max(0, Math.min(1, v)); const c = toneHex(v, meta);
                 return `<div class="oee-ring" style="--sz:${size}px;--p:${(p * 100).toFixed(1)};--c:${c}"><div class="oee-ring-in"><span class="${big ? 'oee-big' : size < 90 ? 'text-base' : 'text-xl'} font-semibold tracking-tight" style="color:${c}">${pct(v)}</span>${big ? '<span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">OEE</span>' : ''}</div></div>`; };
             const ugbs = [...new Set(Object.values(UGB_MONTAGEM))].sort();
@@ -5202,7 +5287,7 @@
             ].filter(Boolean);
 
             // Cor por nível (verde = na referência; amarelo = até 15% abaixo; vermelho = mais que isso)
-            const toneHex = (v, ref) => v === null ? '#94a3b8' : v >= ref ? '#10B981' : v >= ref * 0.85 ? '#F59E0B' : '#E11D48';
+            const toneHex = (v, ref) => v === null ? '#94a3b8' : v >= ref ? '#30A46C' : v >= ref * 0.85 ? '#F59E0B' : '#E5484D';
             const ring = (v, ref, size, label, big = false) => { const p = v === null ? 0 : Math.max(0, Math.min(1, v)); const c = toneHex(v, ref);
                 return `<div class="oee-ring" style="--sz:${size}px;--p:${(p * 100).toFixed(1)};--c:${c}"><div class="oee-ring-in"><span class="${big ? 'oee-big' : size < 90 ? 'text-base' : 'text-xl'} font-semibold tracking-tight" style="color:${c}">${v === null ? '—' : fmt(v * 100, 1) + '%'}</span>${label ? `<span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">${label}</span>` : ''}</div></div>`; };
             const famTop = (a, n = 3) => Object.entries(a.fam || {}).sort((x, y) => y[1] - x[1]).slice(0, n);
@@ -5306,7 +5391,7 @@
                 const ds = (label, key, cor, w, dash) => ({ label, data: ev.map(e => pc(key === 'P' ? (e.t.P === null ? null : Math.min(e.t.P, 1)) : e.t[key])), borderColor: cor, backgroundColor: cor, borderWidth: w, borderDash: dash || [], pointRadius: key === 'OEE' ? ev.map(e => R.sel.includes(e.m) ? 6 : 3.5) : 2, pointHoverRadius: 6, tension: 0.3, spanGaps: true, fill: false });
                 charts.oeeEvol = new Chart(document.getElementById('chart-oee-evol'), {
                     type: 'line',
-                    data: { labels: ev.map(e => shortMonth(e.m)), datasets: [ds('OEE', 'OEE', C.navy, 3), ds('Disponibilidade', 'A', '#38BDF8', 1.5, [4, 3]), ds('Desempenho', 'P', '#F59E0B', 1.5, [4, 3]), ds('Qualidade', 'Q', '#10B981', 1.5, [4, 3])] },
+                    data: { labels: ev.map(e => shortMonth(e.m)), datasets: [ds('OEE', 'OEE', C.navy, 3), ds('Disponibilidade', 'A', '#38BDF8', 1.5, [4, 3]), ds('Desempenho', 'P', '#F59E0B', 1.5, [4, 3]), ds('Qualidade', 'Q', '#30A46C', 1.5, [4, 3])] },
                     options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, layout: { padding: { top: 8 } },
                         onClick: (e, els) => { if (els.length) { const m = ev[els[0].index].m; oeeState.months = [m]; setTimeout(() => { destroyCharts(); renderOeeContent(); lucide.createIcons(); }, 0); } },
                         onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
@@ -5318,7 +5403,7 @@
             }
             // Cascata: 100% → − disponibilidade → − desempenho → − qualidade → OEE
             const cur1 = 1, cur2 = cur1 - perdaA, cur3 = cur2 - perdaP, cur4 = cur3 - perdaQ;
-            const etapas = [['Possível', [0, 1], '#94a3b8'], ['− Disponibilidade', [cur2, cur1], '#38BDF8'], ['− Desempenho', [cur3, cur2], '#F59E0B'], ['− Qualidade', [cur4, cur3], '#E11D48'], ['OEE', [0, cur4], toneHex(T.OEE, meta)]];
+            const etapas = [['Possível', [0, 1], '#94a3b8'], ['− Disponibilidade', [cur2, cur1], '#38BDF8'], ['− Desempenho', [cur3, cur2], '#F59E0B'], ['− Qualidade', [cur4, cur3], '#E5484D'], ['OEE', [0, cur4], toneHex(T.OEE, meta)]];
             charts.oeeCascata = new Chart(document.getElementById('chart-oee-cascata'), {
                 type: 'bar',
                 data: { labels: etapas.map(e => e[0]), datasets: [{ data: etapas.map(e => e[1].map(x => +(x * 100).toFixed(2))), backgroundColor: etapas.map(e => e[2]), borderRadius: 6, borderSkipped: false, maxBarThickness: 70 }] },
@@ -6042,7 +6127,7 @@
                 months.forEach(m => {
                     const ok = m.missingWorking.length === 0;
                     html += `
-                    <div class="rounded-xl border ${ok ? 'border-slate-200/80' : 'border-rose-200 bg-rose-50/30'} p-4 flex flex-col gap-3">
+                    <div class="inset p-4 flex flex-col gap-3">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-2 h-2 rounded-full shrink-0 ${ok ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
@@ -6918,7 +7003,7 @@
             const lt = document.getElementById('lt'), t = TITULO_ABA[activeTab] || '';
             lt.classList.toggle('hide', !rawData.length);
             lt.querySelector('h1').textContent = t;
-            lt.querySelector('p').textContent = ['dashboard', 'gestao'].includes(activeTab) ? (sub || '') : '';
+            lt.querySelector('p').textContent = ['dashboard', 'gestao'].includes(activeTab) ? (sub || '') : activeTab === 'pbs' ? 'Chumbo no sangue' : '';
             document.getElementById('ct').textContent = t;
             if (!atualizarTitulo.obs && 'IntersectionObserver' in window) {
                 atualizarTitulo.obs = new IntersectionObserver(([e]) => document.querySelector('header').classList.toggle('compact', !e.isIntersecting && e.boundingClientRect.top < 100), { rootMargin: '-64px 0px 0px 0px' });
