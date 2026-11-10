@@ -1329,7 +1329,7 @@
 
         document.addEventListener('click', (e) => {
             if (!document.body.contains(e.target)) return;
-            if (!e.target.closest('.multi-dropdown-container')) {
+            if (!e.target.closest('.multi-dropdown-container, .fx-dd, .oee-dd')) {
                 document.querySelectorAll('.dd-list').forEach(el => el.classList.add('hide'));
             }
         });
