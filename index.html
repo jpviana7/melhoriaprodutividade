@@ -429,7 +429,40 @@
         html.dark #more-sheet .ms-panel, html.dark #ast-panel .ast-box { background: #1c1c1e; }
         html.dark #more-sheet .ms-tile { background: #2c2c2e; }
         html.dark .hm-sticky { background: #1c1c1e; }
-        @media print { #lt, #splash { display: none !important; } }
+        @media print { #lt, #splash, #ptr { display: none !important; } }
+        /* ===== Gestos iOS ===== */
+        .seg.has-pill { position: relative; }
+        .seg-pill { position: absolute; left: 0; top: 0; border-radius: .5rem; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); pointer-events: none; z-index: 0;
+            transition: transform .3s var(--ease-spring), width .3s var(--ease-out); }
+        .seg.has-pill > button { position: relative; z-index: 1; }
+        .seg.has-pill > button.active { background: transparent !important; box-shadow: none !important; }
+        .seg.dark .seg-pill { background: #FFBB00; }
+        html.dark .seg-pill { background: #636366; box-shadow: none; }
+        html.dark .seg.dark .seg-pill { background: #FFBB00; }
+        @keyframes slideEsq { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+        @keyframes slideDir { from { opacity: 0; transform: translateX(-36px); } to { opacity: 1; transform: none; } }
+        html[data-slide="esq"] main > [id^="view-"]:not(.hide) { animation: slideEsq .26s var(--ease-out) backwards; }
+        html[data-slide="dir"] main > [id^="view-"]:not(.hide) { animation: slideDir .26s var(--ease-out) backwards; }
+        #ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); z-index: 45; opacity: 0; transform: translate(-50%, -50px); pointer-events: none; }
+        .ptr-c { width: 40px; height: 40px; border-radius: 50%; background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.15); display: flex; align-items: center; justify-content: center; }
+        .ptr-logo { width: 22px; height: 18px; background-repeat: no-repeat; background-size: auto 18px; background-position: left center; }
+        #ptr.girando .ptr-logo { animation: spin .7s linear infinite; }
+        html.dark .ptr-c { background: #2c2c2e; }
+        /* Listas agrupadas (Ajustes do iPhone) */
+        .ios-grp > div:first-child { padding: 0 .25rem; margin-bottom: .375rem !important; }
+        .ios-grp > div:first-child h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--lbl2); }
+        .ios-grp > div:last-child { background: var(--bg); border-radius: 12px; overflow: hidden; }
+        .ios-grp > div:last-child > * { margin: 0 !important; padding: .625rem .875rem; position: relative; }
+        .ios-grp > div:last-child > * + *::before { content: ''; position: absolute; top: 0; left: .875rem; right: 0; border-top: .5px solid var(--sep); }
+        html.dark .ios-grp > div:last-child { background: #2c2c2e; }
+        .ios-grp input { background: transparent !important; border-color: transparent !important; font-variant-numeric: tabular-nums; }
+        .ios-grp input:focus { background: var(--card) !important; }
+        .ios-link { display: inline-flex; align-items: center; gap: .375rem; text-align: left; }
+        .ios-chev { color: #c7c7cc; font-size: 20px; line-height: 1; font-weight: 400; margin-top: -2px; }
+        .ios-list { background: var(--bg); border-radius: 12px; padding: 0 .875rem; margin: .5rem 0; }
+        html.dark .ios-list { background: #2c2c2e; }
+        .ios-list > li { border-color: var(--sep) !important; }
+
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -5740,7 +5773,7 @@
                     </div>`, 'flag')}
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     ${ugbs.map(u => `
-                    <div class="rounded-xl border border-slate-200/80 p-4">
+                    <div class="ios-grp">
                         <div class="flex items-baseline justify-between mb-3">
                             <h3 class="text-sm font-semibold text-slate-900">${esc(u)}</h3>
                             <span class="text-xs text-slate-500">Meta da UGB <strong class="text-slate-900 font-semibold" data-ugb-sum="${esc(u)}">0</strong></span>
@@ -5749,7 +5782,7 @@
                             ${groups[u].map(({ line }) => `
                             <div>
                               <div class="flex items-center justify-between gap-3">
-                                <span class="text-sm font-medium text-slate-700 min-w-0">${esc(line)}</span>
+                                <button type="button" data-line="${esc(line)}" onclick="openPlan(this.dataset.line)" class="ios-link text-sm font-medium text-slate-700 min-w-0">${esc(line)}<span class="ios-chev">›</span></button>
                                 <span class="flex items-center gap-2 shrink-0">
                                     <button data-line="${esc(line)}" onclick="openPlan(this.dataset.line)" title="Calendário: meta por turno, dia a dia" class="no-print h-9 w-9 rounded-lg ring-1 ring-inset ${dayPlan[line] && Object.keys(dayPlan[line]).length ? 'bg-brand-blue/10 text-brand-blue ring-brand-blue/30' : 'bg-slate-100 text-slate-600 ring-slate-200'} hover:ring-brand-blue inline-flex items-center justify-center"><i data-lucide="calendar-days" class="w-4 h-4"></i></button>
                                     <input type="number" min="0" step="1" value="${(metaMesSel ? (metasMesLinha[metaMesSel] || {})[line] : metasLinha[line]) ?? ''}" placeholder="${(() => { const h = metaMesSel ? (metaMesOf(line, prevMonthOf(metaMesSel)) ?? metasLinha[line] ?? rep[line]) : rep[line]; return h ? fmt(h) + (metaMesSel ? '' : ' (rel.)') : 'sem meta'; })()}" title="Vazio: vale a meta ${metaMesSel ? 'do mês anterior / padrão' : 'do relatório'}"
@@ -5773,7 +5806,7 @@
                 ${sectionHead('Metas de scrap por linha · Montagem', 'Máximo de baterias de scrap por mês (bateria completa + sem tampa). A meta de cada UGB é a soma das suas linhas, e a da Montagem é a soma das UGBs. Com filtro de turno na aba Scrap, cada turno vale 1/3.', '', 'trash-2')}
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     ${ugbs.filter(u => u !== 'Sem UGB').map(u => `
-                    <div class="rounded-xl border border-slate-200/80 p-4">
+                    <div class="ios-grp">
                         <div class="flex items-baseline justify-between mb-3">
                             <h3 class="text-sm font-semibold text-slate-900">${esc(u)}</h3>
                             <span class="text-xs text-slate-500">Meta da UGB <strong class="text-slate-900 font-semibold" data-scrap-sum="${esc(u)}">—</strong></span>
@@ -5980,7 +6013,7 @@
             if (filesOpen) {
                 html += `<div class="border-t border-slate-100 px-5 py-2">`;
                 if (fileNames.length > 0) {
-                    html += `<ul class="divide-y divide-slate-100">` + fileNames.map(f => `
+                    html += `<ul class="ios-list divide-y divide-slate-100">` + fileNames.map(f => `
                         <li class="flex items-center gap-3 py-2.5">
                             <i data-lucide="file" class="w-4 h-4 text-slate-400 shrink-0"></i>
                             <span class="text-sm text-slate-700 truncate flex-1 min-w-0">${esc(f)}</span>
@@ -6291,8 +6324,9 @@
                     if (!el.isConnected) return;
                     const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
                     el.textContent = k >= 1 ? txt : m[1] + fmtCount(target * e, dec);
-                    if (k < 1) requestAnimationFrame(step);
+                    if (k < 1) requestAnimationFrame(step); else delete el.dataset.cu;
                 };
+                el.dataset.cu = '1'; el.dataset.fim = (m[1] ? -1 : 1) * target;
                 el.textContent = m[1] + fmtCount(0, dec);
                 requestAnimationFrame(step);
             });
@@ -6727,6 +6761,158 @@
         window.fxFechar = () => document.querySelectorAll('[id^="fxdd-"]').forEach(x => x.classList.add('hide'));
         window.fxAbrir = function(id) { const el = document.getElementById('fxdd-' + id); if (!el) return; const abrir = el.classList.contains('hide'); fxFechar(); if (abrir) el.classList.remove('hide'); };
         document.addEventListener('click', (e) => { if (e.target.isConnected && !e.target.closest('.fx-dd')) fxFechar(); });
+        // ===== Gestos e movimento estilo iOS =====
+        const ehCelular = () => window.innerWidth <= 640;
+        // 1) Arrastar para baixo fecha painéis que sobem de baixo (Assistente e listas de filtro)
+        (function () {
+            const SEL = '#ast-panel .ast-box, .dd-list, [id^="pdd-"], [id^="sdd-"], [id^="oee-dd-"], [id^="fxdd-"]';
+            let alvo = null, y0 = 0, dy = 0;
+            document.addEventListener('touchstart', (e) => {
+                const el = ehCelular() && e.target.closest(SEL);
+                if (!el) return;
+                const rolavel = e.target.closest('.ast-msgs, [class*="overflow-y-auto"]') || el;
+                if (rolavel.scrollTop > 0) return;
+                alvo = el; y0 = e.touches[0].clientY; dy = 0; el.style.transition = 'none';
+            }, { passive: true });
+            document.addEventListener('touchmove', (e) => {
+                if (!alvo) return;
+                dy = Math.max(0, e.touches[0].clientY - y0);
+                alvo.style.transform = dy ? `translateY(${dy}px)` : '';
+            }, { passive: true });
+            document.addEventListener('touchend', () => {
+                if (!alvo) return;
+                const el = alvo; alvo = null;
+                el.style.transition = 'transform .22s var(--ease-out)';
+                if (dy > 80) {
+                    el.style.transform = 'translateY(100%)';
+                    setTimeout(() => {
+                        el.style.transition = ''; el.style.transform = '';
+                        if (el.closest('#ast-panel')) closeAssistente(); else document.body.click();
+                    }, 200);
+                } else { el.style.transform = ''; setTimeout(() => { el.style.transition = ''; }, 220); }
+            });
+        })();
+
+        // 2) Deslizar para o lado troca de aba
+        const ORDEM_ABAS = ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements', 'audit'];
+        (function () {
+            let x0 = null, y0 = 0, t0 = 0;
+            const ignorar = (t) => t.closest('.overflow-x-auto, canvas, input, select, textarea, #area-buttons, .seg, .dd-list, [id^="fxdd-"], [id^="oee-dd-"], [id^="pdd-"], [id^="sdd-"], .hm-table, [class*="overflow-x"]');
+            const main = document.querySelector('main');
+            main.addEventListener('touchstart', (e) => {
+                x0 = null;
+                if (!ehCelular() || e.touches.length > 1 || ignorar(e.target)) return;
+                x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+            }, { passive: true });
+            main.addEventListener('touchend', (e) => {
+                if (x0 === null) return;
+                const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+                if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * .6 || Date.now() - t0 > 600) return;
+                const abas = ORDEM_ABAS.filter(t => t !== 'audit' || isAdmin());
+                const i = abas.indexOf(activeTab), j = i + (dx < 0 ? 1 : -1);
+                if (i < 0 || j < 0 || j >= abas.length) return;
+                document.documentElement.dataset.slide = dx < 0 ? 'esq' : 'dir';
+                setTab(abas[j]);
+                setTimeout(() => { delete document.documentElement.dataset.slide; }, 400);
+            }, { passive: true });
+        })();
+
+        // 3) Puxar para baixo atualiza (logo girando)
+        (function () {
+            const ind = document.createElement('div');
+            ind.id = 'ptr'; ind.className = 'no-print';
+            const logo = document.querySelector('header img');
+            ind.innerHTML = `<div class="ptr-c"><div class="ptr-logo"></div></div>`;
+            document.body.appendChild(ind);
+            if (logo) ind.querySelector('.ptr-logo').style.backgroundImage = `url(${logo.src})`;
+            let y0 = null, dy = 0, ocupado = false;
+            const LIM = 70;
+            const pos = (d) => { ind.style.transform = `translate(-50%, ${Math.min(d, 110) - 50}px)`; ind.style.opacity = Math.min(1, d / LIM); ind.querySelector('.ptr-logo').style.transform = `rotate(${d * 4}deg)`; };
+            document.addEventListener('touchstart', (e) => {
+                y0 = null;
+                if (!ehCelular() || ocupado || window.scrollY > 0 || !e.target.closest('main') || document.querySelector('#more-sheet:not(.hide), #ast-panel:not(.hide)')) return;
+                y0 = e.touches[0].clientY; dy = 0; ind.style.transition = 'none';
+            }, { passive: true });
+            document.addEventListener('touchmove', (e) => {
+                if (y0 === null) return;
+                dy = (e.touches[0].clientY - y0) * .5;
+                if (dy <= 0 || window.scrollY > 0) { dy = 0; ind.style.opacity = 0; return; }
+                pos(dy);
+            }, { passive: true });
+            document.addEventListener('touchend', async () => {
+                if (y0 === null) return;
+                y0 = null; ind.style.transition = 'transform .25s var(--ease-out), opacity .2s';
+                if (dy < LIM) { ind.style.opacity = 0; ind.style.transform = 'translate(-50%, -50px)'; return; }
+                ocupado = true; ind.classList.add('girando'); pos(LIM);
+                try { lastRefresh = 0; await Promise.all([refreshFromCloud(), new Promise(r => setTimeout(r, 700))]); } catch (e) { /* sem conexão */ }
+                ind.classList.remove('girando'); ind.style.opacity = 0; ind.style.transform = 'translate(-50%, -50px)'; ocupado = false;
+                if (typeof showToast === 'function') showToast('Atualizado', 'success');
+            });
+        })();
+
+        // 4) Botões segmentados: pílula que desliza até a opção escolhida
+        // 6) Números animam do valor antigo para o novo
+        const segMem = new Map(), numMem = new Map();
+        const RE_NUM = /^([+−-]?)(\d{1,3}(?:\.\d{3})+|\d+)(,\d+)?(\s?%)?$/;
+        function animarSegs() {
+            document.querySelectorAll('.seg').forEach(seg => {
+                const btns = [...seg.querySelectorAll(':scope > button')];
+                const ativo = btns.find(b => b.classList.contains('active'));
+                if (!ativo || !seg.offsetWidth) return;
+                let pill = seg.querySelector(':scope > .seg-pill');
+                if (!pill) { pill = document.createElement('span'); pill.className = 'seg-pill'; seg.prepend(pill); seg.classList.add('has-pill'); }
+                const chave = btns.map(b => b.textContent.trim()).join('|');
+                const novo = { x: ativo.offsetLeft, y: ativo.offsetTop, w: ativo.offsetWidth, h: ativo.offsetHeight };
+                const velho = segMem.get(chave);
+                const aplica = (p) => { pill.style.width = p.w + 'px'; pill.style.height = p.h + 'px'; pill.style.transform = `translate(${p.x}px, ${p.y}px)`; };
+                if (velho && pill.dataset.k !== JSON.stringify(novo) && (velho.x !== novo.x || velho.w !== novo.w)) {
+                    pill.style.transition = 'none'; aplica(velho); pill.offsetWidth;
+                    pill.style.transition = ''; aplica(novo);
+                } else if (pill.dataset.k !== JSON.stringify(novo)) { pill.style.transition = 'none'; aplica(novo); pill.offsetWidth; pill.style.transition = ''; }
+                pill.dataset.k = JSON.stringify(novo);
+                segMem.set(chave, novo);
+            });
+        }
+        function animarNumeros(view) {
+            if (!view || reduceMotion()) return;
+            const els = [...view.querySelectorAll('p, span, strong, div, h3')].filter(el => !el.childElementCount && RE_NUM.test(el.textContent.trim()));
+            els.filter(el => parseFloat(getComputedStyle(el).fontSize) >= 20).slice(0, 24).forEach((el, i) => {
+                const txt = el.textContent.trim(), m = txt.match(RE_NUM);
+                const card = el.closest('.card, section');
+                const rot = card ? (card.querySelector('.kpi-label, .filter-label, h2, h3')?.textContent || '') : '';
+                const chave = activeTab + '|' + rot + '|' + i;
+                const dec = m[3] ? m[3].length - 1 : 0;
+                const alvo = (m[1] ? -1 : 1) * parseFloat(m[2].replace(/\./g, '') + (m[3] || '').replace(',', '.'));
+                const antes = numMem.get(chave);
+                if (!el.dataset.cu) numMem.set(chave, alvo);
+                if (el.dataset.cu) { if (el.dataset.fim) numMem.set(chave, +el.dataset.fim); return; }
+                if (antes === undefined || antes === alvo || !Number.isFinite(antes)) return;
+                el.dataset.cu = '1';
+                const t0 = performance.now(), dur = 420;
+                const passo = (agora) => {
+                    if (!el.isConnected) return;
+                    const k = Math.min(1, (agora - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+                    const v = antes + (alvo - antes) * e;
+                    el.textContent = k >= 1 ? txt : (v < 0 ? '−' : (m[1] && v > 0 ? m[1] : '')) + fmtCount(Math.abs(v), dec) + (m[4] || '');
+                    if (k < 1) requestAnimationFrame(passo); else delete el.dataset.cu;
+                };
+                requestAnimationFrame(passo);
+            });
+        }
+        (function () {
+            let pend = false;
+            new MutationObserver((muts) => {
+                if (pend || !muts.some(m => [...m.addedNodes].some(n => n.nodeType === 1))) return;
+                pend = true;
+                requestAnimationFrame(() => {
+                    pend = false;
+                    animarSegs();
+                    if (!pendingEnter) animarNumeros(document.getElementById('view-' + activeTab));
+                });
+            }).observe(document.querySelector('main'), { childList: true, subtree: true });
+            window.addEventListener('resize', () => { segMem.clear(); document.querySelectorAll('.seg-pill').forEach(p => p.dataset.k = ''); animarSegs(); });
+        })();
+
         const TITULO_ABA = { dashboard: 'Dashboard', bomdia: 'Bom Dia', gestao: 'Gestão', scrap: 'Scrap', perdas: 'Perdas', pbs: 'PbS', oee: 'OEE', metas: 'Metas', improvements: 'Projetos', audit: 'Dados' };
         function atualizarTitulo(sub) {
             const lt = document.getElementById('lt'), t = TITULO_ABA[activeTab] || '';
