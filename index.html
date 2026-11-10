@@ -6227,14 +6227,7 @@
             }
             if (!pushSuportado() || !swReg) { showToast('Este navegador não aceita avisos. Use o Chrome no Android ou o app instalado no iPhone.', 'warning'); return; }
             const atual = await assinaturaAtual();
-            if (atual && Notification.permission === 'granted') {
-                openConfirmModal('Desativar os avisos de produção neste aparelho?', async () => {
-                    const id = (await sha256(atual.endpoint)).slice(0, 40);
-                    try { await deleteDoc(doc(db, 'dashboard_push', id)); } catch (e) { /* sem conexão */ }
-                    await atual.unsubscribe(); atualizarBotaoAvisos(); showToast('Avisos desativados neste aparelho.', 'info');
-                });
-                return;
-            }
+            if (atual && Notification.permission === 'granted') { abrirPrefsAvisos(atual); return; }
             const perm = await Notification.requestPermission();
             if (perm !== 'granted') { showToast('Permissão negada. Libere as notificações do site nas configurações do navegador.', 'warning'); return; }
             try {
@@ -6242,11 +6235,64 @@
                 if (!atual && !VAPID_PUBLIC) { showToast('Os avisos ainda não foram configurados no Netlify (chaves VAPID).', 'warning'); return; }
                 const sub = atual || await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
                 const id = (await sha256(sub.endpoint)).slice(0, 40);
-                await setDoc(doc(db, 'dashboard_push', id), { sub: JSON.stringify(sub), aparelho: navigator.userAgent.slice(0, 160), criado: new Date().toISOString() });
+                await setDoc(doc(db, 'dashboard_push', id), { sub: JSON.stringify(sub), aparelho: navigator.userAgent.slice(0, 160), criado: new Date().toISOString(), prefs: JSON.stringify(PREFS_PADRAO) });
                 atualizarBotaoAvisos();
-                showToast('Avisos ativados: você recebe a produção de cada turno (14h, 22h, 6h) e o fechamento do dia.', 'success');
+                showToast('Avisos ativados. Escolha abaixo o que quer receber.', 'success');
+                abrirPrefsAvisos(sub);
             } catch (e) { console.error(e); showToast('Não foi possível ativar os avisos neste aparelho.', 'error'); }
         };
+        // Escolhas de cada aparelho: UGB e quais avisos recebe (guardadas junto da inscrição)
+        const PREFS_PADRAO = { ugb: 'Todas', t1: true, t2: true, t3: true, dia: true };
+        window.abrirPrefsAvisos = abrirPrefsAvisos;
+        async function abrirPrefsAvisos(sub) {
+            const id = (await sha256(sub.endpoint)).slice(0, 40);
+            let dados = null, prefs = { ...PREFS_PADRAO };
+            try { const r = await getDoc(doc(db, 'dashboard_push', id)); if (r.exists()) { dados = r.data(); prefs = { ...prefs, ...JSON.parse(dados.prefs || '{}') }; } } catch (e) { /* usa o padrão */ }
+            document.getElementById('avisos-modal')?.remove();
+            const ugbs = [...new Set(Object.values(UGB_MONTAGEM))].sort();
+            const chk = (k, titulo, sub) => `<label class="flex items-center justify-between gap-3 py-2.5 cursor-pointer"><span><span class="block text-sm font-medium text-slate-800">${titulo}</span><span class="block text-xs text-slate-500">${sub}</span></span>
+                <input type="checkbox" data-k="${k}" ${prefs[k] ? 'checked' : ''} class="w-5 h-5 accent-[#1B2F88] shrink-0"></label>`;
+            const m = document.createElement('div');
+            m.id = 'avisos-modal';
+            m.className = 'no-print fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4'; m.style.zIndex = '80';
+            m.innerHTML = `<div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"><p class="text-[15px] font-semibold text-slate-900 flex items-center gap-2"><i data-lucide="bell" class="w-4 h-4 text-brand-amber"></i>Avisos neste aparelho</p>
+                    <button data-acao="fechar" class="icon-btn h-9 w-9 justify-center !px-0" aria-label="Fechar"><i data-lucide="x" class="w-4 h-4"></i></button></div>
+                <div class="px-5 py-4">
+                    <label class="filter-label block mb-1.5">Quais linhas</label>
+                    <select data-k="ugb" class="w-full h-10 bg-white border border-slate-200 text-slate-900 text-sm rounded-xl px-3 outline-none focus:border-brand-blue mb-3">
+                        <option value="Todas" ${prefs.ugb === 'Todas' ? 'selected' : ''}>Toda a Montagem</option>${ugbs.map(u => `<option value="${esc(u)}" ${prefs.ugb === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select>
+                    <p class="filter-label mb-1">O que receber</p>
+                    <div class="divide-y divide-slate-100">${chk('t1', 'Turno 01', 'Depois das 14:00')}${chk('t2', 'Turno 02', 'Depois das 22:00')}${chk('t3', 'Turno 03', 'Depois das 06:00')}${chk('dia', 'Fechamento do dia anterior', 'Depois das 06:00')}</div>
+                </div>
+                <div class="px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <button data-acao="desativar" class="text-sm font-medium text-rose-600 hover:underline">Desativar avisos</button>
+                    <button data-acao="salvar" class="h-10 px-5 rounded-xl bg-brand-navy text-white text-sm font-semibold">Salvar</button>
+                </div></div>`;
+            document.body.appendChild(m);
+            lucide.createIcons();
+            const fechar = () => m.remove();
+            m.addEventListener('click', async (e) => {
+                if (e.target === m) return fechar();
+                const acao = e.target.closest('[data-acao]')?.dataset.acao;
+                if (acao === 'fechar') fechar();
+                if (acao === 'desativar') {
+                    try { await deleteDoc(doc(db, 'dashboard_push', id)); } catch (err) { /* sem conexão */ }
+                    await sub.unsubscribe(); fechar(); atualizarBotaoAvisos(); showToast('Avisos desativados neste aparelho.', 'info');
+                }
+                if (acao === 'salvar') {
+                    const p = { ugb: m.querySelector('[data-k="ugb"]').value };
+                    m.querySelectorAll('input[data-k]').forEach(i => { p[i.dataset.k] = i.checked; });
+                    if (!p.t1 && !p.t2 && !p.t3 && !p.dia) { showToast('Marque pelo menos um aviso, ou use "Desativar avisos".', 'warning'); return; }
+                    try {
+                        await setDoc(doc(db, 'dashboard_push', id), { ...(dados || { sub: JSON.stringify(sub), aparelho: navigator.userAgent.slice(0, 160), criado: new Date().toISOString() }), prefs: JSON.stringify(p) });
+                        fechar();
+                        const qual = [p.t1 && 'T01', p.t2 && 'T02', p.t3 && 'T03', p.dia && 'fechamento'].filter(Boolean).join(', ');
+                        showToast(`Avisos salvos: ${qual} · ${p.ugb === 'Todas' ? 'toda a Montagem' : p.ugb}.`, 'success');
+                    } catch (err) { showToast('Não foi possível salvar. Verifique a internet.', 'error'); }
+                }
+            });
+        }
         // Link de um aviso: ?tab=bomdia&dia=AAAA-MM-DD&turno=1 abre o Bom Dia no dia e turno certos
         (() => {
             const q = new URLSearchParams(location.search);
