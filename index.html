@@ -125,6 +125,7 @@
         .oee-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c); }
         .oee-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -16px rgba(15,23,42,.35); }
         @media (max-width: 640px) { .oee-term { padding: .4rem .6rem; } .oee-term-v { font-size: 1.15rem; } }
+        @media (min-width: 1024px) { .filtros-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; } }
         /* Assistente */
         #ast-fab { position: fixed; right: 20px; bottom: 20px; z-index: 65; display: inline-flex; align-items: center; gap: .5rem; height: 44px; padding: 0 1rem; border-radius: 999px;
             background: #1B2F88; color: #fff; font-size: .875rem; font-weight: 600; box-shadow: 0 10px 28px -8px rgba(27,47,136,.6); transition: transform .15s, box-shadow .2s; }
@@ -576,7 +577,7 @@
                     <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 filters-chevron transition-transform"></i>
                 </button>
                 <div class="filters-collapsible p-4 md:p-5 flex flex-col xl:flex-row xl:items-end gap-4">
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 flex-1">
+                    <div class="filtros-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 flex-1">
                         <div class="flex flex-col gap-1.5">
                             <span class="filter-label">Ano</span>
                             <div class="relative multi-dropdown-container">
@@ -589,6 +590,13 @@
                             <div class="relative multi-dropdown-container">
                                 <button onclick="toggleDropdown('month')" class="dd-btn"><span id="month-display" class="truncate">Todos</span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i></button>
                                 <div id="dropdown-month-list" class="dd-list hide"></div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="filter-label">Dia</span>
+                            <div class="relative multi-dropdown-container">
+                                <button onclick="toggleDropdown('dia')" class="dd-btn"><span id="dia-display" class="truncate">Todos</span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i></button>
+                                <div id="dropdown-dia-list" class="dd-list hide"></div>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1.5">
@@ -819,6 +827,7 @@
         let selectedMachines = ["Todas"];
         let selectedModelos = ["Todos"];
         let selectedTurnos = ["Todos"];
+        let selectedDias = ["Todos"]; // dias do mês (01–31) no filtro do Dashboard
 
         let improvements = {};
         let hiddenDays = [0];
@@ -1287,7 +1296,7 @@
 
         // --- Dropdowns Multi-Select ---
         const ALL_OF = (type) => type === 'area' || type === 'machine' ? 'Todas' : 'Todos';
-        const selectionOf = (type) => ({ year: selectedYears, month: selectedMonthNums, area: selectedAreas, machine: selectedMachines, modelo: selectedModelos, turno: selectedTurnos }[type]);
+        const selectionOf = (type) => ({ year: selectedYears, month: selectedMonthNums, area: selectedAreas, machine: selectedMachines, modelo: selectedModelos, turno: selectedTurnos, dia: selectedDias }[type]);
 
         window.filterDropdown = function(type, query) {
             const q = query.toLowerCase();
@@ -1335,6 +1344,7 @@
             else if (type === 'machine') selectedMachines = cur;
             else if (type === 'modelo') selectedModelos = cur;
             else if (type === 'turno') selectedTurnos = cur;
+            else if (type === 'dia') selectedDias = cur;
             else if (type === 'year') selectedYears = cur;
             else if (type === 'month') selectedMonthNums = cur;
 
@@ -1725,8 +1735,12 @@
                 selectedMachines = keepValid(selectedMachines, ps.machineOptions, 'Todas');
             }
 
+            // Dias do mês com produção no período e área escolhidos
+            ps.diaOptions = ['Todos', ...[...new Set(rawData.filter(d => d.date && periodSet.has(d.date.substring(0, 7)) && inArea(d) && inUgb(d)).map(d => d.date.slice(8, 10)))].sort()];
+            selectedDias = keepValid(selectedDias, ps.diaOptions, 'Todos');
             const filtered = rawData.filter(d =>
                 inArea(d) && inUgb(d) &&
+                (selectedDias.includes('Todos') || selectedDias.includes(d.date.slice(8, 10))) &&
                 (selectedMachines.includes('Todas') || selectedMachines.includes(d.maquina)) &&
                 (selectedModelos.includes('Todos') || selectedModelos.includes(d.modelo)) &&
                 (selectedTurnos.includes('Todos') || selectedTurnos.includes(d.turno))
@@ -2179,8 +2193,9 @@
                     o => (o !== 'Todas' && ps.lineUgb[o] && ps.lineUgb[o] !== 'Sem UGB') ? `${o} · ${ps.lineUgb[o]}` : o, o => o);
                 populateMultiSelect('modelo', ps.modeloOptions, selectedModelos);
                 populateMultiSelect('turno', ps.turnoOptions, selectedTurnos, t => t === 'Todos' ? t : `Turno ${t}`);
+                populateMultiSelect('dia', ps.diaOptions || ['Todos'], selectedDias, d => d === 'Todos' ? d : `Dia ${d}`, d => d);
                 renderDayToggles();
-                const fs = [describePeriod(), isAll(selectedMachines) ? null : selectedMachines.length === 1 ? selectedMachines[0] : `${selectedMachines.length} linhas`,
+                const fs = [describePeriod(), isAll(selectedDias) ? null : selectedDias.length <= 3 ? 'dia ' + selectedDias.join(', ') : `${selectedDias.length} dias`, isAll(selectedMachines) ? null : selectedMachines.length === 1 ? selectedMachines[0] : `${selectedMachines.length} linhas`,
                     isAll(selectedModelos) ? null : `${selectedModelos.length} modelo(s)`, isAll(selectedTurnos) ? null : selectedTurnos.map(t => `T${t}`).join('+')].filter(Boolean);
                 document.getElementById('filters-summary').innerText = `Filtros · ${fs.join(' · ')}`;
 
@@ -3517,8 +3532,8 @@
         }
 
         // --- Aba Gestão por UGB: acumulado do mês de uma UGB, por turno e por linha ---
-        let gestaoUgb = null, gestaoTurno = null;
-        window.setGestao = function(field, v) { if (field === 'ugb') gestaoUgb = v; else gestaoTurno = v === gestaoTurno ? null : v; destroyCharts(); renderGestaoContent(); lucide.createIcons(); };
+        let gestaoUgb = null, gestaoTurno = null, gestaoLinha = null;
+        window.setGestao = function(field, v) { if (field === 'ugb') { gestaoUgb = v; gestaoLinha = null; } else if (field === 'linha') gestaoLinha = v === gestaoLinha ? null : v; else gestaoTurno = v === gestaoTurno ? null : v; destroyCharts(); renderGestaoContent(); lucide.createIcons(); };
         // Acumulado até `date` (dias válidos) para um conjunto de linhas e turnos (sel = null: todos)
         function mtdFor(lines, date, sel) {
             const month = date.slice(0, 7);
@@ -3583,7 +3598,10 @@
             const all = metasLines().filter(x => x.ugb && x.ugb !== 'Sem UGB');
             const ugbs = [...new Set(all.map(x => x.ugb))].sort();
             if (!gestaoUgb || !ugbs.includes(gestaoUgb)) gestaoUgb = ugbs[0];
-            const lines = all.filter(x => x.ugb === gestaoUgb).map(x => x.line);
+            const linhasUgb = all.filter(x => x.ugb === gestaoUgb).map(x => x.line);
+            if (gestaoLinha && !linhasUgb.includes(gestaoLinha)) gestaoLinha = null;
+            const lines = gestaoLinha ? [gestaoLinha] : linhasUgb;
+            const escopoG = gestaoLinha || gestaoUgb;
             const sel = gestaoTurno ? [gestaoTurno] : null;
             const r = mtdFor(lines, date, sel);
             const perTurno = TURNOS_BASE.map(t => ({ t, ...mtdFor(lines, date, [t]) }));
@@ -3614,7 +3632,7 @@
             <section class="${CARD} p-4 sm:p-5 mb-4 sm:mb-6">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div><p class="text-[11px] font-semibold uppercase tracking-wider text-brand-amber">Gestão por UGB</p>
-                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(gestaoUgb)} <span class="text-sm font-normal text-slate-500">· ${lines.join(', ')}</span></h2>
+                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5">${esc(gestaoUgb)} <span class="text-sm font-normal text-slate-500">· ${gestaoLinha ? esc(gestaoLinha) : linhasUgb.join(', ')}</span></h2>
                         <p class="text-xs text-slate-500 mt-0.5">Acumulado de ${mName} até ${fmtDate(date)}</p></div>
                     <div class="no-print flex items-center gap-2">
                         <button onclick="shiftBomDia(-1)" ${idx === 0 ? 'disabled' : ''} class="icon-btn h-10 w-10 justify-center disabled:opacity-40" aria-label="Dia anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
@@ -3623,13 +3641,17 @@
                     </div>
                 </div>
                 <div class="no-print chip-row flex flex-wrap gap-2 mt-4">${ugbs.map(u => `<button data-u="${esc(u)}" onclick="setGestao('ugb', this.dataset.u)" class="h-10 px-4 rounded-xl text-sm font-semibold ${u === gestaoUgb ? 'bg-brand-navy text-white' : 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-100'}">${esc(u)}</button>`).join('')}</div>
+                <div class="no-print chip-row flex flex-wrap items-center gap-2 mt-3"><span class="filter-label mr-1">Linha</span>
+                    <button onclick="setGestao('linha', null)" class="h-8 px-3 rounded-lg text-sm font-medium ${!gestaoLinha ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">Todas</button>
+                    ${linhasUgb.map(l => `<button onclick="setGestao('linha', '${l}')" class="h-8 px-3 rounded-lg text-sm font-medium ${gestaoLinha === l ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">${esc(l)}</button>`).join('')}
+                </div>
                 <div class="no-print chip-row flex flex-wrap items-center gap-2 mt-3"><span class="filter-label mr-1">Turno</span>
                     <button onclick="setGestao('turno', null)" class="h-8 px-3 rounded-lg text-sm font-medium ${!gestaoTurno ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">Todos</button>
                     ${TURNOS_BASE.map(t => `<button onclick="setGestao('turno', '${t}')" class="h-8 px-3 rounded-lg text-sm font-medium ${gestaoTurno === t ? 'bg-brand-yellow text-brand-ink' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'}">${tLabel(t)}</button>`).join('')}
                 </div>
             </section>
             <section class="${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
-                ${sectionHead(`Acumulado de ${mName} · ${esc(gestaoUgb)}${gestaoTurno ? ' · ' + tLabel(gestaoTurno) : ''}`, gestaoTurno ? 'Meta do turno = 1/3 da meta diária de cada linha que roda este turno' : 'Todos os turnos', '', 'calendar-check')}
+                ${sectionHead(`Acumulado de ${mName} · ${esc(escopoG)}${gestaoTurno ? ' · ' + tLabel(gestaoTurno) : ''}`, gestaoTurno ? 'Meta do turno = 1/3 da meta diária de cada linha que roda este turno' : 'Todos os turnos', '', 'calendar-check')}
                 ${r.metaToDate ? `
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 sm:gap-5">
                     ${blk('Produzido', fmt(r.prod), `Meta até o dia ${fmt(r.metaToDate)}`)}
@@ -5885,7 +5907,7 @@
                     try { hiddenDates = [...new Set([...hiddenDates, ...JSON.parse(cfg.hiddenDates || '[]')])]; } catch (e) { /* sem dias ignorados */ }
                     persist({ config: true, months: rawData.map(d => d.date.substring(0, 7)), scrapMonths: scrapData.map(d => d.date.substring(0, 7)) });
                     periodInit = false; areaInit = false; selectedCompareMonths = [];
-                    selectedUgb = 'Todas'; selectedMachines = ['Todas']; selectedModelos = ['Todos']; selectedTurnos = ['Todos'];
+                    selectedUgb = 'Todas'; selectedMachines = ['Todas']; selectedModelos = ['Todos']; selectedTurnos = ['Todos']; selectedDias = ['Todos'];
                     updateUI();
                     showToast(`Backup juntado aos dados atuais (${fmt(added)} registros novos).`, 'success');
                 } catch (err) {
@@ -6564,6 +6586,7 @@
                 (selectedAreas.includes('Todas') || selectedAreas.includes(d.area)) &&
                 (selectedUgb === 'Todas' || d.ugb === selectedUgb) &&
                 (selectedMachines.includes('Todas') || selectedMachines.includes(d.maquina)) &&
+                (selectedDias.includes('Todos') || selectedDias.includes(d.date.slice(8, 10))) &&
                 (selectedTurnos.includes('Todos') || selectedTurnos.includes(d.turno))
             );
             if (!rows.length) { showToast("Nenhum modelo rodou com estes filtros.", "warning"); return; }
