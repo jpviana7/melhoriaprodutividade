@@ -1774,9 +1774,12 @@
             if (value === allLabel) {
                 cur = [value];
             } else {
-                cur = cur.filter(item => item !== allLabel);
-                cur = cur.includes(value) ? cur.filter(item => item !== value) : [...cur, value];
-                if (cur.length === 0) cur = [allLabel];
+                // Com "Todos" marcado, todas as caixas estão marcadas: tocar numa tira só ela
+                const box = document.getElementById(`dropdown-${type}-options`) || document.getElementById(`dropdown-${type}-list`);
+                const todas = box ? [...box.querySelectorAll('input[type="checkbox"]')].map(i => i.value).filter(v => v !== allLabel) : [];
+                if (cur.includes(allLabel) && todas.length > 1) cur = todas.filter(item => item !== value);
+                else { cur = cur.filter(item => item !== allLabel); cur = cur.includes(value) ? cur.filter(item => item !== value) : [...cur, value]; }
+                if (cur.length === 0 || (todas.length > 1 && todas.every(v => cur.includes(v)))) cur = [allLabel];
             }
 
             if (type === 'area') { selectedAreas = cur; selectedMachines = ['Todas']; }
@@ -1807,7 +1810,7 @@
             const optionsHash = options.join('|');
             if (container.getAttribute('data-hash') === optionsHash) {
                 container.querySelectorAll('input[type="checkbox"]').forEach((input, index) => {
-                    input.checked = selectedArray.includes(options[index]);
+                    input.checked = isAll(selectedArray) || selectedArray.includes(options[index]);
                 });
                 return;
             }
@@ -1815,7 +1818,7 @@
             container.setAttribute('data-hash', optionsHash);
             container.innerHTML = options.map((o, i) => `
                 <label class="dd-option ${i === 0 ? 'is-all' : ''}">
-                    <input type="checkbox" value="${esc(o)}" onchange="handleCheckboxChange('${type}', this.value)" ${selectedArray.includes(o) ? 'checked' : ''}>
+                    <input type="checkbox" value="${esc(o)}" onchange="handleCheckboxChange('${type}', this.value)" ${isAll(selectedArray) || selectedArray.includes(o) ? 'checked' : ''}>
                     <span>${esc(labelFn(o))}</span>
                 </label>`).join('');
 
@@ -5298,7 +5301,9 @@
         window.setOee = function(k, v) {
             if (k === 'month') { const cur = oeeState.months; oeeState.months = v === '__ultimo' ? [] : cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v]; oeeState.dias = []; }
             else if (k === 'ano') { oeeState.months = v === '__ultimo' ? [] : [v]; oeeState.dias = []; } // v = último mês com dados daquele ano
-            else if (k === 'dia') { const cur = oeeState.dias; oeeState.dias = v === '__todos' ? [] : cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v].sort(); }
+            else if (k === 'dia') { const cur = oeeState.dias; const todos = oeeState._diasDisp || [];
+                oeeState.dias = v === '__todos' ? [] : !cur.length && todos.length > 1 ? todos.filter(x => x !== v) : cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v].sort();
+                if (todos.length > 1 && todos.every(x => oeeState.dias.includes(x))) oeeState.dias = []; }
             else if (k === 'meta') { const n = parseNum(v); oeeState.meta = n > 0 && n <= 100 ? n : 85; }
             else if (k === 'ugb') { oeeState.ugb = v; oeeState.linha = 'Todas'; }
             else if (k === 'linha') oeeState.linha = v;
@@ -5461,7 +5466,7 @@
                 <div class="no-print oee-filtros mt-4">
                     ${dd('ano', 'Ano', anoAtual, anos.map(a => opt(`setOee('ano', '${R.months.filter(m => m.startsWith(a)).pop()}')`, a === anoAtual, a, true)).join(''))}
                     ${dd('mes', 'Mês', resumoMes, opt(`setOee('month', '__ultimo')`, !st.months.length, 'Último mês', true, true) + mesesAno.map(m => opt(`oeeDD('mes', true); setOee('month', '${m}')`, st.months.includes(m), mesNome(m))).join(''), st.months.length > 0)}
-                    ${dd('dia', 'Dia', resumoDia, opt(`setOee('dia', '__todos')`, !st.dias.length, 'Todos', false, true) + diasDisp.map(d => opt(`oeeDD('dia', true); setOee('dia', '${d}')`, st.dias.includes(d), 'Dia ' + d)).join(''), st.dias.length > 0)}
+                    ${dd('dia', 'Dia', resumoDia, opt(`setOee('dia', '__todos')`, !st.dias.length, 'Todos', false, true) + (oeeState._diasDisp = diasDisp).map(d => opt(`oeeDD('dia', true); setOee('dia', '${d}')`, !st.dias.length || st.dias.includes(d), 'Dia ' + d)).join(''), st.dias.length > 0)}
                     ${dd('ugb', 'UGB', st.ugb === 'Todas' ? 'Toda a Montagem' : st.ugb, ['Todas', ...ugbs].map(u => opt(`setOee('ugb', '${u}')`, st.ugb === u, u === 'Todas' ? 'Toda a Montagem' : u, true, u === 'Todas')).join(''), st.ugb !== 'Todas')}
                     ${dd('linha', 'Linha', st.linha === 'Todas' ? 'Todas' : st.linha, ['Todas', ...linhasDisp].map(l => opt(`setOee('linha', '${l}')`, st.linha === l, l === 'Todas' ? 'Todas as linhas' : l, true, l === 'Todas')).join(''), st.linha !== 'Todas')}
                     ${dd('turno', 'Turno', st.turno === 'Todos' ? 'Todos' : 'Turno ' + st.turno.padStart(2, '0'), [['Todos', 'Todos'], ['1', 'Turno 01'], ['2', 'Turno 02'], ['3', 'Turno 03']].map(([v, l]) => opt(`setOee('turno', '${v}')`, st.turno === v, l, true, v === 'Todos')).join(''), st.turno !== 'Todos')}
