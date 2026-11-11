@@ -6916,6 +6916,10 @@
             const limT = lim ? lim / 3 : null; // cada turno vale 1/3 do limite mensal
             const diasUteis = (() => { const [y, mo] = mes.split('-').map(Number), n = new Date(y, mo, 0).getDate(); let c = 0; for (let d = 1; d <= n; d++) if (new Date(y, mo - 1, d).getDay() !== 0) c++; return c; })();
             const limDiaT = limT ? limT / diasUteis : null;
+            const ultS = sT.reduce((mx, d) => d.date > mx ? d.date : mx, '');
+            const qDiaT = sum(sT.filter(d => d.date === ultS).map(d => d.qty));
+            // Modelos que mais geraram scrap no turno (o nome do modelo já diz se é completa ou sem tampa)
+            const mods = Object.entries(sumBy(sT, d => (d.modelo || '(sem modelo)').replace(/^BATERIA\s+/i, '').replace(/\s*-?\s*(SEM TAMPA|S\/\s*TAMPA)\s*$/i, ' · sem tampa'), d => d.qty)).sort((a, b) => b[1] - a[1]).slice(0, 5);
             const sTot = {}; scrapData.forEach(d => { if (isMontScrap(d) && set.has(d.maquina) && String(d.turno) === T && d.date <= date) sTot[d.date] = (sTot[d.date] || 0) + d.qty; });
             const sDias = [...new Set([...Object.keys(tot), ...Object.keys(sTot)])].filter(k => (tot[k] || 0) > 0 || (sTot[k] || 0) > 0).sort().slice(-7)
                 .map(ds => ({ ds, q: sTot[ds] || 0, taxa: scrapRate(sTot[ds] || 0, tot[ds] || 0) }));
@@ -6927,11 +6931,12 @@
             const sMeses = [...new Set([...Object.keys(sMes), ...Object.keys(pMes)])].filter(k => k >= iniS).sort().slice(-12).map(k => ({ k, q: sMes[k] || 0, taxa: scrapRate(sMes[k] || 0, pMes[k] || 0) }));
             const maxSM = Math.max(0.0001, ...sMeses.map(x => x.taxa || 0));
             const corTaxa = (x) => x === null ? 'nd' : rM !== null && x > rM * 1.15 ? 'bad' : 'ok';
-            const rM = taxa;
+            const rM = taxaT;
             // ----- Painel do topo e data/hora da atualização -----
             if (liderAba === 'scrap') {
-                setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}Scrap · ${mNome}`, frase: `${fmt(qM)} baterias` + (taxa !== null ? ` · taxa de ${fmt(taxa * 100, 2)}%` : ''),
-                    ...(lim ? { pct: livre, txt: fmt(livre, 0) + '%', legenda: 'do limite livre', cheia: false, tom: qM > lim ? 'bad' : livre < 25 ? 'warn' : 'ok' } : {}) });
+                const livreT = limT ? Math.max(0, (1 - qT / limT) * 100) : null;
+                setHero('lider', { periodo: `${turnoShort(T)} · Scrap · ${mNome}`, frase: `${fmt(qT)} baterias` + (taxaT !== null ? ` · taxa de ${fmt(taxaT * 100, 2)}%` : ''),
+                    ...(limT ? { pct: livreT, txt: fmt(livreT, 0) + '%', legenda: 'do limite livre', cheia: false, tom: qT > limT ? 'bad' : livreT < 25 ? 'warn' : 'ok' } : {}) });
             } else {
                 setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}${turnoLabel(foco.t)}${aoVivo ? ' · ao vivo' : ''}`,
                 frase: `${fmt(foco.v)} baterias no turno` + (foco.meta ? ` · meta ${fmt(foco.meta)}` : ''), pct: foco.pct, serie: (() => { const t = {}; doT.forEach(d => { if (d.date <= date) t[d.date] = (t[d.date] || 0) + d.prod; }); return Object.keys(t).filter(k => t[k] > 0).sort().slice(-14).map(k => t[k]); })() });
@@ -6942,18 +6947,14 @@
             const abas = `<div class="seg ld-abas"><button type="button" onclick="setLiderAba('prod')" class="${liderAba !== 'scrap' ? 'active' : ''}">Produção</button><button type="button" onclick="setLiderAba('scrap')" class="${liderAba === 'scrap' ? 'active' : ''}">Scrap</button></div>`;
             const scrapHtml = `
             <section class="${CARD} ld-card p-5">
-                ${sectionHead(`Scrap · ${mNome}`, 'Bateria completa + sem tampa', '', 'trash-2')}
-                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(qM)}<small>baterias</small></p><span class="ld-pct ${lim ? (qM > lim ? 'bad' : 'ok') : 'nd'}">${taxa === null ? '—' : fmt(taxa * 100, 2) + '%'}</span></div>
-                ${lim ? `<span class="lb ${qM > lim ? 'bad' : ''}"><span class="lb-cells"><i style="width:${Math.max(5, livre)}%"></i></span></span>
-                <p class="ld-linha mt-3">Limite do mês <strong>${fmt(lim)}</strong> · ${qM > lim ? `passou <strong class="text-rose-600">${fmt(qM - lim)}</strong>` : `ainda pode <strong>${fmt(lim - qM)}</strong> (${fmt(livre, 0)}% livre)`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
-                <p class="ld-linha mt-1">No último dia (${fmtDate(date, { day: '2-digit', month: '2-digit' })}): <strong>${fmt(qDia)}</strong></p>
-                ${defs.length ? `<p class="filter-label mt-5 mb-1">Principais defeitos do mês</p>${defs.map(([k, v]) => `<div class="ld-def"><span>${esc(k)}</span><i><i style="width:${(v / defs[0][1] * 100).toFixed(0)}%"></i></i><b>${fmt(v)}</b></div>`).join('')}` : ''}
-            </section>
-            <section class="${CARD} ld-card p-5">
-                ${sectionHead(`Seu turno · ${mNome}`, `${turnoLabel(T)} · scrap da linha neste turno`, '', 'zap')}
+                ${sectionHead(`Scrap do seu turno · ${mNome}`, `${turnoLabel(T)} · bateria completa + sem tampa`, '', 'trash-2')}
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(qT)}<small>baterias</small></p><span class="ld-pct ${limT ? (qT > limT ? 'bad' : 'ok') : 'nd'}">${taxaT === null ? '—' : fmt(taxaT * 100, 2) + '%'}</span></div>
                 ${limT ? `<span class="lb ${qT > limT ? 'bad' : ''}"><span class="lb-cells"><i style="width:${Math.max(5, (1 - qT / limT) * 100)}%"></i></span></span>
-                <p class="ld-linha mt-3">Limite do turno no mês <strong>${fmt(limT)}</strong> (1/3 da linha) · ${qT > limT ? `passou <strong class="text-rose-600">${fmt(qT - limT)}</strong>` : `ainda pode <strong>${fmt(limT - qT)}</strong>`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
+                <p class="ld-linha mt-3">Limite do turno no mês <strong>${fmt(limT)}</strong> · ${qT > limT ? `passou <strong class="text-rose-600">${fmt(qT - limT)}</strong>` : `ainda pode <strong>${fmt(limT - qT)}</strong> (${fmt((1 - qT / limT) * 100, 0)}% livre)`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
+                <p class="ld-linha mt-1">No último dia (${fmtDate(ultS || date, { day: '2-digit', month: '2-digit' })}): <strong>${fmt(qDiaT)}</strong></p>
+                ${mods.length ? `<p class="filter-label mt-5 mb-1">Principais modelos com scrap no seu turno</p>${mods.map(([k, v]) => `<div class="ld-def"><span>${esc(k)}</span><i><i style="width:${(v / mods[0][1] * 100).toFixed(0)}%"></i></i><b>${fmt(v)}</b></div>`).join('')}` : ''}
+                ${defs.length ? `<p class="filter-label mt-5 mb-1">Principais defeitos da linha no mês</p>${defs.map(([k, v]) => `<div class="ld-def"><span>${esc(k)}</span><i><i style="width:${(v / defs[0][1] * 100).toFixed(0)}%"></i></i><b>${fmt(v)}</b></div>`).join('')}
+                <p class="text-xs text-slate-400 mt-2">O relatório de defeitos não informa o turno: estes são de todos os turnos.</p>` : ''}
             </section>
             <section class="${CARD} p-5">
                 ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · baterias de scrap e taxa${limDiaT ? ` · limite ≈ ${fmt(limDiaT)} por dia` : ''}`, '', 'bar-chart-3')}
@@ -6962,7 +6963,7 @@
             <section class="${CARD} p-5">
                 ${sectionHead('Taxa mês a mês', `${turnoLabel(T)} · scrap ÷ produção do turno, últimos ${sMeses.length} meses`, '', 'calendar-range')}
                 <div class="ld-dias ld-meses">${sMeses.map((x, i) => `<div class="ld-dia ${corTaxa(x.taxa)}"><span>${x.taxa === null ? '—' : fmt(x.taxa * 100, 1)}</span><i style="height:${Math.max(4, (x.taxa || 0) / maxSM * 62)}%;animation-delay:${i * 40}ms" title="${fmt(x.q)} baterias"></i><em>${shortMonth(x.k).split('/')[0]}</em><em>${fmt(x.q)}</em></div>`).join('')}</div>
-                <p class="text-xs text-slate-400 mt-3">Taxa em %. Vermelho: acima da taxa da linha neste mês.</p>
+                <p class="text-xs text-slate-400 mt-3">Taxa em %. Vermelho: acima da taxa do turno neste mês.</p>
             </section>`;
             const prodHtml = `            <section class="${CARD} ld-card p-5">
                 ${sectionHead(`Seu turno${aoVivo ? ' · agora' : ''}`, aoVivo ? `${turnoLabel(T)} rodando · dados até ${live.refTxt} · termina às ${live.endTxt}` : `${turnoLabel(T)} · ${fDate === todayStr() ? 'hoje' : fmtDate(fDate, { weekday: 'long', day: '2-digit', month: 'long' })}`, '', 'zap')}
