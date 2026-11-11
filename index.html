@@ -857,6 +857,23 @@
         .sp-batt::before { content: ''; position: absolute; top: -8px; left: 9px; width: 10px; height: 5px; border-radius: 2px 2px 0 0; background: #1B2F88; box-shadow: 28px 0 0 #1B2F88; }
         html.dark .sp-batt::before { background: #fff; box-shadow: 28px 0 0 #fff; }
         .sp-batt i { border-radius: 2px; transform-origin: bottom; }
+
+        /* ===== Bateria de chumbo do painel (desenho em SVG) ===== */
+        .batt { padding-top: 0 !important; }
+        .batt-body::before, .batt-pol { display: none !important; }
+        .pb { display: block; width: 96px; height: auto; overflow: visible; transition: filter .6s; }
+        .pb .pb-nivel { fill: url(#pbOk); transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); transition: transform 1.3s cubic-bezier(.2,.8,.2,1); }
+        .hero-batt[data-tom="warn"] .pb .pb-nivel { fill: url(#pbWarn); }
+        .hero-batt[data-tom="bad"] .pb .pb-nivel { fill: url(#pbBad); }
+        .hero-batt[data-tom="ok"] .pb { filter: drop-shadow(0 0 12px rgba(70,225,160,.55)); }
+        .hero-batt[data-tom="warn"] .pb { filter: drop-shadow(0 0 12px rgba(255,187,0,.5)); }
+        .hero-batt[data-tom="bad"] .pb { filter: drop-shadow(0 0 12px rgba(255,99,105,.45)); }
+        .pb .pb-brilho { animation: pbBrilho 3.6s ease-in-out 1.4s infinite; }
+        @keyframes pbBrilho { 0% { transform: translateX(0); } 55%, 100% { transform: translateX(190px); } }
+        .pb .pb-raio { fill: #fff; stroke: rgba(8,14,46,.55); stroke-width: 1.5; stroke-linejoin: round; opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity .4s 1s; }
+        .hero-batt.cheia .pb .pb-raio { opacity: 1; animation: raio 2.2s ease-in-out 1.3s infinite; }
+        #lt.fora .pb * { animation-play-state: paused !important; }
+        @media (min-width: 641px) { .pb { width: 124px; } }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -1053,7 +1070,37 @@
             <svg class="hero-spark hide" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"></svg>
             <div class="hero-txt"><span class="hero-eye"></span><h1></h1><p></p><span class="hero-selo hide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span></span></span></div>
             <div class="hero-batt hide" data-tom="ok">
-                <div class="batt"><div class="batt-body"><span class="batt-pol mais">+</span><span class="batt-pol menos">−</span><div class="batt-cells"><div class="batt-fill"></div></div><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div></div>
+                <div class="batt"><svg class="pb" viewBox="0 0 140 100" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="pbOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#86F2C4"/><stop offset=".55" stop-color="#3FC486"/><stop offset="1" stop-color="#23955E"/></linearGradient>
+                        <linearGradient id="pbWarn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE48A"/><stop offset=".55" stop-color="#FFBB00"/><stop offset="1" stop-color="#E08F00"/></linearGradient>
+                        <linearGradient id="pbBad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFA2A5"/><stop offset=".55" stop-color="#F0565B"/><stop offset="1" stop-color="#C9353A"/></linearGradient>
+                        <linearGradient id="pbCaixa" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".5" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity=".12"/></linearGradient>
+                        <linearGradient id="pbTampa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#DCE2EE"/></linearGradient>
+                        <linearGradient id="pbPolo" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9AA4B8"/><stop offset=".45" stop-color="#F4F6FA"/><stop offset="1" stop-color="#8A94A8"/></linearGradient>
+                        <linearGradient id="pbBrilho" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+                        <clipPath id="pbDentro"><rect x="12" y="35" width="116" height="55" rx="5"/></clipPath>
+                    </defs>
+                    <!-- polos -->
+                    <rect x="24" y="6" width="20" height="14" rx="3" fill="url(#pbPolo)"/><ellipse cx="34" cy="6.5" rx="10" ry="3" fill="#F7F9FC"/>
+                    <rect x="96" y="6" width="20" height="14" rx="3" fill="url(#pbPolo)"/><ellipse cx="106" cy="6.5" rx="10" ry="3" fill="#F7F9FC"/>
+                    <!-- caixa -->
+                    <rect x="6" y="27" width="128" height="69" rx="9" fill="#0C1650"/>
+                    <rect x="6" y="27" width="128" height="69" rx="9" fill="url(#pbCaixa)" stroke="rgba(255,255,255,.9)" stroke-width="2.5"/>
+                    <!-- nível de carga, por trás das seis células -->
+                    <g clip-path="url(#pbDentro)">
+                        <rect class="pb-nivel" x="12" y="35" width="116" height="55"/>
+                        <rect class="pb-brilho" x="-40" y="35" width="34" height="55" fill="url(#pbBrilho)"/>
+                        <g stroke="rgba(8,14,46,.55)" stroke-width="2.4"><path d="M31.3 35v55M50.7 35v55M70 35v55M89.3 35v55M108.7 35v55"/></g>
+                    </g>
+                    <!-- tampa com + e − -->
+                    <rect x="3" y="17" width="134" height="16" rx="5" fill="url(#pbTampa)"/>
+                    <rect x="3" y="30" width="134" height="3" fill="#000" opacity=".14"/>
+                    <path d="M28 25h12M34 19.5v11" stroke="#1B2F88" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M100 25h12" stroke="#1B2F88" stroke-width="3" stroke-linecap="round"/>
+                    <!-- raio quando bate a meta -->
+                    <path class="pb-raio" d="M74 41 59 66h11l-4 21 17-27H72z"/>
+                </svg></div>
                 <div class="batt-read"><strong class="batt-num"></strong><span class="batt-leg"></span></div>
             </div>
         </div>
@@ -3812,7 +3859,7 @@
             if (elId === 'bomdia-content' && lt0 && !lt0.classList.contains('hide')) {
                 painel = lt0.cloneNode(true);
                 painel.classList.remove('in', 'fora'); painel.style.setProperty('margin-bottom', '16px', 'important');
-                const f = painel.querySelector('.batt-fill'); if (f) f.style.transition = 'none';
+                const f = painel.querySelector('.pb-nivel'); if (f) f.style.transition = 'none';
                 el.prepend(painel);
             }
             try {
@@ -7686,15 +7733,15 @@
             lt.querySelector('.hero-eye').textContent = info.periodo || 'Montagem';
             lt.querySelector('h1').textContent = TITULO_ABA[activeTab] || ''; document.getElementById('ct').textContent = TITULO_ABA[activeTab] || '';
             lt.querySelector('p').textContent = info.frase || HERO_PADRAO[activeTab] || '';
-            const b = lt.querySelector('.hero-batt'), fill = b.querySelector('.batt-fill'), tem = Number.isFinite(info.pct);
+            const b = lt.querySelector('.hero-batt'), fill = b.querySelector('.pb-nivel'), tem = Number.isFinite(info.pct);
             b.classList.toggle('hide', !tem);
             if (tem) {
                 b.dataset.tom = info.tom || (info.pct >= 100 ? 'ok' : info.pct >= 90 ? 'warn' : 'bad');
                 b.classList.toggle('cheia', info.cheia !== undefined ? info.cheia : info.pct >= 100);
                 b.querySelector('.batt-num').textContent = info.txt || fmt(info.pct, 0) + '%';
                 b.querySelector('.batt-leg').textContent = info.legenda || 'da meta';
-                if (trocou) { fill.style.transition = 'none'; fill.style.height = '0%'; fill.offsetWidth; fill.style.transition = ''; } // carrega do zero ao entrar na aba
-                fill.style.height = Math.max(6, Math.min(100, info.pct)) + '%';
+                if (trocou) { fill.style.transition = 'none'; fill.style.transform = 'scaleY(0)'; fill.getBoundingClientRect(); fill.style.transition = ''; } // carrega do zero ao entrar na aba
+                fill.style.transform = `scaleY(${(Math.max(6, Math.min(100, info.pct)) / 100).toFixed(3)})`;
             }
             // Selo de recorde e tendência dos últimos dias
             const selo = lt.querySelector('.hero-selo');
