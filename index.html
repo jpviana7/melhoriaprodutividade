@@ -807,6 +807,7 @@
         .ld-dia.bad i { background: linear-gradient(180deg, #FF8A8E, #E5484D); } .ld-dia.nd i { background: #C3C8D2; }
         .ld-dia em { font-style: normal; font-weight: 600; color: var(--lbl2); }
         @keyframes sobe { from { transform: scaleY(0); } }
+        .ld-meses { height: 150px; gap: 3px; } .ld-meses .ld-dia { font-size: 9.5px; gap: 3px; } .ld-meses .ld-dia span { color: #0f172a; } html.dark .ld-meses .ld-dia span { color: #fff; }
         .ld-def { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; }
         .ld-def + .ld-def { border-top: .5px solid var(--sep); }
         .ld-def > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1939,7 +1940,7 @@
             [...rawCache.keys()].forEach(k => { if (!ids.has(k)) { rawCache.delete(k); mudou = true; } });
             // Meses que já têm o documento geral (AAAA-MM): a cópia antiga separada por área repete os mesmos dados
             const mesesGerais = new Set(lista.filter(x => /^\d{4}-\d{2}$/.test(x.id)).map(x => x.id));
-            const corteLider = (() => { const d = new Date(); d.setMonth(d.getMonth() - 2); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+            const corteLider = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
             const quero = (id) => (outrasAreasPedidas || ehNucleo(id)) && !(id.includes('_') && mesesGerais.has(id.slice(0, 7))) && !(LIDER && id.slice(0, 7) < corteLider);
             [...rawCache.keys()].forEach(k => { if (!quero(k)) rawCache.delete(k); });
             const baixar = lista.filter(x => quero(x.id) && (!rawCache.has(x.id) || rawCache.get(x.id).t !== x.t));
@@ -6718,10 +6719,11 @@
         let liderSel = loadPref('lider', null); // { ugb, linha } ('' em linha = a UGB inteira)
         let liderPasso = null;                  // escolha em andamento: { ugb } ou {}
         const RAIO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
-        window.liderEscolher = function(ugb, linha) {
+        window.liderEscolher = function(ugb, linha, turno) {
             if (ugb === undefined) { liderPasso = {}; }
             else if (linha === undefined) { liderPasso = { ugb }; }
-            else { liderSel = { ugb, linha }; savePref('lider', liderSel); liderPasso = null; heroAba = null; }
+            else if (turno === undefined) { liderPasso = { ugb, linha }; }
+            else { liderSel = { ugb, linha, turno: String(turno) }; savePref('lider', liderSel); liderPasso = null; heroAba = null; }
             window.scrollTo({ top: 0 }); renderLider(); lucide.createIcons();
         };
         function renderLider() {
@@ -6732,8 +6734,17 @@
             const ugbs = m.ugbs.filter(u => u.ugb !== 'Sem UGB');
             if (liderSel && !ugbs.some(u => u.ugb === liderSel.ugb && (!liderSel.linha || u.lines.includes(liderSel.linha)))) liderSel = null;
             // --- Escolha: UGB e depois a linha ---
+            if (liderSel && !TURNOS_BASE.includes(liderSel.turno) && !liderPasso) liderPasso = { ugb: liderSel.ugb, linha: liderSel.linha }; // escolha antiga, sem turno
             if (!liderSel || liderPasso) {
                 const u = liderPasso && liderPasso.ugb ? ugbs.find(x => x.ugb === liderPasso.ugb) : null;
+                if (u && liderPasso.linha !== undefined) { // 3º passo: o turno
+                    TITULO_ABA.lider = liderPasso.linha || u.ugb;
+                    setHero('lider', { periodo: curto(u.ugb), frase: 'Por último, o seu turno' });
+                    box.innerHTML = `<section class="${CARD} p-5"><p class="filter-label mb-3">Turno</p><div class="ld-esc l3">${TURNOS_BASE.map(t => `<button type="button" data-u="${esc(u.ugb)}" data-l="${esc(liderPasso.linha)}" onclick="liderEscolher(this.dataset.u, this.dataset.l, '${t}')">${turnoShort(t)}<small>${TURNO_INICIO[t]}h às ${(TURNO_INICIO[t] + 8) % 24}h</small></button>`).join('')}</div>
+                        <button type="button" data-u="${esc(u.ugb)}" onclick="liderEscolher(this.dataset.u)" class="icon-btn h-10 mt-4"><i data-lucide="chevron-left" class="w-4 h-4"></i>Trocar de linha</button>
+                        <p class="text-xs text-slate-400 mt-4">O app lembra a escolha neste aparelho. Dá para trocar quando quiser.</p></section>`;
+                    return;
+                }
                 TITULO_ABA.lider = u ? u.ugb : 'Líderes';
                 setHero('lider', { periodo: 'Montagem', frase: u ? 'Agora escolha a sua linha' : 'Escolha a sua UGB' });
                 box.innerHTML = `<section class="${CARD} p-5">${u
@@ -6756,17 +6767,25 @@
             const pctDia = metaDia ? sum(rows.filter(d => comMeta(d, null)).map(d => d.prod)) / metaDia * 100 : null;
             const turnos = TURNOS_BASE.map(t => { const r = rows.filter(d => String(d.turno) === t), mt = metaOfLinesDay(L, date, [t]) || null;
                 const v = sum(r.map(d => d.prod)); return { t, v, meta: mt, pct: mt ? sum(r.filter(d => comMeta(d, [t])).map(d => d.prod)) / mt * 100 : null }; });
-            const live = turnoAoVivo(), aoVivo = live.date === date && live.frac < 1;
-            // Turno em foco: o que está rodando; sem turno rodando, o último que produziu no dia
-            const foco = aoVivo ? turnos.find(x => x.t === live.turno) : [...turnos].reverse().find(x => x.v > 0) || turnos[0];
+            // Turno em foco: o do líder, no último dia em que ele produziu (ao vivo se for o que está rodando agora)
+            const T = liderSel.turno, doT = rawData.filter(d => set.has(d.maquina) && String(d.turno) === T && isMontagem(d.area));
+            const fDate = doT.reduce((mx, d) => d.prod > 0 && d.date > mx ? d.date : mx, '') || date;
+            const live = turnoAoVivo(), aoVivo = live.date === fDate && live.turno === T && live.frac < 1;
+            const foco = (() => { const r = doT.filter(d => d.date === fDate), mt = metaOfLinesDay(L, fDate, [T]) || null;
+                return { t: T, v: sum(r.map(d => d.prod)), meta: mt, pct: mt ? sum(r.filter(d => metaDay(d.maquina, fDate, [T]) > 0).map(d => d.prod)) / mt * 100 : null }; })();
             const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
             TITULO_ABA.lider = nome;
             setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}${turnoLabel(foco.t)}${aoVivo ? ' · ao vivo' : ''}`,
-                frase: `${fmt(foco.v)} baterias no turno` + (foco.meta ? ` · meta ${fmt(foco.meta)}` : ''), pct: foco.pct, serie: serieDias(date, 14, L) });
+                frase: `${fmt(foco.v)} baterias no turno` + (foco.meta ? ` · meta ${fmt(foco.meta)}` : ''), pct: foco.pct, serie: (() => { const t = {}; doT.forEach(d => { if (d.date <= date) t[d.date] = (t[d.date] || 0) + d.prod; }); return Object.keys(t).filter(k => t[k] > 0).sort().slice(-14).map(k => t[k]); })() });
             const mtd = mtdFor(L, date, null);
             // Últimos 7 dias com produção
-            const tot = {}; rawData.forEach(d => { if (set.has(d.maquina) && d.date <= date && isMontagem(d.area)) tot[d.date] = (tot[d.date] || 0) + d.prod; });
-            const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds); return { ds, v: tot[ds], pct: mt ? tot[ds] / mt * 100 : null }; });
+            const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
+            const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds, [T]); return { ds, v: tot[ds], pct: mt ? tot[ds] / mt * 100 : null }; });
+            // Média por dia do turno em cada mês (últimos 12 meses com produção)
+            const porMes = {}; Object.keys(tot).forEach(ds => { if (tot[ds] > 0) { const o = porMes[ds.slice(0, 7)] || (porMes[ds.slice(0, 7)] = { v: 0, n: 0, meta: 0 }); o.v += tot[ds]; o.n++; o.meta += metaOfLinesDay(L, ds, [T]) || 0; } });
+            const meses = Object.keys(porMes).sort().slice(-12).map(k => ({ k, media: porMes[k].v / porMes[k].n, pct: porMes[k].meta ? porMes[k].v / porMes[k].meta * 100 : null }));
+            const maxM = Math.max(1, ...meses.map(x => x.media));
+            const mtdT = mtdFor(L, date, [T]);
             const maxV = Math.max(1, ...dias.map(d => d.v));
             // Scrap do mês
             const sM = scrapData.filter(d => isMontScrap(d) && set.has(d.maquina) && d.date.startsWith(mes));
@@ -6779,10 +6798,10 @@
             const mNome = MONTH_NAMES[+mes.slice(5, 7) - 1].toLowerCase();
             const dl = fmtDate(date, { weekday: 'long', day: '2-digit', month: 'long' });
             box.innerHTML = `
-            <div class="ld-troca"><p class="text-sm text-slate-500 min-w-0 truncate"><strong class="text-slate-900 font-semibold">${esc(nome)}</strong>${liderSel.linha ? ' · ' + esc(liderSel.ugb) : ' · ' + L.length + ' linhas'}</p>
-                <button type="button" onclick="liderEscolher()" class="icon-btn h-9 shrink-0"><i data-lucide="repeat" class="w-4 h-4"></i>Trocar linha</button></div>
+            <div class="ld-troca"><p class="text-sm text-slate-500 min-w-0 truncate"><strong class="text-slate-900 font-semibold">${esc(nome)}</strong> · ${esc(turnoLabel(T))}${liderSel.linha ? ' · ' + esc(curto(liderSel.ugb)) : ''}</p>
+                <button type="button" onclick="liderEscolher()" class="icon-btn h-9 shrink-0"><i data-lucide="repeat" class="w-4 h-4"></i>Trocar</button></div>
             <section class="${CARD} ld-card p-5">
-                ${sectionHead(`${turnoLabel(foco.t)}${aoVivo ? ' · agora' : ''}`, aoVivo ? `Rodando · dados até ${live.refTxt} · termina às ${live.endTxt}` : `Último turno com produção · ${hoje ? 'hoje' : dl}`, '', 'zap')}
+                ${sectionHead(`Seu turno${aoVivo ? ' · agora' : ''}`, aoVivo ? `${turnoLabel(T)} rodando · dados até ${live.refTxt} · termina às ${live.endTxt}` : `${turnoLabel(T)} · ${fDate === todayStr() ? 'hoje' : fmtDate(fDate, { weekday: 'long', day: '2-digit', month: 'long' })}`, '', 'zap')}
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(foco.v)}<small>baterias</small></p><span class="ld-pct ${tom(proj ?? foco.pct)}">${pctTxt(foco.pct)}</span></div>
                 ${bat(foco.pct, aoVivo, proj)}
                 <p class="ld-linha mt-3">${foco.meta ? `Meta do turno <strong>${fmt(foco.meta)}</strong> · faltam <strong>${fmt(Math.max(0, foco.meta - foco.v))}</strong>` : 'Sem meta para este turno'}${proj !== null ? ` · no ritmo atual fecha em <strong class="${proj >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(proj, 0)}%</strong>` : ''}</p>
@@ -6792,17 +6811,22 @@
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(total)}<small>baterias</small></p><span class="ld-pct ${tom(pctDia)}">${pctTxt(pctDia)}</span></div>
                 ${bat(pctDia)}
                 <p class="ld-linha mt-3 mb-4">${metaDia ? `Meta do dia <strong>${fmt(metaDia)}</strong> · ${total >= metaDia ? 'passou' : 'faltam'} <strong>${fmt(Math.abs(metaDia - total))}</strong>` : 'Sem meta definida para o dia'}</p>
-                <div class="ld-g3">${turnos.map(x => `<div class="ld-t ${aoVivo && x.t === live.turno ? 'vivo' : ''}"><span class="filter-label">${turnoShort(x.t)}</span><b>${fmt(x.v)}</b><span class="${x.pct === null ? 'text-slate-400' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? 'sem meta' : pctTxt(x.pct)}</span></div>`).join('')}</div>
+                <div class="ld-g3">${turnos.map(x => `<div class="ld-t ${x.t === T ? 'vivo' : ''}"><span class="filter-label">${turnoShort(x.t)}</span><b>${fmt(x.v)}</b><span class="${x.pct === null ? 'text-slate-400' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? 'sem meta' : pctTxt(x.pct)}</span></div>`).join('')}</div>
             </section>
             <section class="${CARD} p-5">
-                ${sectionHead('Últimos dias', 'Baterias por dia e % da meta', '', 'bar-chart-3')}
+                ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · % da meta do turno`, '', 'bar-chart-3')}
                 <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><span class="${d.pct === null ? 'text-slate-400' : d.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(d.pct)}</span><i style="height:${Math.max(4, d.v / maxV * 70)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
+            </section>
+            <section class="${CARD} p-5">
+                ${sectionHead('Média mês a mês', `${turnoLabel(T)} · baterias por dia trabalhado, últimos ${meses.length} meses`, '', 'calendar-range')}
+                <div class="ld-dias ld-meses">${meses.map((x, i) => `<div class="ld-dia ${tom(x.pct)}"><span>${fmt(x.media)}</span><i style="height:${Math.max(4, x.media / maxM * 62)}%;animation-delay:${i * 40}ms"></i><em>${shortMonth(x.k).split('/')[0]}</em><em class="${x.pct === null ? '' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(x.pct)}</em></div>`).join('')}</div>
             </section>
             <section class="${CARD} ld-card p-5">
                 ${sectionHead(`Mês · ${mNome}`, `Acumulado até ${fmtDate(date, { day: '2-digit', month: '2-digit' })}`, '', 'calendar-check')}
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(mtd.prod)}<small>baterias</small></p><span class="ld-pct ${tom(mtd.pct)}">${pctTxt(mtd.pct)}</span></div>
                 ${bat(mtd.pct)}
-                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}${mtd.needed !== null && mtd.remaining ? `<br>Para fechar a meta: <strong>${fmt(mtd.needed)}</strong> por dia nos ${mtd.remaining} dias restantes` : ''}</p>
+                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}${mtd.needed !== null && mtd.remaining ? `<br>Para fechar a meta: <strong>${fmt(mtd.needed)}</strong> por dia nos ${mtd.remaining} dias restantes` : ''}
+                    <br>Seu turno no mês: <strong>${fmt(mtdT.prod)}</strong>${mtdT.pct !== null ? ` · <strong class="${mtdT.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(mtdT.pct)}</strong> da meta` : ''}</p>
             </section>
             <section class="${CARD} ld-card p-5">
                 ${sectionHead(`Scrap · ${mNome}`, 'Bateria completa + sem tampa', '', 'trash-2')}
