@@ -6951,13 +6951,6 @@
                 ${bat(foco.pct, aoVivo, proj)}
                 <p class="ld-linha mt-3">${foco.meta ? `Meta do turno <strong>${fmt(foco.meta)}</strong> · faltam <strong>${fmt(Math.max(0, foco.meta - foco.v))}</strong>` : 'Sem meta para este turno'}${proj !== null ? ` · no ritmo atual fecha em <strong class="${proj >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(proj, 0)}%</strong>` : ''}</p>
             </section>
-            <section class="${CARD} ld-card p-5">
-                ${sectionHead(hoje ? 'Hoje' : 'Dia', dl.charAt(0).toUpperCase() + dl.slice(1), '', 'sun')}
-                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(total)}<small>baterias</small></p><span class="ld-pct ${tom(pctDia)}">${pctTxt(pctDia)}</span></div>
-                ${bat(pctDia)}
-                <p class="ld-linha mt-3 mb-4">${metaDia ? `Meta do dia <strong>${fmt(metaDia)}</strong> · ${total >= metaDia ? 'passou' : 'faltam'} <strong>${fmt(Math.abs(metaDia - total))}</strong>` : 'Sem meta definida para o dia'}</p>
-                <div class="ld-g3">${turnos.map(x => `<div class="ld-t ${x.t === T ? 'vivo' : ''}"><span class="filter-label">${turnoShort(x.t)}</span><b>${fmt(x.v)}</b><span class="${x.pct === null ? 'text-slate-400' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? 'sem meta' : pctTxt(x.pct)}</span></div>`).join('')}</div>
-            </section>
             <section class="${CARD} p-5">
                 ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · baterias e saldo contra a meta do turno`, '', 'bar-chart-3')}
                 <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><b class="ld-v">${fmt(d.v)}</b><span class="${d.mt === null ? 'text-slate-400' : d.v >= d.mt ? 'text-emerald-600' : 'text-rose-600'}">${d.mt === null ? 'sem meta' : signed(d.v - d.mt)}</span><i style="height:${Math.max(4, d.v / maxV * 60)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)} · meta ${d.mt === null ? '—' : fmt(d.mt)} · ${pctTxt(d.pct)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
