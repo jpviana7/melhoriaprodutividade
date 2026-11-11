@@ -649,6 +649,131 @@
             #ugb-buttons > button:first-child:nth-last-child(4n + 3) { grid-column: span 2; } /* sobra uma casa na grade: "Todas" ocupa duas */
             [id^="pdd-"]:not(.hide), [id^="sdd-"]:not(.hidden):not(.hide), #oee-dd-month:not(.hide), .dd-list { bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
         }
+
+        /* ===== Baterias das linhas, turno ao vivo, recorde e tendência ===== */
+        @keyframes onda { from { background-position: 160% 0, 0 0; } to { background-position: -60% 0, 0 0; } }
+        @keyframes revela { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+        .lb-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        @media (min-width: 641px) { .lb-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; } }
+        @media (min-width: 1280px) { .lb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        .lb-card { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 10px 10px 9px; border-radius: 14px; background: var(--inset); text-align: left; transition: opacity .2s, box-shadow .15s, transform .15s; }
+        .lb-card.on { box-shadow: 0 0 0 2px var(--tint); }
+        .lb-card.off { opacity: .42; }
+        @media (hover: hover) { .lb-card:hover { transform: translateY(-2px); } }
+        .lb-top { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+        .lb-top strong { font-size: 13px; font-weight: 700; color: #0f172a; }
+        .lb-top em { font-style: normal; font-size: 10px; font-weight: 600; color: var(--lbl2); }
+        html.dark .lb-top strong { color: #f1f5f9; }
+        .lb { position: relative; display: block; height: 26px; margin-right: 6px; border: 2px solid #C3C8D2; border-radius: 8px; color: var(--ok-t); }
+        .lb::after { content: ''; position: absolute; right: -7px; top: 50%; width: 3px; height: 10px; margin-top: -5px; border-radius: 0 2px 2px 0; background: #C3C8D2; }
+        html.dark .lb { border-color: #5a5a5f; } html.dark .lb::after { background: #5a5a5f; }
+        .lb-cells { position: absolute; inset: 2px 0 2px 2px; border-radius: 4px; overflow: hidden;
+            -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(20% - 2px), transparent calc(20% - 2px) 20%); mask: repeating-linear-gradient(90deg, #000 0 calc(20% - 2px), transparent calc(20% - 2px) 20%); }
+        .lb-cells i { display: block; height: 100%; background: linear-gradient(180deg, #5FDDA4, #2FA86D); transform-origin: left; animation: carga .9s var(--ease-out) backwards; }
+        .lb.bad { color: var(--bad-t); }
+        .lb.bad .lb-cells i { background: linear-gradient(180deg, #FF8A8E, #E5484D); }
+        .lb.nd { color: var(--lbl2); }
+        .lb > svg { position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; fill: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+        .lb-bot { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; font-variant-numeric: tabular-nums; }
+        .lb-bot b { font-size: 14px; font-weight: 700; }
+        .lb-bot b.ok { color: var(--ok-t); } .lb-bot b.bad { color: var(--bad-t); } .lb-bot b.nd { color: var(--lbl2); font-size: 11px; font-weight: 600; }
+        .lb-bot span { font-size: 11px; color: var(--lbl2); }
+        /* Turno em andamento: bateria carregando, com o traço da projeção */
+        .lb.viva { height: 20px; margin-top: 8px; }
+        .lb.viva .lb-cells i { background-image: linear-gradient(110deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 62%), linear-gradient(180deg, #5FDDA4, #2FA86D); background-size: 220% 100%, 100% 100%; background-repeat: no-repeat; animation: carga .9s var(--ease-out) backwards, onda 1.5s linear infinite; }
+        .lb.viva.bad .lb-cells i { background-image: linear-gradient(110deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 62%), linear-gradient(180deg, #FF8A8E, #E5484D); }
+        .lb-proj { position: absolute; top: -4px; bottom: -4px; left: var(--proj); border-left: 2px dashed #64748b; }
+        .bg-brand-navy .lb { border-color: rgba(255,255,255,.65); } .bg-brand-navy .lb::after { background: rgba(255,255,255,.65); } .bg-brand-navy .lb-proj { border-color: #fff; }
+        /* Painel: tendência dos últimos dias e selo de recorde */
+        .hero-spark { position: absolute; left: 0; right: 0; bottom: 16px; width: 100%; height: 50%; z-index: -1; pointer-events: none; }
+        .hero-spark .l { fill: none; stroke: rgba(255,255,255,.36); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+        #lt.in .hero-spark { animation: revela 1.2s var(--ease-out) .15s backwards; }
+        .hero-selo { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; padding: 4px 11px 4px 7px; border-radius: 999px; background: linear-gradient(180deg, #FFDC63, #FFAA00); color: #3A2900; font-size: 11.5px; font-weight: 700; box-shadow: 0 0 20px -2px rgba(255,187,0,.85); }
+        .hero-selo svg { width: 13px; height: 13px; fill: currentColor; animation: raio 1.8s ease-in-out infinite; }
+        #lt.recorde::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1.5px solid rgba(255,205,70,.8); pointer-events: none; }
+
+        /* ===== Gráficos: células com brilho no mapa e leitura grande ao tocar ===== */
+        .hm-cell { position: relative; isolation: isolate; border-radius: 6px; }
+        .hm-cell[style*="background"]:not([style*="transparent"]) { box-shadow: inset 0 -1.5px 0 rgba(0,0,0,.10); }
+        .hm-cell[style*="background"]:not([style*="transparent"])::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+            background: linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.12) 46%, rgba(255,255,255,0) 54%); }
+        html.dark .hm-cell[style*="background"]:not([style*="transparent"])::before { background: linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.05) 46%, rgba(255,255,255,0) 54%); }
+        .leitura { position: absolute; top: 0; left: 0; z-index: 5; max-width: 74%; padding: 8px 12px 9px; border-radius: 14px; pointer-events: none; opacity: 0; transform: translateY(-4px); transition: opacity .15s, transform .15s;
+            background: rgba(255,255,255,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 8px 24px -10px rgba(15,23,42,.4), 0 0 0 .5px rgba(0,0,0,.07); }
+        .leitura.on { opacity: 1; transform: none; }
+        .leitura.dir { left: auto; right: 0; }
+        .leitura small { display: block; font-size: 11px; font-weight: 600; color: var(--lbl2); }
+        .leitura strong { display: block; font-size: 20px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .leitura span { display: block; font-size: 11.5px; line-height: 1.35; color: #475569; }
+        html.dark .leitura { background: rgba(44,44,46,.94); box-shadow: 0 8px 24px -10px rgba(0,0,0,.7); }
+        html.dark .leitura strong { color: #fff; } html.dark .leitura span { color: #cbd5e1; }
+        html.capturing .leitura { display: none; }
+
+        /* ===== Modo TV: sala de controle ===== */
+        @keyframes tvProg { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        html.capturing #bomdia-content .eyebrow { display: none; }
+        html.capturing .no-capture { display: none !important; } /* fora da imagem e sem deixar o espaço vazio */
+        #tv { position: fixed; inset: 0; z-index: 150; display: flex; flex-direction: column; gap: 1.2em; padding: 1.9em 2em 1.3em; overflow: hidden; color: #fff; font-size: clamp(8px, 1.04vw, 30px);
+            background: radial-gradient(70% 90% at 100% 0%, rgba(255,187,0,.17), transparent 60%), radial-gradient(60% 90% at 0% 100%, rgba(0,125,210,.38), transparent 62%), linear-gradient(135deg, #050A24 0%, #0C1650 55%, #14246F 100%); }
+        #tv::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: .4em; background: linear-gradient(90deg, #FFBB00 0 33%, #006FB9 33% 66%, #1B2F88 66%); }
+        #tv .ok { color: #5FE3A8; } #tv .warn { color: #FFCB3D; } #tv .bad { color: #FF7B80; } #tv .nd { color: rgba(255,255,255,.5); }
+        .tv-top { display: flex; align-items: center; gap: 1.4em; }
+        .tv-logo { display: flex; padding: .45em .9em; border-radius: .7em; background: #fff; } .tv-logo img { height: 2em; width: auto; }
+        .tv-tit { font-size: 1.5em; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; } .tv-tit em { font-style: normal; font-weight: 500; color: rgba(255,255,255,.55); }
+        .tv-dots { display: flex; gap: .5em; margin-left: auto; }
+        .tv-dots i { padding: .35em 1em; border-radius: 99px; font-style: normal; font-size: .95em; font-weight: 700; color: rgba(255,255,255,.55); background: rgba(255,255,255,.08); transition: background .3s, color .3s; }
+        .tv-dots i.on { background: #FFBB00; color: #231A00; }
+        .tv-agora { font-size: 1.05em; font-weight: 600; color: rgba(255,255,255,.72); white-space: nowrap; }
+        .tv-clock { font-size: 2.3em; line-height: 1; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+        .tv-sair { position: absolute; top: 5.2em; right: 2em; z-index: 2; padding: .5em 1.1em; border-radius: 99px; font-size: 1em; font-weight: 700; color: #fff; background: rgba(255,255,255,.16); opacity: 0; transition: opacity .3s; }
+        #tv.mexeu .tv-sair { opacity: 1; } #tv:not(.mexeu) { cursor: none; }
+        .tv-palco { flex: 1; min-height: 0; transition: opacity .35s, transform .35s; } .tv-palco.sai { opacity: 0; transform: translateY(1em); }
+        .tv-g { height: 100%; display: grid; gap: 1.2em; }
+        .tv-dia { grid-template-columns: 5fr 7fr; grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr); }
+        .tv-turnos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.2em; min-height: 0; }
+        .tv-ugbs { grid-column: 1 / -1; }
+        .tv-card { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 1.4em 1.7em 1.5em; border-radius: 1.6em; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); }
+        .tv-eye { font-size: 1em; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #FFBB00; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tv-num { margin-top: .1em; font-size: 8.6em; line-height: 1; font-weight: 800; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+        .tv-sub { margin-top: .35em; font-size: 1.35em; color: rgba(255,255,255,.72); }
+        .tv-row { display: flex; align-items: center; gap: 2em; margin-top: auto; }
+        .tv-pct { display: block; font-size: 4.6em; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+        .tv-leg { display: block; margin-top: .3em; font-size: 1.15em; color: rgba(255,255,255,.72); } .tv-leg strong { font-weight: 800; }
+        .tv-num2 { margin: .12em 0 auto; font-size: 4.5em; line-height: 1.05; font-weight: 800; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+        .tv-turno .tvb { margin-top: .9em; }
+        .tv-turno.vivo { border-color: rgba(255,187,0,.65); box-shadow: 0 0 2.6em -.7em rgba(255,187,0,.7); }
+        .tv-cols { flex: 1; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1.6em; align-items: center; margin-top: .5em; }
+        .tv-u { display: flex; flex-direction: column; gap: .5em; min-width: 0; }
+        .tv-u strong { font-size: 1.6em; line-height: 1; font-weight: 800; } .tv-u b { font-size: 2.5em; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; } .tv-u span { font-size: 1.05em; color: rgba(255,255,255,.66); }
+        .tv-u .tv-ub { display: flex; align-items: baseline; justify-content: space-between; gap: .5em; }
+        /* bateria */
+        .tvb { position: relative; display: block; height: 2.9em; margin-right: .65em; border: .2em solid rgba(255,255,255,.92); border-radius: .78em; }
+        .tvb::after { content: ''; position: absolute; right: -.68em; top: 50%; width: .32em; height: 1.1em; margin-top: -.55em; border-radius: 0 .2em .2em 0; background: rgba(255,255,255,.92); }
+        .tvb-c { position: absolute; inset: .22em .04em .22em .22em; border-radius: .42em; overflow: hidden;
+            -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(20% - .22em), transparent calc(20% - .22em) 20%); mask: repeating-linear-gradient(90deg, #000 0 calc(20% - .22em), transparent calc(20% - .22em) 20%); }
+        .tvb-c i { display: block; height: 100%; background: linear-gradient(180deg, #62E6AB, #2FA86D); transform-origin: left; animation: carga 1.2s var(--ease-out) backwards; }
+        .tvb.warn .tvb-c i { background: linear-gradient(180deg, #FFD95A, #FFAA00); } .tvb.bad .tvb-c i { background: linear-gradient(180deg, #FF8589, #E5484D); }
+        .tvb.ok { box-shadow: 0 0 1.8em -.3em rgba(70,225,160,.55); } .tvb.warn { box-shadow: 0 0 1.8em -.3em rgba(255,187,0,.5); } .tvb.bad { box-shadow: 0 0 1.8em -.3em rgba(255,99,105,.5); }
+        .tvb > svg { position: absolute; inset: 0; margin: auto; width: 1.5em; height: 1.5em; fill: #fff; filter: drop-shadow(0 .08em .15em rgba(0,0,0,.45)); animation: raio 2.2s ease-in-out infinite; }
+        .tvb.g { flex: 0 0 auto; width: 15em; height: 6.4em; border-width: .3em; border-radius: 1.4em; }
+        .tvb.g::after { right: -1.05em; width: .5em; height: 2.2em; margin-top: -1.1em; border-radius: 0 .3em .3em 0; }
+        .tvb.g .tvb-c { inset: .42em .1em .42em .42em; border-radius: .8em; -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(20% - .4em), transparent calc(20% - .4em) 20%); mask: repeating-linear-gradient(90deg, #000 0 calc(20% - .4em), transparent calc(20% - .4em) 20%); }
+        .tvb.g > svg { width: 3.2em; height: 3.2em; }
+        .tvb.viva .tvb-c i { background-image: linear-gradient(110deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 62%), linear-gradient(180deg, #62E6AB, #2FA86D); background-size: 220% 100%, 100% 100%; background-repeat: no-repeat; animation: carga 1.2s var(--ease-out) backwards, onda 1.5s linear infinite; }
+        .tvb.viva.warn .tvb-c i { background-image: linear-gradient(110deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 62%), linear-gradient(180deg, #FFD95A, #FFAA00); }
+        .tvb.viva.bad .tvb-c i { background-image: linear-gradient(110deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 62%), linear-gradient(180deg, #FF8589, #E5484D); }
+        .tvb-p { position: absolute; top: -.45em; bottom: -.45em; left: var(--proj); border-left: .18em dashed #fff; }
+        /* linhas */
+        .tv-linhas { grid-template-rows: auto minmax(0, 1fr); }
+        .tv-h { font-size: 1.25em; }
+        .tv-cols.l { grid-auto-flow: row; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); align-items: stretch; gap: 1.2em; margin: 0; }
+        .tv-l { justify-content: center; gap: .8em; padding: 1.1em 1.4em; }
+        .tv-lt, .tv-lb { display: flex; align-items: baseline; justify-content: space-between; gap: .5em; }
+        .tv-lt strong { font-size: 2em; line-height: 1; font-weight: 800; } .tv-lt em { font-style: normal; font-size: 1.05em; font-weight: 700; color: rgba(255,255,255,.55); }
+        .tv-l .tvb { height: 3.6em; }
+        .tv-lb b { font-size: 2.8em; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; } .tv-lb span { font-size: 1.25em; color: rgba(255,255,255,.68); }
+        .tv-prog { flex: 0 0 auto; height: .3em; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
+        .tv-prog i { display: block; height: 100%; background: linear-gradient(90deg, #FFBB00, #FFE08A); transform-origin: left; animation: tvProg 20s linear both; }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -842,7 +967,8 @@
                 </g>
                 <circle cx="164" cy="124" r="3"/><circle cx="464" cy="124" r="3"/><circle cx="764" cy="124" r="3"/><circle cx="1064" cy="124" r="3"/><circle cx="1364" cy="124" r="3"/>
             </svg>
-            <div class="hero-txt"><span class="hero-eye"></span><h1></h1><p></p></div>
+            <svg class="hero-spark hide" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <div class="hero-txt"><span class="hero-eye"></span><h1></h1><p></p><span class="hero-selo hide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span></span></span></div>
             <div class="hero-batt hide" data-tom="ok">
                 <div class="batt"><div class="batt-body"><div class="batt-cells"><div class="batt-fill"></div></div><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div></div>
                 <div class="batt-read"><strong class="batt-num"></strong><span class="batt-leg"></span></div>
@@ -965,7 +1091,7 @@
                         <button onclick="exportCSV()" class="icon-btn" title="Baixar Excel"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i><span class="hidden sm:inline">Excel</span></button>
                         <button onclick="window.print()" class="icon-btn" title="Imprimir ou salvar em PDF"><i data-lucide="printer" class="w-4 h-4"></i><span class="hidden sm:inline">Imprimir</span></button>
                         <button onclick="exportViewImage('dashboard-content', 'dashboard_producao')" class="icon-btn" title="Baixar os indicadores e gráficos como imagem"><i data-lucide="image" class="w-4 h-4"></i><span class="hidden sm:inline">Imagem</span></button>
-                        <button onclick="togglePresentation()" class="icon-btn present-btn" title="Modo apresentação (tela cheia)"><i data-lucide="presentation" class="w-4 h-4"></i><span class="hidden sm:inline">Apresentar</span></button>
+                        <button onclick="tvAbrir()" class="icon-btn present-btn" title="Modo TV: sala de controle em tela cheia, trocando de tela sozinha"><i data-lucide="tv" class="w-4 h-4"></i><span class="hidden sm:inline">Modo TV</span></button>
                     </div>
                 </div>
 
@@ -2528,6 +2654,7 @@
 
         function updateUI() {
             calculateData();
+            if (tvOn) setTimeout(() => tvPintar(false, false), 0);
             const ps = processedState;
 
 
@@ -2740,7 +2867,66 @@
         };
 
         if (window.Chart) {
-            Chart.register(refLinesPlugin, barLabelsPlugin);
+            // Linha-guia no ponto tocado (gráficos lidos por coluna)
+            const leituraPlugin = {
+                id: 'leitura',
+                beforeDatasetsDraw(chart) {
+                    const act = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+                    if (!act.length || !chart.scales.x || !chart.scales.y || (chart.options.interaction || {}).mode !== 'index') return;
+                    const el = act[0].element, { ctx, chartArea: a } = chart, deitado = chart.options.indexAxis === 'y';
+                    if (!el || !Number.isFinite(el.x) || !Number.isFinite(el.y)) return;
+                    ctx.save(); ctx.strokeStyle = C.text3; ctx.globalAlpha = .6; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath();
+                    if (deitado) { ctx.moveTo(a.left, el.y); ctx.lineTo(a.right, el.y); } else { ctx.moveTo(el.x, a.top); ctx.lineTo(el.x, a.bottom); }
+                    ctx.stroke(); ctx.restore();
+                },
+                // No celular a leitura some pouco depois de tirar o dedo
+                afterInit(chart) {
+                    if (!TOQUE) return;
+                    chart.canvas.addEventListener('touchstart', () => clearTimeout(chart.$fim), { passive: true });
+                    chart.canvas.addEventListener('touchend', () => { clearTimeout(chart.$fim); chart.$fim = setTimeout(() => {
+                        if (!chart.canvas || !chart.ctx) return;
+                        try { chart.tooltip.setActiveElements([], { x: 0, y: 0 }); chart.setActiveElements([]); chart.update('none'); } catch (e) { /* gráfico já destruído */ }
+                        const l = chart.canvas.parentNode && chart.canvas.parentNode.querySelector('.leitura'); if (l) l.classList.remove('on');
+                    }, 1800); }, { passive: true });
+                }
+            };
+            const TOQUE = window.matchMedia('(hover: none)').matches;
+            // No celular, no lugar do balão: o valor do ponto tocado aparece grande no alto do gráfico
+            if (TOQUE) {
+                Chart.defaults.plugins.tooltip.enabled = false;
+                Chart.defaults.plugins.tooltip.external = ({ chart, tooltip }) => {
+                    const box = chart.canvas && chart.canvas.parentNode; if (!box) return;
+                    let el = box.querySelector('.leitura');
+                    if (!el) { el = document.createElement('div'); el.className = 'leitura'; box.appendChild(el); }
+                    if (!tooltip.opacity) { el.classList.remove('on'); return; }
+                    // Em destaque fica a série principal (a primeira do gráfico); as outras vêm abaixo, menores
+                    const pts = tooltip.dataPoints || [], corpo = (tooltip.body || []).map(b => b.lines || []);
+                    const k = pts.reduce((m, pt, i) => pt.datasetIndex < pts[m].datasetIndex ? i : m, 0);
+                    const linhas = [...(corpo[k] || []), ...(tooltip.afterBody || []), ...corpo.filter((_, i) => i !== k).flat(), ...(tooltip.footer || [])].map(x => String(x || '').trim()).filter(x => x && !/^clique/i.test(x));
+                    el.textContent = '';
+                    const add = (tag, txt) => { const n = document.createElement(tag); n.textContent = txt; el.appendChild(n); };
+                    if (tooltip.title && tooltip.title.length) add('small', tooltip.title.join(' '));
+                    if (linhas.length) add('strong', linhas[0]);
+                    linhas.slice(1, 5).forEach(t => add('span', t));
+                    el.classList.toggle('dir', tooltip.caretX < chart.width / 2);
+                    el.classList.add('on');
+                };
+            }
+            // Barras com degradê (mais claras na ponta), no estilo das células de bateria
+            const clarear = (hex, q = .32) => { const m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(hex); if (!m) return null; const n = parseInt(m[1], 16);
+                return `rgba(${[n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v + (255 - v) * q)).join(',')},${m[2] ? (parseInt(m[2], 16) / 255).toFixed(2) : 1})`; };
+            const BarEl = Chart.registry.getElement('bar'), barDraw = BarEl.prototype.draw;
+            BarEl.prototype.draw = function(ctx, area) {
+                const o = this.options, c = o && o.backgroundColor, claro = typeof c === 'string' ? clarear(c) : null;
+                const { x, y, base, horizontal } = this.getProps(['x', 'y', 'base', 'horizontal']);
+                if (!claro || ![x, y, base].every(Number.isFinite)) return barDraw.call(this, ctx, area);
+                const g = horizontal ? ctx.createLinearGradient(base, 0, x, 0) : ctx.createLinearGradient(0, y, 0, base);
+                g.addColorStop(0, horizontal ? c : claro); g.addColorStop(1, horizontal ? claro : c);
+                this.options = { ...o, backgroundColor: g };
+                try { barDraw.call(this, ctx, area); } finally { this.options = o; }
+            };
+            Chart.defaults.elements.bar.borderRadius = 6;
+            Chart.register(refLinesPlugin, barLabelsPlugin, leituraPlugin);
             Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif';
             Chart.defaults.font.size = 11;
             if (window.matchMedia('(max-width: 640px)').matches) Chart.defaults.font.size = 10;
@@ -2955,7 +3141,7 @@
             const trendTone = trend && trend.pct !== null && Math.abs(trend.pct) >= 1 ? (isGoodDelta(trend.slope) ? 'good' : 'bad') : null;
 
             const sm = stats.meta;
-            setHero('dashboard', { periodo: pLong, frase: `${fmt(stats.total)} baterias · média de ${fmt(stats.avg)} por dia`, pct: sm ? sm.pct : null });
+            setHero('dashboard', { periodo: pLong, frase: `${fmt(stats.total)} baterias · média de ${fmt(stats.avg)} por dia`, pct: sm ? sm.pct : null, serie: ps.viewData.filter(d => !d.isIgnored).slice(-14).map(d => d.value) });
             html += `<div class="kpi-grid grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 mb-6">`;
             html += kpiCard({
                 accent: C.yellow, label: `Total produzido · ${pShort}`,
@@ -3527,6 +3713,15 @@
             const btn = document.activeElement && document.activeElement.tagName === 'BUTTON' ? document.activeElement : null;
             if (btn) btn.disabled = true;
             showToast('Gerando a imagem…', 'info');
+            // Bom Dia: a imagem sai com o painel azul e a bateria no topo
+            let painel = null;
+            const lt0 = document.getElementById('lt');
+            if (elId === 'bomdia-content' && lt0 && !lt0.classList.contains('hide')) {
+                painel = lt0.cloneNode(true);
+                painel.classList.remove('in', 'fora'); painel.style.setProperty('margin-bottom', '16px', 'important');
+                const f = painel.querySelector('.batt-fill'); if (f) f.style.transition = 'none';
+                el.prepend(painel);
+            }
             try {
                 const lib = await loadImageLib();
                 document.documentElement.classList.add('capturing');
@@ -3554,6 +3749,7 @@
                 showToast('Não foi possível gerar a imagem (verifique a internet). Use Imprimir → Salvar como PDF.', 'error');
             } finally {
                 document.documentElement.classList.remove('capturing');
+                if (painel) painel.remove();
                 hidden.forEach(([n, d]) => { n.style.display = d; });
                 if (btn) btn.disabled = false;
             }
@@ -3610,7 +3806,7 @@
                     <div class="bd-act flex items-center gap-2">
                         <button onclick="copyBomDiaSummary()" class="icon-btn h-10" title="Copiar o resumo em texto (WhatsApp, e-mail)"><i data-lucide="message-square-text" class="w-4 h-4"></i><span>Resumo</span></button>
                         <button onclick="exportViewImage('bomdia-content', 'bom-dia_${date}', '#chart-bd-ugb')" class="icon-btn h-10" title="Baixar a página como imagem"><i data-lucide="image" class="w-4 h-4"></i><span>Imagem</span></button>
-                        <button onclick="togglePresentation()" class="icon-btn h-10 present-btn" title="Modo apresentação (tela cheia)"><i data-lucide="presentation" class="w-4 h-4"></i><span class="hidden sm:inline">Apresentar</span></button>
+                        <button onclick="tvAbrir()" class="icon-btn h-10 present-btn" title="Modo TV: sala de controle em tela cheia, trocando de tela sozinha"><i data-lucide="tv" class="w-4 h-4"></i><span class="hidden sm:inline">Modo TV</span></button>
                     </div>
                 </div>
             </section>`;
@@ -3644,7 +3840,13 @@
             const projPct = projMeta !== null ? projMeta / cs.meta * 100 : null;
             const pctTot = cs.pct;
             setHero('bomdia', { periodo: fmtDate(date, { weekday: 'short', day: '2-digit', month: 'short' }).replace(/\./g, '') + (bomDiaTurno !== null ? ' · ' + turnoLabel(bomDiaTurno) : ''),
-                frase: `${fmt(cs.total)} baterias` + (cs.meta !== null ? ` · meta ${fmt(cs.meta)}` : ''), pct: pctTot });
+                frase: `${fmt(cs.total)} baterias` + (cs.meta !== null ? ` · meta ${fmt(cs.meta)}` : ''), pct: pctTot,
+                serie: serieDias(date, 14, bomDiaLine ? [bomDiaLine] : bomDiaUgb ? lines.filter(l => l.ugb === bomDiaUgb).map(l => l.line) : null),
+                selo: (() => { // recorde: o maior dia do mês (dia inteiro, todas as linhas, com pelo menos 3 dias no mês)
+                    if (bomDiaTurno !== null || bomDiaLine || bomDiaUgb) return '';
+                    const tot = {}; rawData.forEach(d => { if (isMontagem(d.area) && d.date.startsWith(date.slice(0, 7))) tot[d.date] = (tot[d.date] || 0) + d.prod; });
+                    const v = Object.values(tot).filter(x => x > 0);
+                    return v.length >= 3 && tot[date] >= Math.max(...v) ? `Melhor dia de ${MONTH_NAMES[+date.slice(5, 7) - 1].toLowerCase()}` : ''; })() });
             const dPrev = prevTotal ? (total - prevTotal) / prevTotal * 100 : null;
             html += `
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
@@ -3676,7 +3878,8 @@
                         class="rounded-2xl p-3 sm:p-5 text-center transition-colors ${on ? 'bg-brand-navy text-white ring-2 ring-brand-yellow' : 'bg-white border border-slate-200/80 hover:border-brand-blue hover:bg-slate-50'}">
                         <span class="filter-label ${on ? '!text-white/70' : ''}">${esc(turnoLabel(t)).replace('Turno ', '<span class="hidden sm:inline">Turno </span><span class="sm:hidden">T</span>')}${pt !== null ? `<span class="bm ${pt >= 100 ? '' : 'bad'}"><i style="width:${Math.max(8, Math.min(100, pt))}%"></i></span>` : ''}</span>
                         <p class="text-[22px] sm:text-[28px] leading-none font-semibold tracking-tight ${on ? 'text-white' : 'text-slate-900'} mt-2 sm:mt-3">${fmt(cs.turnos[t] || 0)}</p>
-                        ${ptp !== null ? `<p class="text-[10.5px] sm:text-[11px] mt-1.5 font-semibold ${ptp >= 100 ? (on ? 'text-emerald-300' : 'text-emerald-600') : (on ? 'text-rose-300' : 'text-rose-600')}">● rodando · proj. ${fmt(ptp, 0)}%</p>` : ''}
+                        ${ptp !== null ? `<span class="lb viva ${ptp >= 100 ? '' : 'bad'}" style="--proj:${Math.min(100, ptp).toFixed(0)}%"><span class="lb-cells"><i style="width:${Math.max(6, Math.min(100, pt))}%"></i></span><span class="lb-proj"></span></span>
+                        <p class="text-[10.5px] sm:text-[11px] mt-1.5 font-semibold ${ptp >= 100 ? (on ? 'text-emerald-300' : 'text-emerald-600') : (on ? 'text-rose-300' : 'text-rose-600')}">⚡ carregando · fecha em ${fmt(ptp, 0)}%</p>` : ''}
                         <p class="text-[11px] sm:text-xs mt-2 ${on ? 'text-white/70' : 'text-slate-500'}">${cs.dayTotal ? fmt((cs.turnos[t] || 0) / cs.dayTotal * 100, 0) : 0}% do dia${pt !== null ? ` · <strong class="font-semibold ${on ? (pt >= 100 ? '!text-emerald-300' : '!text-rose-300') : pctCls(pt)}">${fmt(pt, 0)}% meta</strong>` : ''}</p>
                     </button>`;
                     }).join('') || `<div class="${CARD} p-5 text-sm text-slate-500 col-span-3">Sem turnos registrados.</div>`}
@@ -3754,6 +3957,17 @@
                 ${liveOn ? legendItem(C.good, 'Projeção bate a meta') + legendItem(C.bad, 'Projeção abaixo da meta') : legendItem(C.good, 'Atingiu a meta') + legendItem(C.bad, 'Abaixo da meta')}${legendItem(C.blue, 'Sem meta')}${legendItem('#94a3b8', 'Meta', 'line')}${liveOn ? `<span class="text-slate-400">↗ = projeção até ${live.endTxt} (turno rodando)</span>` : ''}</div>`;
             const narrow = window.innerWidth < 640;
             const rotuloSeg = `<div class="seg no-print no-capture shrink-0"><button onclick="setBomDiaRotulo('pct')" class="${bomDiaRotulo === 'pct' ? 'active' : ''}">%</button><button onclick="setBomDiaRotulo('qtd')" class="${bomDiaRotulo === 'qtd' ? 'active' : ''}">Baterias</button></div>`;
+            // Cada linha é uma bateria: a carga é o % da meta (com o turno rodando, a cor segue a projeção)
+            const linhasBat = [...lines].filter(l => !bomDiaUgb || l.ugb === bomDiaUgb).sort((a, b) => a.line.localeCompare(b.line, 'pt', { numeric: true }));
+            const gradeLinhas = `<div class="lb-grid">${linhasBat.map((l, i) => {
+                const p = l.pct === null ? null : liveOn ? l.pct / live.frac : l.pct;
+                const tom = p === null ? 'nd' : p >= 100 ? 'ok' : 'bad', sel = bomDiaLine === l.line;
+                return `<button type="button" data-line="${esc(l.line)}" onclick="setBomDiaLine(${sel ? 'null' : 'this.dataset.line'})" class="lb-card ${sel ? 'on' : bomDiaLine ? 'off' : ''}" title="${esc(l.line)} · ${esc(l.ugb)} · ${fmt(l.total)}${l.meta !== null ? ' de ' + fmt(l.meta) : ''}">
+                    <span class="lb-top"><strong>${esc(l.line)}</strong><em>${esc(l.ugb.replace('Montagem ', 'M').replace('Sem UGB', ''))}</em></span>
+                    <span class="lb ${tom}"><span class="lb-cells"><i style="width:${l.pct === null ? 0 : Math.max(6, Math.min(100, l.pct))}%;animation-delay:${i * 35}ms"></i></span>${p !== null && p >= 100 ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>' : ''}</span>
+                    <span class="lb-bot"><b class="${tom}">${l.pct === null ? 'sem meta' : fmt(l.pct, 0) + '%'}</b><span>${fmt(l.total)}</span></span>
+                </button>`; }).join('')}</div>
+                <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">${liveOn ? legendItem(C.good, 'Projeção bate a meta') + legendItem(C.bad, 'Projeção abaixo da meta') : legendItem(C.good, 'Atingiu a meta') + legendItem(C.bad, 'Abaixo da meta')}</div>`;
             html += `
             <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 sm:gap-6 mb-4 sm:mb-6">
                 <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-2">
@@ -3762,9 +3976,8 @@
                     ${legend}
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-3">
-                    ${sectionHead(bomDiaUgb ? `Produção por linha · ${esc(bomDiaUgb)}` : 'Produção por linha', bomDiaTurno === null ? 'Peças OK do dia e meta diária de cada linha' : `Peças OK do ${esc(turnoLabel(bomDiaTurno))} · meta do turno = 1/3 da meta diária (linhas que rodam este turno)`, bomDiaUgb ? `<button onclick="setBomDiaUgb(null)" class="no-print no-capture icon-btn h-8 shrink-0"><i data-lucide="x" class="w-3.5 h-3.5"></i>Ver todas as linhas</button>${rotuloSeg}` : rotuloSeg, 'bar-chart-3')}
-                    ${window.Chart ? `<div class="chart-box" style="height:${narrow ? Math.max(288, (bomDiaUgb ? lines.filter(l => l.ugb === bomDiaUgb).length : lines.length) * 30 + 40) : 288}px"><canvas id="chart-bd-linha"></canvas></div>` : chartsUnavailable('h-72')}
-                    ${legend}
+                    ${sectionHead(bomDiaUgb ? `Produção por linha · ${esc(bomDiaUgb)}` : 'Produção por linha', bomDiaTurno === null ? 'A carga de cada bateria é o % da meta do dia · toque numa linha para ver só ela' : `Peças OK do ${esc(turnoLabel(bomDiaTurno))} · meta do turno = 1/3 da meta diária (linhas que rodam este turno)`, bomDiaUgb ? `<button onclick="setBomDiaUgb(null)" class="no-print no-capture icon-btn h-8 shrink-0"><i data-lucide="x" class="w-3.5 h-3.5"></i>Ver todas as linhas</button>` : '', 'battery-charging')}
+${gradeLinhas}
                 </section>
             </div>`;
 
@@ -3899,15 +4112,7 @@
                 ds.backgroundColor = ds.backgroundColor.map((c, i) => ugbs[i].ugb === bomDiaUgb ? c : c + '40');
             }
             charts.bdUgb.update();
-            const byNum = [...lines].filter(l => !bomDiaUgb || l.ugb === bomDiaUgb).sort((a, b) => a.line.localeCompare(b.line, 'pt', { numeric: true }));
             bdModelos = Object.fromEntries(Object.values(byLine).map(l => [l.line, modelosDaLinha(l)]));
-            const _bdl = combo('chart-bd-linha', byNum.map(l => l.line), byNum.map(l => l.total),
-                byNum.map(l => l.meta), byNum.map(l => `${l.line} · ${l.ugb}`), byNum.map(l => l.pct === null ? null : liveOn ? l.pct / live.frac : l.pct), narrow, projV(byNum.map(l => l.total)));
-            charts.bdLinha = _bdl;
-            _bdl.options.onClick = (evt, els) => { if (els.length) { const l = byNum[els[0].index].line; setTimeout(() => setBomDiaLine(bomDiaLine === l ? null : l), 0); } };
-            _bdl.options.onHover = (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
-            if (bomDiaLine) { const ds = _bdl.data.datasets[0]; ds.backgroundColor = ds.backgroundColor.map((c, i) => byNum[i].line === bomDiaLine ? c : c + '40'); }
-            _bdl.update();
         }
 
         // --- Aba Gestão por UGB: acumulado do mês de uma UGB, por turno e por linha ---
@@ -3989,7 +4194,7 @@
             const pctCls = (p) => p === null ? 'text-slate-400' : p >= 100 ? 'text-emerald-600' : 'text-rose-600';
             const blk = (label, value, sub, cls = 'text-slate-900') => `<div class="min-w-0"><p class="filter-label truncate">${label}</p><p class="text-xl sm:text-2xl font-semibold tracking-tight mt-1.5 ${cls}">${comUnidade(value)}</p><p class="text-[11px] text-slate-500 mt-1 leading-snug">${sub}</p></div>`;
             const mName = MONTH_NAMES[+month.slice(5, 7) - 1].toLowerCase();
-            setHero('gestao', { periodo: `${gestaoLinha || gestaoUgb} · ${mName}`, frase: `${fmt(r.prod)} baterias · meta até o dia ${fmt(r.metaToDate)}`, pct: r.pct, txt: r.pct === null ? '' : pf(r.pct) + '%' });
+            setHero('gestao', { periodo: `${gestaoLinha || gestaoUgb} · ${mName}`, frase: `${fmt(r.prod)} baterias · meta até o dia ${fmt(r.metaToDate)}`, pct: r.pct, txt: r.pct === null ? '' : pf(r.pct) + '%', serie: serieDias(date, 14, lines) });
             const tLabel = (t) => `Turno ${String(t).padStart(2, '0')}`;
             const idx = days.indexOf(date);
             const row = (name, x, extra = '') => `<tr class="hover:bg-slate-50/60 ${extra}">
@@ -4174,7 +4379,6 @@
             const qM = sum(sMonth.map(d => d.qty)), pM = sum(pMonth.map(d => d.prod));
             const qY = sum(sYear.map(d => d.qty)), pY = sum(pYear.map(d => d.prod));
             const rM = scrapRate(qM, pM), rY = scrapRate(qY, pY);
-            setHero('scrap', { periodo: formatMonthName(month), frase: `${fmt(qM)} baterias de scrap` + (rM !== null ? ` · taxa de ${fmt(rM * 100, 2)}%` : '') });
             const lineMetas = st.lines.map(metaFor).filter(v => v !== null);
             const meta = st.lines.length ? (lineMetas.length ? sum(lineMetas) : null) : metaFor(metaKey());
             const mDays = M.flatMap(daysOfMonth);
@@ -4182,6 +4386,10 @@
             const lastDay = sMonth.reduce((a, d) => d.date > a ? d.date : a, '');
             const elapsed = mDays.filter(ds => ds <= lastDay && new Date(ds + 'T12:00:00').getDay() !== 0).length;
             const metaAte = meta === null ? null : meta * elapsed / workDaysM; // meta proporcional aos dias já corridos
+            // Painel: bateria ao contrário — a carga é o que ainda resta do limite de scrap do mês
+            setHero('scrap', meta ? { periodo: M.length === 1 ? formatMonthName(month) : M.map(shortMonth).join(' + '), frase: `${fmt(qM)} de ${fmt(meta)} baterias do limite` + (rM !== null ? ` · taxa de ${fmt(rM * 100, 2)}%` : ''),
+                    pct: Math.max(0, (1 - qM / meta) * 100), txt: fmt(Math.max(0, (1 - qM / meta) * 100), 0) + '%', legenda: 'do limite livre', cheia: false, tom: qM > meta ? 'bad' : metaAte !== null && qM > metaAte ? 'warn' : 'ok' }
+                : { periodo: formatMonthName(month), frase: `${fmt(qM)} baterias de scrap` + (rM !== null ? ` · taxa de ${fmt(rM * 100, 2)}%` : '') });
             const metaY = meta === null ? null : meta * scrapMonthsYear.size;
             // Meta de cada turno = 1/3 da meta do escopo (sem considerar o filtro de turno)
             const metaNoT = (() => { const of = (k) => { const m = scrapMetaOf(k); return m === null ? null : m * M.length; };
@@ -6453,6 +6661,123 @@
             if (f) restoreBackup(f);
         });
 
+        // ===== Modo TV (sala de controle): tela cheia escura, números gigantes, troca de tela sozinha =====
+        var tvOn = false, tvIdx = 0, tvTimer = null, tvRelogio = null, tvLock = null, tvMexeu = null;
+        const TV_SEG = 20;
+        const TV_RAIO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
+        const tvNum = (p) => p !== null && p !== undefined && Number.isFinite(p);
+        const tvTom = (p) => !tvNum(p) ? 'nd' : p >= 100 ? 'ok' : p >= 90 ? 'warn' : 'bad';
+        const tvPct = (p) => tvNum(p) ? fmt(p, 0) + '%' : '—';
+        // p = carga (% da meta); proj = onde o turno em andamento deve fechar
+        const tvBat = (p, cls = '', proj = null) => `<span class="tvb ${tvTom(tvNum(proj) ? proj : p)} ${cls}"${tvNum(proj) ? ` style="--proj:${Math.min(100, proj).toFixed(0)}%"` : ''}><span class="tvb-c"><i style="width:${tvNum(p) ? Math.max(4, Math.min(100, p)) : 0}%"></i></span>${tvNum(p) && p >= 100 ? TV_RAIO : ''}${tvNum(proj) ? '<span class="tvb-p"></span>' : ''}</span>`;
+        // O modo TV mostra sempre o último dia com produção, o dia inteiro (sem mexer no que está aberto no Bom Dia)
+        function tvModelo() {
+            const dias = montagemDays();
+            if (!dias.length) return null;
+            const antes = [bomDiaDate, bomDiaTurno];
+            bomDiaDate = dias[dias.length - 1]; bomDiaTurno = null;
+            try { return bomDiaModel(); } finally { [bomDiaDate, bomDiaTurno] = antes; }
+        }
+        function tvSlides(m) {
+            const live = turnoAoVivo(), hoje = m.date === todayStr();
+            const titDia = (hoje ? 'Hoje · ' : '') + fmtDate(m.date, { weekday: 'long', day: '2-digit', month: 'long' });
+            const curto = (u) => u.replace('Montagem ', 'M');
+            const ugbs = m.ugbs.filter(u => u.ugb !== 'Sem UGB');
+            const linhas = [...m.lines].sort((a, b) => a.line.localeCompare(b.line, 'pt', { numeric: true }));
+            const mes = mtdFor(Object.keys(m.lineMeta), m.date, null);
+            const mNome = MONTH_NAMES[+m.date.slice(5, 7) - 1];
+            const gap = m.metaTotal !== null ? m.metaProd - m.metaTotal : null;
+            const turnosTv = [...new Set([...TURNOS_BASE, ...m.turnoKeysAll.map(String)])].slice(0, 3);
+            const dia = `<div class="tv-g tv-dia">
+                <section class="tv-card">
+                    <p class="tv-eye">${esc(titDia)}</p>
+                    <p class="tv-num">${fmt(m.total)}</p>
+                    <p class="tv-sub">baterias produzidas${m.metaTotal !== null ? ` · meta ${fmt(m.metaTotal)}` : ''}</p>
+                    <div class="tv-row">${tvBat(m.pctTot, 'g')}<div><strong class="tv-pct ${tvTom(m.pctTot)}">${tvPct(m.pctTot)}</strong><span class="tv-leg">da meta do dia${gap !== null ? ` · ${signed(gap)}` : ''}</span></div></div>
+                </section>
+                <div class="tv-turnos">${turnosTv.map(t => {
+                    const v = m.turnos[t] || 0, pt = m.turnoPct[t] ?? null;
+                    const vivo = live.date === m.date && String(t) === live.turno && live.frac < 1;
+                    const proj = vivo && tvNum(pt) ? pt / live.frac : null;
+                    return `<section class="tv-card tv-turno ${vivo ? 'vivo' : ''}"><p class="tv-eye">${esc(turnoLabel(t))}${vivo ? ' · ao vivo' : ''}</p><p class="tv-num2">${fmt(v)}</p>${tvBat(pt, vivo ? 'viva' : '', proj)}
+                        <p class="tv-leg"><strong class="${tvTom(tvNum(proj) ? proj : pt)}">${tvPct(pt)}</strong> da meta${tvNum(proj) ? ` · fecha em ${fmt(proj, 0)}%` : ''}</p></section>`; }).join('')}</div>
+                <section class="tv-card tv-ugbs"><p class="tv-eye">UGBs · dia</p><div class="tv-cols">${ugbs.map(u => `<div class="tv-u"><strong>${esc(curto(u.ugb))}</strong>${tvBat(u.pct)}<div class="tv-ub"><b class="${tvTom(u.pct)}">${tvPct(u.pct)}</b><span>${fmt(u.total)}</span></div></div>`).join('')}</div></section>
+            </div>`;
+            const nCols = Math.max(3, Math.ceil(linhas.length / (linhas.length > 14 ? 3 : 2)));
+            const lin = `<div class="tv-g tv-linhas"><p class="tv-eye tv-h">Linhas · ${esc(titDia)}</p><div class="tv-cols l" style="--n:${nCols}">${linhas.map((l, i) => `<section class="tv-card tv-l">
+                    <div class="tv-lt"><strong>${esc(l.line)}</strong><em>${esc(curto(l.ugb).replace('Sem UGB', ''))}</em></div>${tvBat(l.pct).replace('<i style="', `<i style="animation-delay:${i * 45}ms;`)}
+                    <div class="tv-lb"><b class="${tvTom(l.pct)}">${l.pct === null ? 'sem meta' : tvPct(l.pct)}</b><span>${fmt(l.total)}</span></div></section>`).join('')}</div></div>`;
+            const gapM = mes.gap;
+            const mesHtml = `<div class="tv-g tv-dia">
+                <section class="tv-card">
+                    <p class="tv-eye">${esc(mNome)} · acumulado até ${fmtDate(m.date, { day: '2-digit', month: '2-digit' })}</p>
+                    <p class="tv-num">${fmt(mes.prod)}</p>
+                    <p class="tv-sub">baterias no mês${mes.metaToDate ? ` · meta até o dia ${fmt(mes.metaToDate)}` : ''}</p>
+                    <div class="tv-row">${tvBat(mes.pct, 'g')}<div><strong class="tv-pct ${tvTom(mes.pct)}">${tvPct(mes.pct)}</strong><span class="tv-leg">da meta do mês${gapM !== null ? ` · ${signed(gapM)}` : ''}</span></div></div>
+                </section>
+                <div class="tv-turnos">
+                    <section class="tv-card tv-turno"><p class="tv-eye">Projeção do mês</p><p class="tv-num2 ${tvTom(mes.projPct)}">${tvPct(mes.projPct)}</p><p class="tv-leg">${mes.metaMonth ? `${fmt(mes.projection)} de ${fmt(mes.metaMonth)}` : 'sem meta no mês'}</p></section>
+                    <section class="tv-card tv-turno"><p class="tv-eye">Média diária</p><p class="tv-num2">${fmt(mes.avg)}</p><p class="tv-leg">${mes.metaAvg ? `meta média ${fmt(mes.metaAvg)} por dia` : '&nbsp;'}</p></section>
+                    <section class="tv-card tv-turno"><p class="tv-eye">Ritmo necessário</p><p class="tv-num2">${mes.needed === null ? '—' : fmt(mes.needed)}</p><p class="tv-leg">${mes.remaining ? `por dia nos ${mes.remaining} dias restantes` : 'mês fechado'}</p></section>
+                </div>
+                <section class="tv-card tv-ugbs"><p class="tv-eye">UGBs · ${esc(mNome.toLowerCase())}</p><div class="tv-cols">${ugbs.map(u => { const r = mtdFor(u.lines, m.date, null);
+                    return `<div class="tv-u"><strong>${esc(curto(u.ugb))}</strong>${tvBat(r.pct)}<div class="tv-ub"><b class="${tvTom(r.pct)}">${tvPct(r.pct)}</b><span>${fmt(r.prod)}</span></div></div>`; }).join('')}</div></section>
+            </div>`;
+            return [{ nome: 'Dia', html: dia }, { nome: 'Linhas', html: lin }, { nome: 'Mês', html: mesHtml }];
+        }
+        function tvHora() {
+            const el = document.getElementById('tv'); if (!el) return;
+            const lv = turnoAoVivo();
+            el.querySelector('.tv-clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            el.querySelector('.tv-agora').textContent = `${turnoLabel(lv.turno)} · até ${lv.endTxt}`;
+        }
+        // animar: troca de tela (some e volta); reiniciar: recomeça a barra dos 20 segundos
+        function tvPintar(animar = false, reiniciar = true) {
+            const el = document.getElementById('tv'); if (!tvOn || !el) return;
+            const palco = el.querySelector('.tv-palco'), m = tvModelo();
+            if (!m) { palco.innerHTML = '<p class="tv-sub">Ainda não há dados da Montagem.</p>'; return; }
+            const sl = tvSlides(m); tvIdx = ((tvIdx % sl.length) + sl.length) % sl.length;
+            const por = () => {
+                palco.innerHTML = sl[tvIdx].html;
+                el.querySelector('.tv-dots').innerHTML = sl.map((s, i) => `<i class="${i === tvIdx ? 'on' : ''}">${s.nome}</i>`).join('');
+                palco.classList.remove('sai');
+                if (reiniciar) { const p = el.querySelector('.tv-prog i'); p.style.animation = 'none'; p.offsetWidth; p.style.animation = ''; }
+            };
+            if (animar) { palco.classList.add('sai'); setTimeout(por, 360); } else por();
+            tvHora();
+        }
+        const tvGirar = () => { clearInterval(tvTimer); tvTimer = setInterval(() => { tvIdx++; tvPintar(true); }, TV_SEG * 1000); };
+        window.tvIr = function(d) { if (!tvOn) return; tvIdx += d; tvPintar(true); tvGirar(); };
+        window.tvAbrir = function() {
+            let el = document.getElementById('tv');
+            if (!el) {
+                el = document.createElement('div'); el.id = 'tv'; el.className = 'no-print hide';
+                const logo = document.querySelector('header img');
+                el.innerHTML = `<div class="tv-top"><span class="tv-logo"><img alt="Moura" src="${logo ? logo.src : ''}"></span><span class="tv-tit">Montagem <em>· sala de controle</em></span>
+                    <span class="tv-dots"></span><span class="tv-agora"></span><span class="tv-clock"></span></div>
+                    <button type="button" class="tv-sair" onclick="tvSair()">Sair (Esc)</button><div class="tv-palco"></div><div class="tv-prog"><i></i></div>`;
+                document.body.appendChild(el);
+                el.addEventListener('mousemove', () => { el.classList.add('mexeu'); clearTimeout(tvMexeu); tvMexeu = setTimeout(() => el.classList.remove('mexeu'), 3000); });
+                el.addEventListener('click', (e) => { if (!e.target.closest('.tv-sair')) { el.classList.add('mexeu'); clearTimeout(tvMexeu); tvMexeu = setTimeout(() => el.classList.remove('mexeu'), 3000); } });
+            }
+            tvOn = true; tvIdx = 0; el.classList.remove('hide'); document.body.style.overflow = 'hidden';
+            tvPintar(); tvGirar();
+            clearInterval(tvRelogio); tvRelogio = setInterval(tvHora, 15000);
+            if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+            // mantém a tela acesa enquanto o modo TV estiver aberto (onde o navegador permite)
+            try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { tvLock = l; }).catch(() => {}); } catch (e) { /* sem suporte */ }
+        };
+        window.tvSair = function() {
+            if (!tvOn) return;
+            tvOn = false; clearInterval(tvTimer); clearInterval(tvRelogio);
+            const el = document.getElementById('tv'); if (el) el.classList.add('hide');
+            document.body.style.overflow = '';
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+            if (tvLock) { try { tvLock.release(); } catch (e) { /* já liberado */ } tvLock = null; }
+        };
+        document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && tvOn) tvSair(); });
+        document.addEventListener('keydown', (e) => { if (!tvOn) return; if (e.key === 'Escape') tvSair(); else if (e.key === 'ArrowRight') tvIr(1); else if (e.key === 'ArrowLeft') tvIr(-1); });
+
         // --- Modo apresentação (tela cheia, letras maiores) ---
         window.togglePresentation = function(force) {
             const root = document.documentElement;
@@ -7131,6 +7456,12 @@
         const HERO_PADRAO = { scrap: 'Baterias refugadas e taxa de scrap', perdas: 'Horas paradas por família, máquina e componente', pbs: 'Chumbo no sangue', oee: 'Disponibilidade × desempenho × qualidade',
             metas: 'Metas diárias, de scrap e tempos de ciclo', improvements: 'Projetos de melhoria e ganho por turno', audit: 'Planilhas, verificação de dias e backup' };
         let heroAba = null;
+        // Produção por dia (últimos n dias com produção até a data), para a linha de tendência do painel
+        function serieDias(ate, n = 14, linhas = null) {
+            const set = linhas ? new Set(linhas) : null, tot = {};
+            rawData.forEach(d => { if (d.date <= ate && isMontagem(d.area) && (!set || set.has(d.maquina))) tot[d.date] = (tot[d.date] || 0) + d.prod; });
+            return Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-n).map(k => tot[k]);
+        }
         function setHero(tab, info) { heroInfo[tab] = info; if (tab === activeTab) renderHero(); }
         function renderHero() {
             const lt = document.getElementById('lt'), info = heroInfo[activeTab] || {};
@@ -7146,6 +7477,17 @@
                 b.querySelector('.batt-leg').textContent = info.legenda || 'da meta';
                 if (trocou) { fill.style.transition = 'none'; fill.style.width = '0%'; fill.offsetWidth; fill.style.transition = ''; } // carrega do zero ao entrar na aba
                 fill.style.width = Math.max(6, Math.min(100, info.pct)) + '%';
+            }
+            // Selo de recorde e tendência dos últimos dias
+            const selo = lt.querySelector('.hero-selo');
+            selo.classList.toggle('hide', !info.selo); lt.classList.toggle('recorde', !!info.selo);
+            if (info.selo) selo.lastElementChild.textContent = info.selo;
+            const sp = lt.querySelector('.hero-spark'), sr = (info.serie || []).filter(Number.isFinite);
+            sp.classList.toggle('hide', sr.length < 4);
+            if (sr.length >= 4) {
+                const mn = Math.min(...sr), faixa = (Math.max(...sr) - mn) || 1;
+                const d = 'M' + sr.map((v, i) => `${(i / (sr.length - 1) * 100).toFixed(1)} ${(36 - (v - mn) / faixa * 32).toFixed(1)}`).join(' L');
+                sp.innerHTML = `<defs><linearGradient id="hsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".17"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><path fill="url(#hsg)" d="${d} L100 40 L0 40 Z"/><path class="l" d="${d}"/>`;
             }
             if (trocou) { lt.classList.remove('in'); lt.offsetWidth; lt.classList.add('in'); }
         }
