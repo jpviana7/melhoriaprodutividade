@@ -807,6 +807,14 @@
         .ld-dia.bad i { background: linear-gradient(180deg, #FF8A8E, #E5484D); } .ld-dia.nd i { background: #C3C8D2; }
         .ld-dia em { font-style: normal; font-weight: 600; color: var(--lbl2); }
         @keyframes sobe { from { transform: scaleY(0); } }
+        .ld-upd { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 14px; background: var(--ok-bg); font-size: 14px; color: #18794E; }
+        .ld-upd strong { font-weight: 700; } .ld-upd em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; opacity: .75; white-space: nowrap; }
+        .ld-upd-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 rgba(48,164,108,.5); animation: pulsoVerde 2s infinite; }
+        @keyframes pulsoVerde { 0% { box-shadow: 0 0 0 0 rgba(48,164,108,.5); } 70%, 100% { box-shadow: 0 0 0 8px rgba(48,164,108,0); } }
+        .ld-upd.velho { background: rgba(255,187,0,.16); color: #8A5A00; } .ld-upd.velho .ld-upd-dot { background: #FFAA00; animation: none; }
+        html.dark .ld-upd { color: #6FD3A2; } html.dark .ld-upd.velho { color: #FFCB3D; }
+        .ld-abas { display: flex; width: 100%; padding: 4px; border-radius: 12px; } .ld-abas button { flex: 1 1 0; height: 42px; font-size: 15px; font-weight: 700; border-radius: 9px; }
+        html.lider #bd-updated { display: none; }
         .ld-dias:not(.ld-meses) { height: 150px; } .ld-v { font-size: 12px; font-weight: 800; color: #0f172a; } html.dark .ld-v { color: #fff; }
         .ld-meses { height: 150px; gap: 3px; } .ld-meses .ld-dia { font-size: 9.5px; gap: 3px; } .ld-meses .ld-dia span { color: #0f172a; } html.dark .ld-meses .ld-dia span { color: #fff; }
         .ld-def { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; }
@@ -6803,7 +6811,9 @@
 
         // ===== App dos líderes (endereço /lideres): produção e scrap de uma linha, sem filtros =====
         let liderSel = loadPref('lider', null); // { ugb, linha } ('' em linha = a UGB inteira)
-        let liderPasso = null;                  // escolha em andamento: { ugb } ou {}
+        let liderPasso = null;
+        let liderAba = loadPref('liderAba', 'prod'); // 'prod' ou 'scrap'
+        window.setLiderAba = function(a) { liderAba = a; savePref('liderAba', a); heroAba = null; renderLider(); lucide.createIcons(); window.scrollTo({ top: 0 }); };                  // escolha em andamento: { ugb } ou {}
         const RAIO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
         window.liderEscolher = function(ugb, linha, turno) {
             if (ugb === undefined) { liderPasso = {}; }
@@ -6861,8 +6871,6 @@
                 return { t: T, v: sum(r.map(d => d.prod)), meta: mt, pct: mt ? sum(r.filter(d => metaDay(d.maquina, fDate, [T]) > 0).map(d => d.prod)) / mt * 100 : null }; })();
             const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
             TITULO_ABA.lider = nome;
-            setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}${turnoLabel(foco.t)}${aoVivo ? ' · ao vivo' : ''}`,
-                frase: `${fmt(foco.v)} baterias no turno` + (foco.meta ? ` · meta ${fmt(foco.meta)}` : ''), pct: foco.pct, serie: (() => { const t = {}; doT.forEach(d => { if (d.date <= date) t[d.date] = (t[d.date] || 0) + d.prod; }); return Object.keys(t).filter(k => t[k] > 0).sort().slice(-14).map(k => t[k]); })() });
             const mtd = mtdFor(L, date, null);
             // Últimos 7 dias com produção
             const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
@@ -6883,10 +6891,61 @@
             const defs = Object.entries(sumBy(scrapData.filter(d => isMontDefeito(d) && set.has(d.maquina) && d.date.startsWith(mes)), d => d.defeito || '(sem descrição)', d => d.qty)).sort((a, b) => b[1] - a[1]).slice(0, 5);
             const mNome = MONTH_NAMES[+mes.slice(5, 7) - 1].toLowerCase();
             const dl = fmtDate(date, { weekday: 'long', day: '2-digit', month: 'long' });
-            box.innerHTML = `
-            <div class="ld-troca"><p class="text-sm text-slate-500 min-w-0 truncate"><strong class="text-slate-900 font-semibold">${esc(nome)}</strong> · ${esc(turnoLabel(T))}${liderSel.linha ? ' · ' + esc(curto(liderSel.ugb)) : ''}</p>
-                <button type="button" onclick="liderEscolher()" class="icon-btn h-9 shrink-0"><i data-lucide="repeat" class="w-4 h-4"></i>Trocar</button></div>
+            // ----- Scrap do turno do líder -----
+            const sT = sM.filter(d => String(d.turno) === T), qT = sum(sT.map(d => d.qty));
+            const pT = sum(doT.filter(d => d.date.startsWith(mes)).map(d => d.prod)), taxaT = scrapRate(qT, pT);
+            const limT = lim ? lim / 3 : null; // cada turno vale 1/3 do limite mensal
+            const diasUteis = (() => { const [y, mo] = mes.split('-').map(Number), n = new Date(y, mo, 0).getDate(); let c = 0; for (let d = 1; d <= n; d++) if (new Date(y, mo - 1, d).getDay() !== 0) c++; return c; })();
+            const limDiaT = limT ? limT / diasUteis : null;
+            const sTot = {}; scrapData.forEach(d => { if (isMontScrap(d) && set.has(d.maquina) && String(d.turno) === T && d.date <= date) sTot[d.date] = (sTot[d.date] || 0) + d.qty; });
+            const sDias = [...new Set([...Object.keys(tot), ...Object.keys(sTot)])].filter(k => (tot[k] || 0) > 0 || (sTot[k] || 0) > 0).sort().slice(-7)
+                .map(ds => ({ ds, q: sTot[ds] || 0, taxa: scrapRate(sTot[ds] || 0, tot[ds] || 0) }));
+            const maxS = Math.max(1, ...sDias.map(d => d.q));
+            const sMes = {}; Object.keys(sTot).forEach(ds => { const k = ds.slice(0, 7); sMes[k] = (sMes[k] || 0) + sTot[ds]; });
+            const pMes = {}; Object.keys(tot).forEach(ds => { const k = ds.slice(0, 7); pMes[k] = (pMes[k] || 0) + tot[ds]; });
+            // meses só a partir do primeiro com scrap registrado (antes disso não há dado, não é zero)
+            const iniS = scrapData.reduce((mn, d) => isMontScrap(d) && set.has(d.maquina) && d.date.slice(0, 7) < mn ? d.date.slice(0, 7) : mn, '9999-99');
+            const sMeses = [...new Set([...Object.keys(sMes), ...Object.keys(pMes)])].filter(k => k >= iniS).sort().slice(-12).map(k => ({ k, q: sMes[k] || 0, taxa: scrapRate(sMes[k] || 0, pMes[k] || 0) }));
+            const maxSM = Math.max(0.0001, ...sMeses.map(x => x.taxa || 0));
+            const corTaxa = (x) => x === null ? 'nd' : rM !== null && x > rM * 1.15 ? 'bad' : 'ok';
+            const rM = taxa;
+            // ----- Painel do topo e data/hora da atualização -----
+            if (liderAba === 'scrap') {
+                setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}Scrap · ${mNome}`, frase: `${fmt(qM)} baterias` + (taxa !== null ? ` · taxa de ${fmt(taxa * 100, 2)}%` : ''),
+                    ...(lim ? { pct: livre, txt: fmt(livre, 0) + '%', legenda: 'do limite livre', cheia: false, tom: qM > lim ? 'bad' : livre < 25 ? 'warn' : 'ok' } : {}) });
+            } else {
+                setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}${turnoLabel(foco.t)}${aoVivo ? ' · ao vivo' : ''}`,
+                frase: `${fmt(foco.v)} baterias no turno` + (foco.meta ? ` · meta ${fmt(foco.meta)}` : ''), pct: foco.pct, serie: (() => { const t = {}; doT.forEach(d => { if (d.date <= date) t[d.date] = (t[d.date] || 0) + d.prod; }); return Object.keys(t).filter(k => t[k] > 0).sort().slice(-14).map(k => t[k]); })() });
+            }
+            const u = ultimaProducao, velho = !u || Date.now() - new Date(u.at).getTime() > 12 * 3600 * 1000;
+            const ultDia = rawData.reduce((mx, d) => set.has(d.maquina) && d.prod > 0 && d.date > mx ? d.date : mx, '');
+            const atualiz = `<div class="ld-upd ${velho ? 'velho' : ''}"><span class="ld-upd-dot"></span><span>${u ? `Atualizado <strong>${fmtQuando(u.at)}</strong>` : 'Atualização sem registro'}</span>${ultDia ? `<em>dados até ${fmtDate(ultDia, { day: '2-digit', month: '2-digit' })}</em>` : ''}</div>`;
+            const abas = `<div class="seg ld-abas"><button type="button" onclick="setLiderAba('prod')" class="${liderAba !== 'scrap' ? 'active' : ''}">Produção</button><button type="button" onclick="setLiderAba('scrap')" class="${liderAba === 'scrap' ? 'active' : ''}">Scrap</button></div>`;
+            const scrapHtml = `
             <section class="${CARD} ld-card p-5">
+                ${sectionHead(`Scrap · ${mNome}`, 'Bateria completa + sem tampa', '', 'trash-2')}
+                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(qM)}<small>baterias</small></p><span class="ld-pct ${lim ? (qM > lim ? 'bad' : 'ok') : 'nd'}">${taxa === null ? '—' : fmt(taxa * 100, 2) + '%'}</span></div>
+                ${lim ? `<span class="lb ${qM > lim ? 'bad' : ''}"><span class="lb-cells"><i style="width:${Math.max(5, livre)}%"></i></span></span>
+                <p class="ld-linha mt-3">Limite do mês <strong>${fmt(lim)}</strong> · ${qM > lim ? `passou <strong class="text-rose-600">${fmt(qM - lim)}</strong>` : `ainda pode <strong>${fmt(lim - qM)}</strong> (${fmt(livre, 0)}% livre)`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
+                <p class="ld-linha mt-1">No último dia (${fmtDate(date, { day: '2-digit', month: '2-digit' })}): <strong>${fmt(qDia)}</strong></p>
+                ${defs.length ? `<p class="filter-label mt-5 mb-1">Principais defeitos do mês</p>${defs.map(([k, v]) => `<div class="ld-def"><span>${esc(k)}</span><i><i style="width:${(v / defs[0][1] * 100).toFixed(0)}%"></i></i><b>${fmt(v)}</b></div>`).join('')}` : ''}
+            </section>
+            <section class="${CARD} ld-card p-5">
+                ${sectionHead(`Seu turno · ${mNome}`, `${turnoLabel(T)} · scrap da linha neste turno`, '', 'zap')}
+                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(qT)}<small>baterias</small></p><span class="ld-pct ${limT ? (qT > limT ? 'bad' : 'ok') : 'nd'}">${taxaT === null ? '—' : fmt(taxaT * 100, 2) + '%'}</span></div>
+                ${limT ? `<span class="lb ${qT > limT ? 'bad' : ''}"><span class="lb-cells"><i style="width:${Math.max(5, (1 - qT / limT) * 100)}%"></i></span></span>
+                <p class="ld-linha mt-3">Limite do turno no mês <strong>${fmt(limT)}</strong> (1/3 da linha) · ${qT > limT ? `passou <strong class="text-rose-600">${fmt(qT - limT)}</strong>` : `ainda pode <strong>${fmt(limT - qT)}</strong>`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
+            </section>
+            <section class="${CARD} p-5">
+                ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · baterias de scrap e taxa${limDiaT ? ` · limite ≈ ${fmt(limDiaT)} por dia` : ''}`, '', 'bar-chart-3')}
+                <div class="ld-dias">${sDias.map((d, i) => `<div class="ld-dia ${limDiaT ? (d.q > limDiaT ? 'bad' : 'ok') : 'nd'}"><b class="ld-v">${fmt(d.q)}</b><span class="${limDiaT ? (d.q > limDiaT ? 'text-rose-600' : 'text-emerald-600') : 'text-slate-400'}">${d.taxa === null ? '—' : fmt(d.taxa * 100, 1) + '%'}</span><i style="height:${Math.max(4, d.q / maxS * 60)}%;animation-delay:${i * 50}ms"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
+            </section>
+            <section class="${CARD} p-5">
+                ${sectionHead('Taxa mês a mês', `${turnoLabel(T)} · scrap ÷ produção do turno, últimos ${sMeses.length} meses`, '', 'calendar-range')}
+                <div class="ld-dias ld-meses">${sMeses.map((x, i) => `<div class="ld-dia ${corTaxa(x.taxa)}"><span>${x.taxa === null ? '—' : fmt(x.taxa * 100, 1)}</span><i style="height:${Math.max(4, (x.taxa || 0) / maxSM * 62)}%;animation-delay:${i * 40}ms" title="${fmt(x.q)} baterias"></i><em>${shortMonth(x.k).split('/')[0]}</em><em>${fmt(x.q)}</em></div>`).join('')}</div>
+                <p class="text-xs text-slate-400 mt-3">Taxa em %. Vermelho: acima da taxa da linha neste mês.</p>
+            </section>`;
+            const prodHtml = `            <section class="${CARD} ld-card p-5">
                 ${sectionHead(`Seu turno${aoVivo ? ' · agora' : ''}`, aoVivo ? `${turnoLabel(T)} rodando · dados até ${live.refTxt} · termina às ${live.endTxt}` : `${turnoLabel(T)} · ${fDate === todayStr() ? 'hoje' : fmtDate(fDate, { weekday: 'long', day: '2-digit', month: 'long' })}`, '', 'zap')}
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(foco.v)}<small>baterias</small></p><span class="ld-pct ${tom(proj ?? foco.pct)}">${pctTxt(foco.pct)}</span></div>
                 ${bat(foco.pct, aoVivo, proj)}
@@ -6914,15 +6973,13 @@
                 <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}${mtd.needed !== null && mtd.remaining ? `<br>Para fechar a meta: <strong>${fmt(mtd.needed)}</strong> por dia nos ${mtd.remaining} dias restantes` : ''}
                     <br>Seu turno no mês: <strong>${fmt(mtdT.prod)}</strong>${mtdT.pct !== null ? ` · <strong class="${mtdT.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(mtdT.pct)}</strong> da meta` : ''}</p>
             </section>
-            <section class="${CARD} ld-card p-5">
-                ${sectionHead(`Scrap · ${mNome}`, 'Bateria completa + sem tampa', '', 'trash-2')}
-                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(qM)}<small>baterias</small></p><span class="ld-pct ${lim ? (qM > lim ? 'bad' : 'ok') : 'nd'}">${taxa === null ? '—' : fmt(taxa * 100, 2) + '%'}</span></div>
-                ${lim ? `<span class="lb ${qM > lim ? 'bad' : ''}"><span class="lb-cells"><i style="width:${Math.max(5, livre)}%"></i></span></span>
-                <p class="ld-linha mt-3">Limite do mês <strong>${fmt(lim)}</strong> · ${qM > lim ? `passou <strong class="text-rose-600">${fmt(qM - lim)}</strong>` : `ainda pode <strong>${fmt(lim - qM)}</strong> (${fmt(livre, 0)}% livre)`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
-                <p class="ld-linha mt-1">No último dia (${fmtDate(date, { day: '2-digit', month: '2-digit' })}): <strong>${fmt(qDia)}</strong></p>
-                ${defs.length ? `<p class="filter-label mt-5 mb-1">Principais defeitos do mês</p>${defs.map(([k, v]) => `<div class="ld-def"><span>${esc(k)}</span><i><i style="width:${(v / defs[0][1] * 100).toFixed(0)}%"></i></i><b>${fmt(v)}</b></div>`).join('')}` : ''}
-            </section>
-            ${bomDiaUpdatedHtml()}`;
+`;
+            box.innerHTML = `
+            <div class="ld-troca"><p class="text-sm text-slate-500 min-w-0 truncate"><strong class="text-slate-900 font-semibold">${esc(nome)}</strong> · ${esc(turnoLabel(T))}${liderSel.linha ? ' · ' + esc(curto(liderSel.ugb)) : ''}</p>
+                <button type="button" onclick="liderEscolher()" class="icon-btn h-9 shrink-0"><i data-lucide="repeat" class="w-4 h-4"></i>Trocar</button></div>
+            ${atualiz}
+            ${abas}
+            ${liderAba === 'scrap' ? scrapHtml : prodHtml}`;
         }
 
         // ===== Modo TV (sala de controle): tela cheia escura, números gigantes, troca de tela sozinha =====
