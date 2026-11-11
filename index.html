@@ -819,6 +819,44 @@
         .ld-esc button { height: 64px; border-radius: 16px; background: var(--inset); font-size: 17px; font-weight: 700; color: #0f172a; transition: transform .1s, background .15s; } html.dark .ld-esc button { color: #fff; }
         .ld-esc button.full { grid-column: 1 / -1; background: #1B2F88; color: #fff; }
         .ld-esc button small { display: block; font-size: 11.5px; font-weight: 500; color: var(--lbl2); } .ld-esc button.full small { color: rgba(255,255,255,.7); }
+
+        /* ===== Bateria de chumbo (automotiva): caixa com dois polos em cima e seis células ===== */
+        /* Polos: um pseudo-elemento desenha o da esquerda e a sombra repete o da direita */
+        .batt::after, .bm::after, .sp-batt::after { display: none !important; }
+        .batt { position: relative; padding-top: 7px; }
+        .batt-body { width: 86px; height: 58px; border-radius: 9px 9px 11px 11px; }
+        .batt-body::before { content: ''; position: absolute; top: -9px; left: 13px; width: 15px; height: 7px; border-radius: 3px 3px 0 0; background: rgba(255,255,255,.92); box-shadow: 49px 0 0 rgba(255,255,255,.92); }
+        .batt-pol { position: absolute; top: -26px; font-size: 14px; line-height: 1; font-weight: 800; color: rgba(255,255,255,.8); }
+        .batt-pol.mais { left: 15px; } .batt-pol.menos { right: 16px; }
+        .batt-cells { inset: 5px; border-radius: 4px; display: block;
+            -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(16.666% - 2px), transparent calc(16.666% - 2px) 16.666%); mask: repeating-linear-gradient(90deg, #000 0 calc(16.666% - 2px), transparent calc(16.666% - 2px) 16.666%); }
+        .batt-fill { position: absolute; left: 0; right: 0; bottom: 0; width: 100% !important; height: 0; transition: height 1.3s cubic-bezier(.2,.8,.2,1); }
+        .batt-fill::after { background: linear-gradient(170deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%); }
+        @media (min-width: 641px) {
+            .batt-body { width: 112px; height: 72px; }
+            .batt-body::before { top: -11px; left: 16px; width: 19px; height: 9px; box-shadow: 66px 0 0 rgba(255,255,255,.92); }
+            .batt-pol { top: -31px; font-size: 16px; } .batt-pol.mais { left: 19px; } .batt-pol.menos { right: 20px; }
+        }
+        /* Baterias pequenas: mesma caixa com dois polos, carga da esquerda para a direita em seis células */
+        .lb { margin: 6px 0 0 0; border-radius: 6px 6px 7px 7px; }
+        .lb::before, .lb::after { content: ''; position: absolute; top: -6px !important; left: 14%; right: auto; width: 9px !important; height: 4px !important; margin: 0 !important; border-radius: 2px 2px 0 0 !important; background: #C3C8D2; }
+        .lb::after { left: auto; right: 14% !important; }
+        html.dark .lb::before, html.dark .lb::after { background: #5a5a5f; }
+        .bg-brand-navy .lb::before, .bg-brand-navy .lb::after { background: rgba(255,255,255,.65); }
+        .lb-cells, .tvb-c { -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(16.666% - 2px), transparent calc(16.666% - 2px) 16.666%) !important; mask: repeating-linear-gradient(90deg, #000 0 calc(16.666% - 2px), transparent calc(16.666% - 2px) 16.666%) !important; }
+        .bm { margin-top: 3px; border-radius: 2px 2px 3px 3px; }
+        .bm::before { content: ''; position: absolute; top: -4px; left: 3px; width: 4px; height: 2.5px; border-radius: 1px 1px 0 0; background: currentColor; box-shadow: 12px 0 0 currentColor; }
+        .tvb { margin: .55em 0 0 0; border-radius: .55em .55em .7em .7em; }
+        .tvb::before { content: ''; position: absolute; top: -.62em; left: 13%; width: .9em; height: .42em; border-radius: .2em .2em 0 0; background: rgba(255,255,255,.92); }
+        .tvb::after { content: '' !important; display: block !important; position: absolute; top: -.62em; right: 13%; left: auto; width: .9em; height: .42em; margin: 0; border-radius: .2em .2em 0 0; background: rgba(255,255,255,.92); }
+        .tvb.g::before, .tvb.g::after { top: -1em !important; width: 1.5em !important; height: .7em !important; }
+        .tvb.g { margin-top: 1em; }
+        .tvb.g::before, .tvb.g::after { content: '' !important; display: block !important; position: absolute; top: -1em !important; width: 1.5em !important; height: .7em !important; margin: 0 !important; border-radius: .3em .3em 0 0 !important; background: rgba(255,255,255,.92); }
+        .tvb.g::before { left: 14% !important; right: auto !important; } .tvb.g::after { right: 14% !important; left: auto !important; }
+        .sp-batt { margin-top: 8px; width: 60px; height: 38px; border-radius: 6px 6px 8px 8px; }
+        .sp-batt::before { content: ''; position: absolute; top: -8px; left: 9px; width: 10px; height: 5px; border-radius: 2px 2px 0 0; background: #1B2F88; box-shadow: 28px 0 0 #1B2F88; }
+        html.dark .sp-batt::before { background: #fff; box-shadow: 28px 0 0 #fff; }
+        .sp-batt i { border-radius: 2px; transform-origin: bottom; }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -1015,7 +1053,7 @@
             <svg class="hero-spark hide" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"></svg>
             <div class="hero-txt"><span class="hero-eye"></span><h1></h1><p></p><span class="hero-selo hide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span></span></span></div>
             <div class="hero-batt hide" data-tom="ok">
-                <div class="batt"><div class="batt-body"><div class="batt-cells"><div class="batt-fill"></div></div><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div></div>
+                <div class="batt"><div class="batt-body"><span class="batt-pol mais">+</span><span class="batt-pol menos">−</span><div class="batt-cells"><div class="batt-fill"></div></div><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div></div>
                 <div class="batt-read"><strong class="batt-num"></strong><span class="batt-leg"></span></div>
             </div>
         </div>
@@ -7655,8 +7693,8 @@
                 b.classList.toggle('cheia', info.cheia !== undefined ? info.cheia : info.pct >= 100);
                 b.querySelector('.batt-num').textContent = info.txt || fmt(info.pct, 0) + '%';
                 b.querySelector('.batt-leg').textContent = info.legenda || 'da meta';
-                if (trocou) { fill.style.transition = 'none'; fill.style.width = '0%'; fill.offsetWidth; fill.style.transition = ''; } // carrega do zero ao entrar na aba
-                fill.style.width = Math.max(6, Math.min(100, info.pct)) + '%';
+                if (trocou) { fill.style.transition = 'none'; fill.style.height = '0%'; fill.offsetWidth; fill.style.transition = ''; } // carrega do zero ao entrar na aba
+                fill.style.height = Math.max(6, Math.min(100, info.pct)) + '%';
             }
             // Selo de recorde e tendência dos últimos dias
             const selo = lt.querySelector('.hero-selo');
