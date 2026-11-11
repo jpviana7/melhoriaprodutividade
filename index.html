@@ -6929,7 +6929,7 @@
             // meses só a partir do primeiro com scrap registrado (antes disso não há dado, não é zero)
             const iniS = scrapData.reduce((mn, d) => isMontScrap(d) && set.has(d.maquina) && d.date.slice(0, 7) < mn ? d.date.slice(0, 7) : mn, '9999-99');
             const sMeses = [...new Set([...Object.keys(sMes), ...Object.keys(pMes)])].filter(k => k >= iniS).sort().slice(-12).map(k => ({ k, q: sMes[k] || 0, taxa: scrapRate(sMes[k] || 0, pMes[k] || 0) }));
-            const maxSM = Math.max(0.0001, ...sMeses.map(x => x.taxa || 0));
+            const maxSM = Math.max(0.0001, ...sMeses.map(x => x.taxa || 0)), maxSQ = Math.max(1, ...sMeses.map(x => x.q));
             const corTaxa = (x) => x === null ? 'nd' : rM !== null && x > rM * 1.15 ? 'bad' : 'ok';
             const rM = taxaT;
             // ----- Painel do topo e data/hora da atualização -----
@@ -6961,9 +6961,9 @@
                 <div class="ld-dias">${sDias.map((d, i) => `<div class="ld-dia ${limDiaT ? (d.q > limDiaT ? 'bad' : 'ok') : 'nd'}"><b class="ld-v">${fmt(d.q)}</b><span class="${limDiaT ? (d.q > limDiaT ? 'text-rose-600' : 'text-emerald-600') : 'text-slate-400'}">${d.taxa === null ? '—' : fmt(d.taxa * 100, 1) + '%'}</span><i style="height:${Math.max(4, d.q / maxS * 60)}%;animation-delay:${i * 50}ms"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
             </section>
             <section class="${CARD} p-5">
-                ${sectionHead('Taxa mês a mês', `${turnoLabel(T)} · scrap ÷ produção do turno, últimos ${sMeses.length} meses`, '', 'calendar-range')}
-                <div class="ld-dias ld-meses">${sMeses.map((x, i) => `<div class="ld-dia ${corTaxa(x.taxa)}"><span>${x.taxa === null ? '—' : fmt(x.taxa * 100, 1)}</span><i style="height:${Math.max(4, (x.taxa || 0) / maxSM * 62)}%;animation-delay:${i * 40}ms" title="${fmt(x.q)} baterias"></i><em>${shortMonth(x.k).split('/')[0]}</em><em>${fmt(x.q)}</em></div>`).join('')}</div>
-                <p class="text-xs text-slate-400 mt-3">Taxa em %. Vermelho: acima da taxa do turno neste mês.</p>
+                ${sectionHead('Scrap mês a mês', `${turnoLabel(T)} · baterias de scrap por mês${limT ? ` · limite ${fmt(limT)} por mês` : ''}`, '', 'calendar-range')}
+                <div class="ld-dias ld-meses">${sMeses.map((x, i) => `<div class="ld-dia ${limT ? (x.q > limT ? 'bad' : 'ok') : corTaxa(x.taxa)}"><span>${fmt(x.q)}</span><i style="height:${Math.max(4, x.q / maxSQ * 62)}%;animation-delay:${i * 40}ms"></i><em>${shortMonth(x.k).split('/')[0]}</em><em>${x.taxa === null ? '—' : fmt(x.taxa * 100, 1)}</em></div>`).join('')}</div>
+                <p class="text-xs text-slate-400 mt-3">Em cima: baterias de scrap. Embaixo: taxa em %.${limT ? ' Vermelho: passou do limite do turno.' : ''}${sMeses.length < 12 ? ` O scrap começou a ser registrado em ${esc(formatMonthName(sMeses[0] ? sMeses[0].k : mes).toLowerCase())}.` : ''}</p>
             </section>`;
             const prodHtml = `            <section class="${CARD} ld-card p-5">
                 ${sectionHead(`Seu turno${aoVivo ? ' · agora' : ''}`, aoVivo ? `${turnoLabel(T)} rodando · dados até ${live.refTxt} · termina às ${live.endTxt}` : `${turnoLabel(T)} · ${fDate === todayStr() ? 'hoje' : fmtDate(fDate, { weekday: 'long', day: '2-digit', month: 'long' })}`, '', 'zap')}
