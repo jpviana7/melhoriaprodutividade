@@ -6970,15 +6970,15 @@
             <div class="ld-kpis">
                 <section class="${CARD} ld-kpi">
                     <p class="filter-label">Para fechar a meta</p>
-                    <p class="ld-kv">${mtd.needed === null ? '—' : mtd.remaining ? fmt(mtd.needed) : '—'}</p>
-                    <p class="ld-ks">${mtd.needed === null ? 'Sem meta no mês' : mtd.remaining ? `por dia nos <strong>${mtd.remaining}</strong> dias restantes` : 'Mês encerrado'}</p>
-                    ${mtdT.needed !== null && mtdT.remaining ? `<p class="ld-kt">Seu turno: <strong>${fmt(mtdT.needed)}</strong> por dia</p>` : ''}
+                    <p class="ld-kv">${mtdT.needed === null || !mtdT.remaining ? '—' : fmt(mtdT.needed)}</p>
+                    <p class="ld-ks">${mtdT.needed === null ? 'Sem meta no mês' : mtdT.remaining ? `por dia no seu turno · <strong>${mtdT.remaining}</strong> dias restantes` : 'Mês encerrado'}</p>
+                    ${mtd.needed !== null && mtd.remaining ? `<p class="ld-kt">Linha inteira: <strong>${fmt(mtd.needed)}</strong> por dia</p>` : ''}
                 </section>
-                <section class="${CARD} ld-kpi ${sAnt === null ? '' : sAnt.v >= 0 ? 'pos' : 'neg'}">
+                <section class="${CARD} ld-kpi ${sAntT === null ? '' : sAntT.v >= 0 ? 'pos' : 'neg'}">
                     <p class="filter-label">Saldo ${esc(nomeAnt)}</p>
-                    <p class="ld-kv">${sAnt === null ? '—' : signed(sAnt.v)}</p>
-                    <p class="ld-ks">${sAnt === null ? 'Sem meta para o dia' : `${fmt(sAnt.pr)} de <strong>${fmt(sAnt.mt)}</strong> da meta`}</p>
-                    ${sAntT !== null ? `<p class="ld-kt">Seu turno: <strong class="${sAntT.v >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(sAntT.v)}</strong></p>` : ''}
+                    <p class="ld-kv">${sAntT === null ? '—' : signed(sAntT.v)}</p>
+                    <p class="ld-ks">${sAntT === null ? 'Sem meta para o seu turno' : `seu turno · ${fmt(sAntT.pr)} de <strong>${fmt(sAntT.mt)}</strong>`}</p>
+                    ${sAnt !== null ? `<p class="ld-kt">Linha inteira: <strong class="${sAnt.v >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(sAnt.v)}</strong></p>` : ''}
                 </section>
             </div>
             <section class="${CARD} p-5">
