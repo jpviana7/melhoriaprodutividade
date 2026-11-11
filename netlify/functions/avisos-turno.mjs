@@ -165,7 +165,7 @@ export async function enviar(eventos, rows, cfg, { prefixo = '', ignorarTipos = 
     for (const a of avisosDa(p.ugb)) {
       chaves.add(a.key);
       if (!ignorarTipos && !querAviso(p, a.key)) continue;
-      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: `${a.key}|${p.ugb}` }), { TTL: 6 * 3600 }); ok++; }
+      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: `${a.key}|${p.ugb}` }), { TTL: 6 * 3600, urgency: 'high' }); ok++; } // urgência alta: entrega mesmo com o celular em repouso e o app fechado
       catch (e) { if (e.statusCode === 404 || e.statusCode === 410) { await delDoc(`dashboard_push/${s.id}`); removidos++; break; } else console.log('push', e.statusCode, e.body); }
     }
   }
