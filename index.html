@@ -7007,12 +7007,6 @@
                 <div class="ld-dias ld-meses">${meses.map((x, i) => `<div class="ld-dia ${tom(x.pct)}"><span>${fmt(x.media)}</span><i style="height:${Math.max(4, x.media / maxM * 62)}%;animation-delay:${i * 40}ms"></i><em>${shortMonth(x.k).split('/')[0]}</em><em class="${x.pct === null ? '' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? '—' : fmt(x.pct, 0)}</em></div>`).join('')}</div>
                 <p class="text-xs text-slate-400 mt-3">Em cima: baterias por dia. Embaixo: % da meta.</p>
             </section>
-            <section class="${CARD} ld-card p-5">
-                ${sectionHead(`Mês · ${MONTH_NAMES[+dRef.slice(5, 7) - 1].toLowerCase()}`, `Acumulado até ${fmtDate(dRef, { day: '2-digit', month: '2-digit' })}`, '', 'calendar-check')}
-                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(mtd.prod)}<small>baterias</small></p><span class="ld-pct ${tom(mtd.pct)}">${pctTxt(mtd.pct)}</span></div>
-                ${bat(mtd.pct)}
-                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo do mês <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}</p>
-            </section>
 `;
             box.innerHTML = `
             <div class="ld-troca"><p class="text-sm text-slate-500 min-w-0 truncate"><strong class="text-slate-900 font-semibold">${esc(nome)}</strong> · ${esc(turnoLabel(T))}${liderSel.linha ? ' · ' + esc(curto(liderSel.ugb)) : ''}</p>
