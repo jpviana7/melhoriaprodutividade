@@ -808,12 +808,13 @@
         .ld-dia em { font-style: normal; font-weight: 600; color: var(--lbl2); }
         @keyframes sobe { from { transform: scaleY(0); } }
         #lider-content { display: flex; flex-direction: column; gap: 14px; } #lider-content > * { margin: 0 !important; }
+        .ld-sub { margin: 2px 2px -6px !important; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lbl2); }
         .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
         .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
         html.dark .ld-kv { color: #fff; }
         .ld-kpi.pos .ld-kv { color: var(--ok-t); } .ld-kpi.neg .ld-kv { color: var(--bad-t); }
-        .ld-ks { margin-top: 6px; font-size: 12.5px; line-height: 1.35; color: var(--lbl2); } .ld-ks strong { color: #0f172a; font-weight: 700; } html.dark .ld-ks strong { color: #fff; }
+        .ld-ks { margin-top: 6px; font-size: 12.5px; line-height: 1.35; color: var(--lbl2); } .ld-ks strong { font-weight: 700; } .ld-ks strong:not([class]) { color: #0f172a; } html.dark .ld-ks strong:not([class]) { color: #fff; }
         .ld-kt { margin-top: 10px; padding-top: 9px; border-top: .5px solid var(--sep); font-size: 12.5px; color: #475569; } .ld-kt strong { font-weight: 700; } .ld-kt strong:not([class]) { color: #0f172a; } html.dark .ld-kt { color: #cbd5e1; } html.dark .ld-kt strong:not([class]) { color: #fff; }
         .ld-upd { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 14px; background: var(--ok-bg); font-size: 14px; color: #18794E; }
         .ld-upd strong { font-weight: 700; } .ld-upd em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; opacity: .75; white-space: nowrap; }
@@ -6879,7 +6880,9 @@
                 return { t: T, v: sum(r.map(d => d.prod)), meta: mt, pct: mt ? sum(r.filter(d => metaDay(d.maquina, fDate, [T]) > 0).map(d => d.prod)) / mt * 100 : null }; })();
             const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
             TITULO_ABA.lider = nome;
-            const mtd = mtdFor(L, date, null);
+            // Acumulado do mês até o dia anterior (o mesmo dia de referência do Bom Dia e da Gestão no painel principal)
+            const dRef = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
+            const mtd = mtdFor(L, dRef, null);
             // Últimos 7 dias com produção
             const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
             const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds, [T]) || null; return { ds, v: tot[ds], mt, pct: mt ? tot[ds] / mt * 100 : null }; });
@@ -6887,7 +6890,7 @@
             const porMes = {}; Object.keys(tot).forEach(ds => { if (tot[ds] > 0) { const o = porMes[ds.slice(0, 7)] || (porMes[ds.slice(0, 7)] = { v: 0, n: 0, meta: 0 }); o.v += tot[ds]; o.n++; o.meta += metaOfLinesDay(L, ds, [T]) || 0; } });
             const meses = Object.keys(porMes).sort().slice(-12).map(k => ({ k, media: porMes[k].v / porMes[k].n, pct: porMes[k].meta ? porMes[k].v / porMes[k].meta * 100 : null }));
             const maxM = Math.max(1, ...meses.map(x => x.media));
-            const mtdT = mtdFor(L, date, [T]);
+            const mtdT = mtdFor(L, dRef, [T]);
             // Saldo do dia anterior: último dia com produção da linha antes de hoje
             const diaAnt = Object.keys((() => { const t = {}; rawData.forEach(d => { if (set.has(d.maquina) && isMontagem(d.area) && d.prod > 0 && d.date < todayStr()) t[d.date] = 1; }); return t; })()).sort().pop() || null;
             const saldoDe = (sel) => { if (!diaAnt) return null; const mt = metaOfLinesDay(L, diaAnt, sel); if (!mt) return null;
@@ -6967,18 +6970,31 @@
                 ${bat(foco.pct, aoVivo, proj)}
                 <p class="ld-linha mt-3">${foco.meta ? `Meta do turno <strong>${fmt(foco.meta)}</strong> · faltam <strong>${fmt(Math.max(0, foco.meta - foco.v))}</strong>` : 'Sem meta para este turno'}${proj !== null ? ` · no ritmo atual fecha em <strong class="${proj >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(proj, 0)}%</strong>` : ''}</p>
             </section>
+            <p class="ld-sub">Acumulado do mês até ${fmtDate(dRef, { day: '2-digit', month: '2-digit' })} · ${esc(turnoLabel(T))}</p>
             <div class="ld-kpis">
-                <section class="${CARD} ld-kpi">
-                    <p class="filter-label">Para fechar a meta</p>
-                    <p class="ld-kv">${mtdT.needed === null || !mtdT.remaining ? '—' : fmt(mtdT.needed)}</p>
-                    <p class="ld-ks">${mtdT.needed === null ? 'Sem meta no mês' : mtdT.remaining ? `por dia no seu turno · <strong>${mtdT.remaining}</strong> dias restantes` : 'Mês encerrado'}</p>
-                    ${mtd.needed !== null && mtd.remaining ? `<p class="ld-kt">Linha inteira: <strong>${fmt(mtd.needed)}</strong> por dia</p>` : ''}
+                <section class="${CARD} ld-kpi ${mtdT.gap === null ? '' : mtdT.gap >= 0 ? 'pos' : 'neg'}">
+                    <p class="filter-label">Saldo no mês</p>
+                    <p class="ld-kv">${mtdT.gap === null ? '—' : signed(mtdT.gap)}</p>
+                    <p class="ld-ks">${mtdT.metaToDate ? `meta até o dia <strong>${fmt(mtdT.metaToDate)}</strong>` : 'Sem meta no mês'}</p>
+                    ${mtd.gap !== null ? `<p class="ld-kt">Linha inteira: <strong class="${mtd.gap === null ? '' : mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong></p>` : ''}
                 </section>
-                <section class="${CARD} ld-kpi ${sAntT === null ? '' : sAntT.v >= 0 ? 'pos' : 'neg'}">
-                    <p class="filter-label">Saldo ${esc(nomeAnt)}</p>
-                    <p class="ld-kv">${sAntT === null ? '—' : signed(sAntT.v)}</p>
-                    <p class="ld-ks">${sAntT === null ? 'Sem meta para o seu turno' : `seu turno · ${fmt(sAntT.pr)} de <strong>${fmt(sAntT.mt)}</strong>`}</p>
-                    ${sAnt !== null ? `<p class="ld-kt">Linha inteira: <strong class="${sAnt.v >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(sAnt.v)}</strong></p>` : ''}
+                <section class="${CARD} ld-kpi ${mtdT.needed !== null && mtdT.needed > mtdT.avg ? 'neg' : ''}">
+                    <p class="filter-label">Precisa por dia</p>
+                    <p class="ld-kv">${mtdT.needed === null || !mtdT.remaining ? '—' : fmt(mtdT.needed)}</p>
+                    <p class="ld-ks">${mtdT.needed === null ? 'Sem meta no mês' : mtdT.remaining ? `para fechar a meta · <strong>${mtdT.remaining}</strong> dias restantes` : 'Mês encerrado'}</p>
+                    ${mtd.needed !== null && mtd.remaining ? `<p class="ld-kt">Linha inteira: <strong>${fmt(mtd.needed)}</strong></p>` : ''}
+                </section>
+                <section class="${CARD} ld-kpi ${mtdT.metaAvg ? (mtdT.avg >= mtdT.metaAvg ? 'pos' : 'neg') : ''}">
+                    <p class="filter-label">Média por dia</p>
+                    <p class="ld-kv">${fmt(mtdT.avg)}</p>
+                    <p class="ld-ks">${mtdT.metaAvg ? `meta por dia <strong>${fmt(mtdT.metaAvg)}</strong>` : 'Sem meta no mês'}</p>
+                    <p class="ld-kt">Linha inteira: <strong>${fmt(mtd.avg)}</strong></p>
+                </section>
+                <section class="${CARD} ld-kpi">
+                    <p class="filter-label">Produzido no mês</p>
+                    <p class="ld-kv">${fmt(mtdT.prod)}</p>
+                    <p class="ld-ks">${mtdT.pct !== null ? `<strong class="${mtdT.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(mtdT.pct)}</strong> da meta até o dia` : 'baterias'}</p>
+                    <p class="ld-kt">Linha inteira: <strong>${fmt(mtd.prod)}</strong></p>
                 </section>
             </div>
             <section class="${CARD} p-5">
@@ -6991,11 +7007,10 @@
                 <p class="text-xs text-slate-400 mt-3">Em cima: baterias por dia. Embaixo: % da meta.</p>
             </section>
             <section class="${CARD} ld-card p-5">
-                ${sectionHead(`Mês · ${mNome}`, `Acumulado até ${fmtDate(date, { day: '2-digit', month: '2-digit' })}`, '', 'calendar-check')}
+                ${sectionHead(`Mês · ${MONTH_NAMES[+dRef.slice(5, 7) - 1].toLowerCase()}`, `Acumulado até ${fmtDate(dRef, { day: '2-digit', month: '2-digit' })}`, '', 'calendar-check')}
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(mtd.prod)}<small>baterias</small></p><span class="ld-pct ${tom(mtd.pct)}">${pctTxt(mtd.pct)}</span></div>
                 ${bat(mtd.pct)}
-                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo do mês <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}
-                    <br>Seu turno no mês: <strong>${fmt(mtdT.prod)}</strong>${mtdT.pct !== null ? ` · <strong class="${mtdT.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(mtdT.pct)}</strong> da meta` : ''}</p>
+                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo do mês <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}</p>
             </section>
 `;
             box.innerHTML = `
