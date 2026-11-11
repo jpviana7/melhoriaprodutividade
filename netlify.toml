@@ -10,3 +10,9 @@
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache"
+
+# App dos líderes: mesmo arquivo, aberto em /lideres
+[[redirects]]
+  from = "/lideres"
+  to = "/index.html"
+  status = 200

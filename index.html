@@ -23,6 +23,12 @@
             try { t = localStorage.getItem('moura-tema'); } catch (e) { /* sem acesso */ }
             if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
             if (t === 'escuro') document.documentElement.classList.add('dark');
+            // App dos líderes: mesmo código, aberto pelo endereço /lideres
+            if (/\/lideres\/?$/.test(location.pathname) || /[?&]lider\b/.test(location.search)) {
+                document.documentElement.classList.add('lider');
+                var mf = document.querySelector('link[rel="manifest"]'); if (mf) mf.href = '/manifest-lideres.webmanifest';
+                document.title = 'Líderes · Moura';
+            }
         })();
     </script>
     <script defer src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
@@ -774,6 +780,43 @@
         .tv-lb b { font-size: 2.8em; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; } .tv-lb span { font-size: 1.25em; color: rgba(255,255,255,.68); }
         .tv-prog { flex: 0 0 auto; height: .3em; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
         .tv-prog i { display: block; height: 100%; background: linear-gradient(90deg, #FFBB00, #FFE08A); transform-origin: left; animation: tvProg 20s linear both; }
+
+        /* ===== App dos líderes: só produção e scrap de uma linha ===== */
+        html.lider #tabs-container, html.lider #more-sheet, html.lider #filters-section, html.lider #ast-fab, html.lider #admin-btn, html.lider #push-btn, html.lider #header-actions > .admin-only,
+        html.lider #header-actions > div, html.lider footer, html.lider #empty-container { display: none !important; }
+        html.lider body { padding-bottom: 24px; }
+        html.lider main { max-width: 760px; }
+        html.lider header > div:last-of-type > div:first-child > div:first-child > :not(img) { display: none; }
+        .ld-troca { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+        .ld-big { font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -.035em; font-variant-numeric: tabular-nums; color: #0f172a; }
+        html.dark .ld-big { color: #fff; }
+        .ld-big small { font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--lbl2); margin-left: .3em; }
+        .ld-pct { font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+        .ld-pct.ok { color: var(--ok-t); } .ld-pct.bad { color: var(--bad-t); } .ld-pct.nd { color: var(--lbl2); }
+        .ld-linha { font-size: 14px; color: #475569; } html.dark .ld-linha { color: #cbd5e1; }
+        .ld-linha strong { font-weight: 700; color: #0f172a; } html.dark .ld-linha strong { color: #fff; }
+        .ld-card .lb { height: 30px; margin-top: 14px; }
+        .ld-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .ld-t { padding: 12px 10px; border-radius: 14px; background: var(--inset); text-align: center; min-width: 0; }
+        .ld-t.vivo { box-shadow: 0 0 0 2px #FFBB00; }
+        .ld-t b { display: block; margin-top: 4px; font-size: 22px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .ld-t b { color: #fff; }
+        .ld-t span { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; }
+        .ld-dias { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
+        .ld-dia { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .ld-dia i { display: block; width: 100%; max-width: 44px; min-height: 4px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #5FDDA4, #2FA86D); transform-origin: bottom; animation: sobe .7s var(--ease-out) backwards; }
+        .ld-dia.bad i { background: linear-gradient(180deg, #FF8A8E, #E5484D); } .ld-dia.nd i { background: #C3C8D2; }
+        .ld-dia em { font-style: normal; font-weight: 600; color: var(--lbl2); }
+        @keyframes sobe { from { transform: scaleY(0); } }
+        .ld-def { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; }
+        .ld-def + .ld-def { border-top: .5px solid var(--sep); }
+        .ld-def > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ld-def > i { display: block; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; } .ld-def > i > i { display: block; height: 100%; border-radius: 3px; background: var(--bad); }
+        .ld-def > b { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 2.5em; text-align: right; }
+        .ld-esc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .ld-esc.l3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .ld-esc button { height: 64px; border-radius: 16px; background: var(--inset); font-size: 17px; font-weight: 700; color: #0f172a; transition: transform .1s, background .15s; } html.dark .ld-esc button { color: #fff; }
+        .ld-esc button.full { grid-column: 1 / -1; background: #1B2F88; color: #fff; }
+        .ld-esc button small { display: block; font-size: 11.5px; font-weight: 500; color: var(--lbl2); } .ld-esc button.full small { color: rgba(255,255,255,.7); }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -1149,6 +1192,7 @@
         </div>
 
         <!-- ABA 3: Dados -->
+        <div id="view-lider" class="space-y-4 fade-in hide"><div id="lider-content" class="space-y-4"></div></div>
         <div id="view-audit" class="space-y-6 fade-in hide">
             <div id="audit-content"></div>
         </div>
@@ -1864,6 +1908,7 @@
         // (AAAA-MM) e o histórico da Montagem; o das outras áreas vem quando alguém escolhe uma delas.
         // Cada documento fica guardado com a hora da última mudança: na atualização automática só desce o que mudou.
         const rawCache = new Map(); // id -> { t, rows }
+        const LIDER = document.documentElement.classList.contains('lider');
         let outrasAreasPedidas = false;
         const ehNucleo = (id) => !id.includes('_') || /_montagem$/i.test(id);
         async function listarRaw() {
@@ -1894,7 +1939,8 @@
             [...rawCache.keys()].forEach(k => { if (!ids.has(k)) { rawCache.delete(k); mudou = true; } });
             // Meses que já têm o documento geral (AAAA-MM): a cópia antiga separada por área repete os mesmos dados
             const mesesGerais = new Set(lista.filter(x => /^\d{4}-\d{2}$/.test(x.id)).map(x => x.id));
-            const quero = (id) => (outrasAreasPedidas || ehNucleo(id)) && !(id.includes('_') && mesesGerais.has(id.slice(0, 7)));
+            const corteLider = (() => { const d = new Date(); d.setMonth(d.getMonth() - 2); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+            const quero = (id) => (outrasAreasPedidas || ehNucleo(id)) && !(id.includes('_') && mesesGerais.has(id.slice(0, 7))) && !(LIDER && id.slice(0, 7) < corteLider);
             [...rawCache.keys()].forEach(k => { if (!quero(k)) rawCache.delete(k); });
             const baixar = lista.filter(x => quero(x.id) && (!rawCache.has(x.id) || rawCache.get(x.id).t !== x.t));
             await Promise.all(baixar.map(async x => {
@@ -2090,6 +2136,7 @@
             return r.map(a => { const d = {}; f.forEach((c, i) => { const x = a[i]; if (x === null || x === undefined) return; d[c] = Array.isArray(x) ? x[0] : k[x]; }); return d; });
         }
         function persist({ config = false, months = [], scrapMonths = [] } = {}) {
+            if (LIDER) return writeQueue; // o app dos líderes só lê
             const monthList = [...new Set(months)];
             const scrapList = [...new Set(scrapMonths)];
             if (!config && monthList.length === 0 && scrapList.length === 0) return writeQueue;
@@ -2656,6 +2703,7 @@
         }
 
         function updateUI() {
+            if (LIDER) activeTab = 'lider';
             calculateData();
             if (tvOn) setTimeout(() => tvPintar(false, false), 0);
             const ps = processedState;
@@ -2714,10 +2762,12 @@
                     document.getElementById(`tab-${t}`).classList.toggle('active', activeTab === t);
                     document.getElementById(`view-${t}`).classList.toggle('hide', activeTab !== t);
                 });
+                document.getElementById('view-lider').classList.toggle('hide', !LIDER);
                 syncMobileNav();
 
                 destroyCharts();
-                if (activeTab === 'dashboard') renderDashboardContent();
+                if (LIDER) renderLider();
+                else if (activeTab === 'dashboard') renderDashboardContent();
                 else if (activeTab === 'bomdia') renderBomDiaContent();
                 else if (activeTab === 'gestao') renderGestaoContent();
                 else if (activeTab === 'scrap') renderScrapContent();
@@ -6664,6 +6714,107 @@
             if (f) restoreBackup(f);
         });
 
+        // ===== App dos líderes (endereço /lideres): produção e scrap de uma linha, sem filtros =====
+        let liderSel = loadPref('lider', null); // { ugb, linha } ('' em linha = a UGB inteira)
+        let liderPasso = null;                  // escolha em andamento: { ugb } ou {}
+        const RAIO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
+        window.liderEscolher = function(ugb, linha) {
+            if (ugb === undefined) { liderPasso = {}; }
+            else if (linha === undefined) { liderPasso = { ugb }; }
+            else { liderSel = { ugb, linha }; savePref('lider', liderSel); liderPasso = null; heroAba = null; }
+            window.scrollTo({ top: 0 }); renderLider(); lucide.createIcons();
+        };
+        function renderLider() {
+            const box = document.getElementById('lider-content');
+            const m = tvModelo();
+            if (!m) { box.innerHTML = `<div class="${CARD} py-16 text-center text-sm text-slate-500">Ainda não há dados da Montagem.</div>`; return; }
+            const curto = (u) => u.replace('Montagem ', 'M');
+            const ugbs = m.ugbs.filter(u => u.ugb !== 'Sem UGB');
+            if (liderSel && !ugbs.some(u => u.ugb === liderSel.ugb && (!liderSel.linha || u.lines.includes(liderSel.linha)))) liderSel = null;
+            // --- Escolha: UGB e depois a linha ---
+            if (!liderSel || liderPasso) {
+                const u = liderPasso && liderPasso.ugb ? ugbs.find(x => x.ugb === liderPasso.ugb) : null;
+                TITULO_ABA.lider = u ? u.ugb : 'Líderes';
+                setHero('lider', { periodo: 'Montagem', frase: u ? 'Agora escolha a sua linha' : 'Escolha a sua UGB' });
+                box.innerHTML = `<section class="${CARD} p-5">${u
+                    ? `<p class="filter-label mb-3">Linha</p><div class="ld-esc">${[...u.lines].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true })).map(l => `<button type="button" data-u="${esc(u.ugb)}" data-l="${esc(l)}" onclick="liderEscolher(this.dataset.u, this.dataset.l)">${esc(l)}</button>`).join('')}
+                        <button type="button" class="full" data-u="${esc(u.ugb)}" onclick="liderEscolher(this.dataset.u, '')">${esc(u.ugb)} inteira<small>todas as linhas juntas</small></button></div>
+                        <button type="button" onclick="liderEscolher()" class="icon-btn h-10 mt-4"><i data-lucide="chevron-left" class="w-4 h-4"></i>Trocar de UGB</button>`
+                    : `<p class="filter-label mb-3">UGB</p><div class="ld-esc l3">${ugbs.map(x => `<button type="button" data-u="${esc(x.ugb)}" onclick="liderEscolher(this.dataset.u)">${esc(curto(x.ugb))}<small>${x.lines.length} linha${x.lines.length > 1 ? 's' : ''}</small></button>`).join('')}</div>`}
+                    <p class="text-xs text-slate-400 mt-4">O app lembra a escolha neste aparelho. Dá para trocar quando quiser.</p></section>`;
+                return;
+            }
+            // --- Painel da linha (ou da UGB inteira) ---
+            const L = liderSel.linha ? [liderSel.linha] : ugbs.find(u => u.ugb === liderSel.ugb).lines, set = new Set(L);
+            const nome = liderSel.linha || liderSel.ugb, date = m.date, mes = date.slice(0, 7), hoje = date === todayStr();
+            const tom = (p) => p === null || !Number.isFinite(p) ? 'nd' : p >= 100 ? 'ok' : 'bad';
+            const pctTxt = (p) => p === null || !Number.isFinite(p) ? '—' : fmt(p, 0) + '%';
+            const bat = (p, viva = false, proj = null) => `<span class="lb ${tom(proj ?? p)} ${viva ? 'viva' : ''}"${proj !== null ? ` style="--proj:${Math.min(100, proj).toFixed(0)}%"` : ''}><span class="lb-cells"><i style="width:${p === null ? 0 : Math.max(5, Math.min(100, p))}%"></i></span>${p !== null && p >= 100 ? RAIO_SVG : ''}${proj !== null ? '<span class="lb-proj"></span>' : ''}</span>`;
+            const rows = m.dayRows.filter(d => set.has(d.maquina));
+            const comMeta = (d, sel) => metaDay(d.maquina, date, sel) > 0;
+            const total = sum(rows.map(d => d.prod)), metaDia = metaOfLinesDay(L, date) || null;
+            const pctDia = metaDia ? sum(rows.filter(d => comMeta(d, null)).map(d => d.prod)) / metaDia * 100 : null;
+            const turnos = TURNOS_BASE.map(t => { const r = rows.filter(d => String(d.turno) === t), mt = metaOfLinesDay(L, date, [t]) || null;
+                const v = sum(r.map(d => d.prod)); return { t, v, meta: mt, pct: mt ? sum(r.filter(d => comMeta(d, [t])).map(d => d.prod)) / mt * 100 : null }; });
+            const live = turnoAoVivo(), aoVivo = live.date === date && live.frac < 1;
+            // Turno em foco: o que está rodando; sem turno rodando, o último que produziu no dia
+            const foco = aoVivo ? turnos.find(x => x.t === live.turno) : [...turnos].reverse().find(x => x.v > 0) || turnos[0];
+            const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
+            TITULO_ABA.lider = nome;
+            setHero('lider', { periodo: `${liderSel.linha ? curto(liderSel.ugb) + ' · ' : ''}${turnoLabel(foco.t)}${aoVivo ? ' · ao vivo' : ''}`,
+                frase: `${fmt(foco.v)} baterias no turno` + (foco.meta ? ` · meta ${fmt(foco.meta)}` : ''), pct: foco.pct, serie: serieDias(date, 14, L) });
+            const mtd = mtdFor(L, date, null);
+            // Últimos 7 dias com produção
+            const tot = {}; rawData.forEach(d => { if (set.has(d.maquina) && d.date <= date && isMontagem(d.area)) tot[d.date] = (tot[d.date] || 0) + d.prod; });
+            const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds); return { ds, v: tot[ds], pct: mt ? tot[ds] / mt * 100 : null }; });
+            const maxV = Math.max(1, ...dias.map(d => d.v));
+            // Scrap do mês
+            const sM = scrapData.filter(d => isMontScrap(d) && set.has(d.maquina) && d.date.startsWith(mes));
+            const qM = sum(sM.map(d => d.qty)), qDia = sum(sM.filter(d => d.date === date).map(d => d.qty));
+            const pM = sum(rawData.filter(d => set.has(d.maquina) && d.date.startsWith(mes) && isMontagem(d.area)).map(d => d.prod));
+            const taxa = scrapRate(qM, pM);
+            const lim = (() => { const v = L.map(scrapMetaOf).filter(x => x !== null); return v.length ? sum(v) : null; })();
+            const livre = lim ? Math.max(0, (1 - qM / lim) * 100) : null;
+            const defs = Object.entries(sumBy(scrapData.filter(d => isMontDefeito(d) && set.has(d.maquina) && d.date.startsWith(mes)), d => d.defeito || '(sem descrição)', d => d.qty)).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const mNome = MONTH_NAMES[+mes.slice(5, 7) - 1].toLowerCase();
+            const dl = fmtDate(date, { weekday: 'long', day: '2-digit', month: 'long' });
+            box.innerHTML = `
+            <div class="ld-troca"><p class="text-sm text-slate-500 min-w-0 truncate"><strong class="text-slate-900 font-semibold">${esc(nome)}</strong>${liderSel.linha ? ' · ' + esc(liderSel.ugb) : ' · ' + L.length + ' linhas'}</p>
+                <button type="button" onclick="liderEscolher()" class="icon-btn h-9 shrink-0"><i data-lucide="repeat" class="w-4 h-4"></i>Trocar linha</button></div>
+            <section class="${CARD} ld-card p-5">
+                ${sectionHead(`${turnoLabel(foco.t)}${aoVivo ? ' · agora' : ''}`, aoVivo ? `Rodando · dados até ${live.refTxt} · termina às ${live.endTxt}` : `Último turno com produção · ${hoje ? 'hoje' : dl}`, '', 'zap')}
+                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(foco.v)}<small>baterias</small></p><span class="ld-pct ${tom(proj ?? foco.pct)}">${pctTxt(foco.pct)}</span></div>
+                ${bat(foco.pct, aoVivo, proj)}
+                <p class="ld-linha mt-3">${foco.meta ? `Meta do turno <strong>${fmt(foco.meta)}</strong> · faltam <strong>${fmt(Math.max(0, foco.meta - foco.v))}</strong>` : 'Sem meta para este turno'}${proj !== null ? ` · no ritmo atual fecha em <strong class="${proj >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(proj, 0)}%</strong>` : ''}</p>
+            </section>
+            <section class="${CARD} ld-card p-5">
+                ${sectionHead(hoje ? 'Hoje' : 'Dia', dl.charAt(0).toUpperCase() + dl.slice(1), '', 'sun')}
+                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(total)}<small>baterias</small></p><span class="ld-pct ${tom(pctDia)}">${pctTxt(pctDia)}</span></div>
+                ${bat(pctDia)}
+                <p class="ld-linha mt-3 mb-4">${metaDia ? `Meta do dia <strong>${fmt(metaDia)}</strong> · ${total >= metaDia ? 'passou' : 'faltam'} <strong>${fmt(Math.abs(metaDia - total))}</strong>` : 'Sem meta definida para o dia'}</p>
+                <div class="ld-g3">${turnos.map(x => `<div class="ld-t ${aoVivo && x.t === live.turno ? 'vivo' : ''}"><span class="filter-label">${turnoShort(x.t)}</span><b>${fmt(x.v)}</b><span class="${x.pct === null ? 'text-slate-400' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? 'sem meta' : pctTxt(x.pct)}</span></div>`).join('')}</div>
+            </section>
+            <section class="${CARD} p-5">
+                ${sectionHead('Últimos dias', 'Baterias por dia e % da meta', '', 'bar-chart-3')}
+                <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><span class="${d.pct === null ? 'text-slate-400' : d.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(d.pct)}</span><i style="height:${Math.max(4, d.v / maxV * 70)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
+            </section>
+            <section class="${CARD} ld-card p-5">
+                ${sectionHead(`Mês · ${mNome}`, `Acumulado até ${fmtDate(date, { day: '2-digit', month: '2-digit' })}`, '', 'calendar-check')}
+                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(mtd.prod)}<small>baterias</small></p><span class="ld-pct ${tom(mtd.pct)}">${pctTxt(mtd.pct)}</span></div>
+                ${bat(mtd.pct)}
+                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}${mtd.needed !== null && mtd.remaining ? `<br>Para fechar a meta: <strong>${fmt(mtd.needed)}</strong> por dia nos ${mtd.remaining} dias restantes` : ''}</p>
+            </section>
+            <section class="${CARD} ld-card p-5">
+                ${sectionHead(`Scrap · ${mNome}`, 'Bateria completa + sem tampa', '', 'trash-2')}
+                <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(qM)}<small>baterias</small></p><span class="ld-pct ${lim ? (qM > lim ? 'bad' : 'ok') : 'nd'}">${taxa === null ? '—' : fmt(taxa * 100, 2) + '%'}</span></div>
+                ${lim ? `<span class="lb ${qM > lim ? 'bad' : ''}"><span class="lb-cells"><i style="width:${Math.max(5, livre)}%"></i></span></span>
+                <p class="ld-linha mt-3">Limite do mês <strong>${fmt(lim)}</strong> · ${qM > lim ? `passou <strong class="text-rose-600">${fmt(qM - lim)}</strong>` : `ainda pode <strong>${fmt(lim - qM)}</strong> (${fmt(livre, 0)}% livre)`}</p>` : `<p class="ld-linha mt-3">Sem limite de scrap definido</p>`}
+                <p class="ld-linha mt-1">No último dia (${fmtDate(date, { day: '2-digit', month: '2-digit' })}): <strong>${fmt(qDia)}</strong></p>
+                ${defs.length ? `<p class="filter-label mt-5 mb-1">Principais defeitos do mês</p>${defs.map(([k, v]) => `<div class="ld-def"><span>${esc(k)}</span><i><i style="width:${(v / defs[0][1] * 100).toFixed(0)}%"></i></i><b>${fmt(v)}</b></div>`).join('')}` : ''}
+            </section>
+            ${bomDiaUpdatedHtml()}`;
+        }
+
         // ===== Modo TV (sala de controle): tela cheia escura, números gigantes, troca de tela sozinha =====
         var tvOn = false, tvIdx = 0, tvTimer = null, tvRelogio = null, tvLock = null, tvMexeu = null;
         const TV_SEG = 20;
@@ -7470,6 +7621,7 @@
             const lt = document.getElementById('lt'), info = heroInfo[activeTab] || {};
             const trocou = heroAba !== activeTab; heroAba = activeTab;
             lt.querySelector('.hero-eye').textContent = info.periodo || 'Montagem';
+            lt.querySelector('h1').textContent = TITULO_ABA[activeTab] || ''; document.getElementById('ct').textContent = TITULO_ABA[activeTab] || '';
             lt.querySelector('p').textContent = info.frase || HERO_PADRAO[activeTab] || '';
             const b = lt.querySelector('.hero-batt'), fill = b.querySelector('.batt-fill'), tem = Number.isFinite(info.pct);
             b.classList.toggle('hide', !tem);
