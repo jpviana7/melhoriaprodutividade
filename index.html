@@ -807,6 +807,7 @@
         .ld-dia.bad i { background: linear-gradient(180deg, #FF8A8E, #E5484D); } .ld-dia.nd i { background: #C3C8D2; }
         .ld-dia em { font-style: normal; font-weight: 600; color: var(--lbl2); }
         @keyframes sobe { from { transform: scaleY(0); } }
+        .ld-dias:not(.ld-meses) { height: 150px; } .ld-v { font-size: 12px; font-weight: 800; color: #0f172a; } html.dark .ld-v { color: #fff; }
         .ld-meses { height: 150px; gap: 3px; } .ld-meses .ld-dia { font-size: 9.5px; gap: 3px; } .ld-meses .ld-dia span { color: #0f172a; } html.dark .ld-meses .ld-dia span { color: #fff; }
         .ld-def { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; }
         .ld-def + .ld-def { border-top: .5px solid var(--sep); }
@@ -6780,7 +6781,7 @@
             const mtd = mtdFor(L, date, null);
             // Últimos 7 dias com produção
             const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
-            const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds, [T]); return { ds, v: tot[ds], pct: mt ? tot[ds] / mt * 100 : null }; });
+            const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds, [T]) || null; return { ds, v: tot[ds], mt, pct: mt ? tot[ds] / mt * 100 : null }; });
             // Média por dia do turno em cada mês (últimos 12 meses com produção)
             const porMes = {}; Object.keys(tot).forEach(ds => { if (tot[ds] > 0) { const o = porMes[ds.slice(0, 7)] || (porMes[ds.slice(0, 7)] = { v: 0, n: 0, meta: 0 }); o.v += tot[ds]; o.n++; o.meta += metaOfLinesDay(L, ds, [T]) || 0; } });
             const meses = Object.keys(porMes).sort().slice(-12).map(k => ({ k, media: porMes[k].v / porMes[k].n, pct: porMes[k].meta ? porMes[k].v / porMes[k].meta * 100 : null }));
@@ -6814,8 +6815,8 @@
                 <div class="ld-g3">${turnos.map(x => `<div class="ld-t ${x.t === T ? 'vivo' : ''}"><span class="filter-label">${turnoShort(x.t)}</span><b>${fmt(x.v)}</b><span class="${x.pct === null ? 'text-slate-400' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? 'sem meta' : pctTxt(x.pct)}</span></div>`).join('')}</div>
             </section>
             <section class="${CARD} p-5">
-                ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · % da meta do turno`, '', 'bar-chart-3')}
-                <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><span class="${d.pct === null ? 'text-slate-400' : d.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(d.pct)}</span><i style="height:${Math.max(4, d.v / maxV * 70)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
+                ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · baterias e saldo contra a meta do turno`, '', 'bar-chart-3')}
+                <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><b class="ld-v">${fmt(d.v)}</b><span class="${d.mt === null ? 'text-slate-400' : d.v >= d.mt ? 'text-emerald-600' : 'text-rose-600'}">${d.mt === null ? 'sem meta' : signed(d.v - d.mt)}</span><i style="height:${Math.max(4, d.v / maxV * 60)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)} · meta ${d.mt === null ? '—' : fmt(d.mt)} · ${pctTxt(d.pct)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
             </section>
             <section class="${CARD} p-5">
                 ${sectionHead('Média mês a mês', `${turnoLabel(T)} · baterias por dia trabalhado, últimos ${meses.length} meses`, '', 'calendar-range')}
