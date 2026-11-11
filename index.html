@@ -807,6 +807,13 @@
         .ld-dia.bad i { background: linear-gradient(180deg, #FF8A8E, #E5484D); } .ld-dia.nd i { background: #C3C8D2; }
         .ld-dia em { font-style: normal; font-weight: 600; color: var(--lbl2); }
         @keyframes sobe { from { transform: scaleY(0); } }
+        .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
+        .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
+        html.dark .ld-kv { color: #fff; }
+        .ld-kpi.pos .ld-kv { color: var(--ok-t); } .ld-kpi.neg .ld-kv { color: var(--bad-t); }
+        .ld-ks { margin-top: 6px; font-size: 12.5px; line-height: 1.35; color: var(--lbl2); } .ld-ks strong { color: #0f172a; font-weight: 700; } html.dark .ld-ks strong { color: #fff; }
+        .ld-kt { margin-top: 10px; padding-top: 9px; border-top: .5px solid var(--sep); font-size: 12.5px; color: #475569; } .ld-kt strong { font-weight: 700; } .ld-kt strong:not([class]) { color: #0f172a; } html.dark .ld-kt { color: #cbd5e1; } html.dark .ld-kt strong:not([class]) { color: #fff; }
         .ld-upd { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 14px; background: var(--ok-bg); font-size: 14px; color: #18794E; }
         .ld-upd strong { font-weight: 700; } .ld-upd em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; opacity: .75; white-space: nowrap; }
         .ld-upd-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 rgba(48,164,108,.5); animation: pulsoVerde 2s infinite; }
@@ -6951,6 +6958,20 @@
                 ${bat(foco.pct, aoVivo, proj)}
                 <p class="ld-linha mt-3">${foco.meta ? `Meta do turno <strong>${fmt(foco.meta)}</strong> · faltam <strong>${fmt(Math.max(0, foco.meta - foco.v))}</strong>` : 'Sem meta para este turno'}${proj !== null ? ` · no ritmo atual fecha em <strong class="${proj >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(proj, 0)}%</strong>` : ''}</p>
             </section>
+            <div class="ld-kpis">
+                <section class="${CARD} ld-kpi">
+                    <p class="filter-label">Para fechar a meta</p>
+                    <p class="ld-kv">${mtd.needed === null ? '—' : mtd.remaining ? fmt(mtd.needed) : '—'}</p>
+                    <p class="ld-ks">${mtd.needed === null ? 'Sem meta no mês' : mtd.remaining ? `por dia nos <strong>${mtd.remaining}</strong> dias restantes` : 'Mês encerrado'}</p>
+                    ${mtdT.needed !== null && mtdT.remaining ? `<p class="ld-kt">Seu turno: <strong>${fmt(mtdT.needed)}</strong> por dia</p>` : ''}
+                </section>
+                <section class="${CARD} ld-kpi ${mtd.gap === null ? '' : mtd.gap >= 0 ? 'pos' : 'neg'}">
+                    <p class="filter-label">Saldo do mês</p>
+                    <p class="ld-kv">${mtd.gap === null ? '—' : signed(mtd.gap)}</p>
+                    <p class="ld-ks">${mtd.gap === null ? 'Sem meta no mês' : `${mtd.gap >= 0 ? 'acima' : 'abaixo'} da meta até ${fmtDate(date, { day: '2-digit', month: '2-digit' })}`}</p>
+                    ${mtdT.gap !== null ? `<p class="ld-kt">Seu turno: <strong class="${mtdT.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtdT.gap)}</strong></p>` : ''}
+                </section>
+            </div>
             <section class="${CARD} p-5">
                 ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · baterias e saldo contra a meta do turno`, '', 'bar-chart-3')}
                 <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><b class="ld-v">${fmt(d.v)}</b><span class="${d.mt === null ? 'text-slate-400' : d.v >= d.mt ? 'text-emerald-600' : 'text-rose-600'}">${d.mt === null ? 'sem meta' : signed(d.v - d.mt)}</span><i style="height:${Math.max(4, d.v / maxV * 60)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)} · meta ${d.mt === null ? '—' : fmt(d.mt)} · ${pctTxt(d.pct)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
@@ -6963,7 +6984,7 @@
                 ${sectionHead(`Mês · ${mNome}`, `Acumulado até ${fmtDate(date, { day: '2-digit', month: '2-digit' })}`, '', 'calendar-check')}
                 <div class="flex items-end justify-between gap-3"><p class="ld-big">${fmt(mtd.prod)}<small>baterias</small></p><span class="ld-pct ${tom(mtd.pct)}">${pctTxt(mtd.pct)}</span></div>
                 ${bat(mtd.pct)}
-                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong> · saldo <strong class="${mtd.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${signed(mtd.gap)}</strong>` : 'Sem meta no mês'}${mtd.needed !== null && mtd.remaining ? `<br>Para fechar a meta: <strong>${fmt(mtd.needed)}</strong> por dia nos ${mtd.remaining} dias restantes` : ''}
+                <p class="ld-linha mt-3">${mtd.metaToDate ? `Meta até o dia <strong>${fmt(mtd.metaToDate)}</strong>${mtd.metaMonth ? ` · meta do mês <strong>${fmt(mtd.metaMonth)}</strong>` : ''}` : 'Sem meta no mês'}
                     <br>Seu turno no mês: <strong>${fmt(mtdT.prod)}</strong>${mtdT.pct !== null ? ` · <strong class="${mtdT.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${pctTxt(mtdT.pct)}</strong> da meta` : ''}</p>
             </section>
 `;
