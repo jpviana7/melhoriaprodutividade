@@ -809,7 +809,16 @@
         @keyframes sobe { from { transform: scaleY(0); } }
         #lider-content { display: flex; flex-direction: column; gap: 14px; } #lider-content > * { margin: 0 !important; }
         .ld-sub { margin: 2px 2px -6px !important; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lbl2); }
-        .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ld-tc { display: block; width: 100%; padding: 14px 16px 15px; text-align: left; transition: transform .1s; }
+        .ld-tc:active { transform: scale(.98); }
+        .ld-tc-h { display: flex; align-items: baseline; gap: 8px; } .ld-tc-h strong { font-size: 17px; font-weight: 800; color: #0f172a; } html.dark .ld-tc-h strong { color: #fff; }
+        .ld-tc-h em { font-style: normal; font-size: 12px; color: var(--lbl2); } .ld-tc-h svg { margin-left: auto; align-self: center; color: var(--lbl2); }
+        .ld-tc-g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+        .ld-tc-g > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 6px; border-radius: 10px; background: var(--inset); text-align: center; }
+        .ld-tc-g small { font-size: 10px; font-weight: 600; color: var(--lbl2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ld-tc-g b { font-size: 16px; line-height: 1.15; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .ld-tc-g b { color: #fff; }
+        .ld-tc-g b.ok { color: var(--ok-t); } .ld-tc-g b.bad { color: var(--bad-t); }
+                .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
         .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
         html.dark .ld-kv { color: #fff; }
@@ -6844,10 +6853,26 @@
                 const u = liderPasso && liderPasso.ugb ? ugbs.find(x => x.ugb === liderPasso.ugb) : null;
                 if (u && liderPasso.linha !== undefined) { // 3º passo: o turno
                     TITULO_ABA.lider = liderPasso.linha || u.ugb;
-                    setHero('lider', { periodo: curto(u.ugb), frase: 'Por último, o seu turno' });
-                    box.innerHTML = `<section class="${CARD} p-5"><p class="filter-label mb-3">Turno</p><div class="ld-esc l3">${TURNOS_BASE.map(t => `<button type="button" data-u="${esc(u.ugb)}" data-l="${esc(liderPasso.linha)}" onclick="liderEscolher(this.dataset.u, this.dataset.l, '${t}')">${turnoShort(t)}<small>${TURNO_INICIO[t]}h às ${(TURNO_INICIO[t] + 8) % 24}h</small></button>`).join('')}</div>
-                        <button type="button" data-u="${esc(u.ugb)}" onclick="liderEscolher(this.dataset.u)" class="icon-btn h-10 mt-4"><i data-lucide="chevron-left" class="w-4 h-4"></i>Trocar de linha</button>
-                        <p class="text-xs text-slate-400 mt-4">O app lembra a escolha neste aparelho. Dá para trocar quando quiser.</p></section>`;
+                    // Já mostra, para cada turno, o acumulado do mês até o dia anterior (mesma conta da Gestão)
+                    const Ls = liderPasso.linha ? [liderPasso.linha] : u.lines;
+                    const dR = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
+                    const tot = mtdFor(Ls, dR, null);
+                    const cls = (v) => v === null || v === undefined ? 'nd' : v >= 0 ? 'ok' : 'bad';
+                    setHero('lider', { periodo: `${curto(u.ugb)} · ${MONTH_NAMES[+dR.slice(5, 7) - 1].toLowerCase()}`, frase: 'Escolha o seu turno',
+                        pct: tot.pct, txt: tot.pct === null ? '' : fmt(tot.pct, 0) + '%', legenda: 'da meta no mês' });
+                    box.innerHTML = `<p class="ld-sub">Acumulado do mês até ${fmtDate(dR, { day: '2-digit', month: '2-digit' })} · toque no seu turno</p>
+                        ${TURNOS_BASE.map(t => { const r = mtdFor(Ls, dR, [t]);
+                        return `<button type="button" class="${CARD} ld-tc" data-u="${esc(u.ugb)}" data-l="${esc(liderPasso.linha)}" onclick="liderEscolher(this.dataset.u, this.dataset.l, '${t}')">
+                            <span class="ld-tc-h"><strong>${turnoLabel(t)}</strong><em>${TURNO_INICIO[t]}h às ${(TURNO_INICIO[t] + 8) % 24}h</em><i data-lucide="chevron-right" class="w-5 h-5"></i></span>
+                            <span class="ld-tc-g">
+                                <span><small>Produzido</small><b>${fmt(r.prod)}</b></span>
+                                <span><small>Média/dia</small><b class="${r.metaAvg ? (r.avg >= r.metaAvg ? 'ok' : 'bad') : ''}">${fmt(r.avg)}</b><small>meta ${r.metaAvg ? fmt(r.metaAvg) : '—'}</small></span>
+                                <span><small>Saldo</small><b class="${cls(r.gap)}">${r.gap === null ? '—' : signed(r.gap)}</b></span>
+                                <span><small>Precisa/dia</small><b class="${r.needed !== null && r.needed > r.avg ? 'bad' : ''}">${r.needed === null || !r.remaining ? '—' : fmt(r.needed)}</b><small>${r.remaining ? r.remaining + ' dias' : ''}</small></span>
+                            </span></button>`; }).join('')}
+                        <section class="${CARD} p-4"><p class="ld-linha">Linha inteira: saldo <strong class="${tot.gap === null ? '' : tot.gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${tot.gap === null ? '—' : signed(tot.gap)}</strong> · precisa <strong>${tot.needed === null ? '—' : fmt(tot.needed)}</strong> por dia</p>
+                        <button type="button" data-u="${esc(u.ugb)}" onclick="liderEscolher(this.dataset.u)" class="icon-btn h-10 mt-3"><i data-lucide="chevron-left" class="w-4 h-4"></i>Trocar de linha</button>
+                        <p class="text-xs text-slate-400 mt-3">O app lembra a escolha neste aparelho. Dá para trocar quando quiser.</p></section>`;
                     return;
                 }
                 TITULO_ABA.lider = u ? u.ugb : 'Líderes';
