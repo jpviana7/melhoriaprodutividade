@@ -818,6 +818,7 @@
         .ld-tc-g small { font-size: 10px; font-weight: 600; color: var(--lbl2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .ld-tc-g b { font-size: 16px; line-height: 1.15; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .ld-tc-g b { color: #fff; }
         .ld-tc-g b.ok, html.dark .ld-tc-g b.ok { color: var(--ok-t); } .ld-tc-g b.bad, html.dark .ld-tc-g b.bad { color: var(--bad-t); }
+        @media (max-width: 640px) { .imp-janela { display: grid !important; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px !important; width: 100%; } .imp-janela .seg { display: flex; width: 100%; } .imp-janela .seg button { flex: 1 1 0; } .imp-janela .ml-1 { margin-left: 0; } }
                 .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
         .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
@@ -1741,8 +1742,10 @@
             const active = daily.filter(d => !d.isIgnored);
             const allBefore = active.filter(d => d.date < impDate);
             const allAfter = active.filter(d => d.date >= impDate);
-            const before = win > 0 ? allBefore.slice(-win) : allBefore;
-            const after = win > 0 ? allAfter.slice(0, win) : allAfter;
+            // win: nº de dias úteis antes/depois; 0 = todo o histórico; 'A2026' = antes = dias do ano 2026 até o projeto, depois = tudo desde o projeto
+            const ano = typeof win === 'string' && /^A\d{4}$/.test(win) ? win.slice(1) : null;
+            const before = ano ? allBefore.filter(d => d.date.startsWith(ano)) : win > 0 ? allBefore.slice(-win) : allBefore;
+            const after = !ano && win > 0 ? allAfter.slice(0, win) : allAfter;
             const bv = before.map(d => d.value), av = after.map(d => d.value);
             const avgBefore = mean(bv), avgAfter = mean(av);
             const impactAbsolute = (bv.length && av.length) ? avgAfter - avgBefore : 0;
@@ -2910,11 +2913,17 @@
             info: 'bg-slate-100 text-slate-500'
         };
 
+        // Texto da janela de comparação dos projetos
+        const impWindowTxt = (w = impWindow) => typeof w === 'string' && /^A\d{4}$/.test(w) ? `o ano de ${w.slice(1)} (antes do projeto) vs. tudo depois` : w ? `${w} dias úteis antes vs. depois` : 'todo o histórico antes vs. depois';
         function windowSelectorHtml(dark = false) {
             const opts = [[15, '15d'], [30, '30d'], [60, '60d'], [90, '90d'], [0, 'Tudo']];
-            return `<div class="no-print flex items-center gap-2 shrink-0" title="Nº de dias úteis comparados antes e depois da data do projeto">
-                <span class="text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-white/50' : 'text-slate-400'}">Janela</span>
+            const anos = [...new Set(rawData.map(d => d.date.slice(0, 4)))].filter(a => /^\d{4}$/.test(a)).sort().slice(-3);
+            const lab = `text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-white/50' : 'text-slate-400'}`;
+            return `<div class="no-print imp-janela flex flex-wrap items-center gap-x-2 gap-y-2 shrink-0">
+                <span class="${lab}" title="Nº de dias úteis comparados antes e depois da data do projeto">Janela</span>
                 <div class="seg ${dark ? 'dark' : ''}">${opts.map(([v, l]) => `<button onclick="setImpWindow(${v})" class="${impWindow === v ? 'active' : ''}">${l}</button>`).join('')}</div>
+                ${anos.length ? `<span class="${lab} ml-1" title="Compara a média do ano escolhido (antes do projeto) com tudo depois do projeto">Ano</span>
+                <div class="seg ${dark ? 'dark' : ''}">${anos.map(a => `<button onclick="setImpWindow('A${a}')" class="${impWindow === 'A' + a ? 'active' : ''}">${a}</button>`).join('')}</div>` : ''}
             </div>`;
         }
 
@@ -3268,7 +3277,7 @@
                             <div class="min-w-0">
                                 <p class="text-[11px] font-semibold uppercase tracking-wider text-brand-yellow">Projeto em acompanhamento</p>
                                 <h2 class="text-lg font-semibold mt-1">${esc(imp.description) || 'Projeto sem descrição'}</h2>
-                                <p class="text-sm text-white/60 mt-1">Linha ${esc(selectedMachines[0])} · aplicado em ${fmtDate(imp.date)} · ${impWindow ? `${impWindow} dias úteis antes vs. depois` : 'todo o histórico antes vs. depois'}</p>
+                                <p class="text-sm text-white/60 mt-1">Linha ${esc(selectedMachines[0])} · aplicado em ${fmtDate(imp.date)} · ${impWindowTxt()}</p>
                             </div>
                             ${windowSelectorHtml(true)}
                         </div>
@@ -6448,7 +6457,7 @@
 
             let html = `
             <section class="${CARD} p-6 mb-6">
-                ${sectionHead('Resumo dos projetos', `Comparação de ${impWindow ? `<strong class="font-semibold text-slate-700">${impWindow} dias úteis</strong>` : '<strong class="font-semibold text-slate-700">todo o histórico</strong>'} antes vs. depois de cada projeto, com teste estatístico (t de Welch).`, windowSelectorHtml(), 'clipboard-check')}
+                ${sectionHead('Resumo dos projetos', `Comparação de <strong class="font-semibold text-slate-700">${impWindowTxt()}</strong> em cada projeto, com teste estatístico (t de Welch).`, windowSelectorHtml(), 'clipboard-check')}
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                     ${stat('Ganho acumulado', `<span class="${isGoodDelta(totalCum) ? 'text-emerald-600' : 'text-rose-600'}">${totalCum > 0 ? '+' : totalCum < 0 ? '−' : ''}${fmt(Math.abs(totalCum))}</span><span class="block text-xs font-normal text-slate-500 mt-1">peças desde a implementação · ${totalDaily >= 0 ? '+' : '−'}${fmt(Math.abs(totalDaily))}/turno</span>`, C.good, 'col-span-2 md:col-span-1')}
                     ${stat('Projetos', list.length, C.navy)}
@@ -6557,7 +6566,7 @@
                                         <td class="py-1.5 px-2 text-right font-semibold ${!ok ? 'text-slate-400' : g ? 'text-emerald-600' : 'text-rose-600'}">${ok ? `${t.impactAbsolute > 0 ? '+' : t.impactAbsolute < 0 ? '−' : ''}${fmt(Math.abs(t.impactAbsolute))} <span class="text-[11px] font-normal">(${fmtPct(t.impactPct)})</span>` : '—'}</td>
                                         <td class="py-1.5 px-2 text-right text-xs ${!ok ? 'text-slate-400' : isGoodDelta(t.cumulative) ? 'text-emerald-600' : 'text-rose-600'}">${ok ? `${t.cumulative > 0 ? '+' : ''}${fmt(t.cumulative)}` : '—'}</td>
                                         <td class="py-1.5 pl-2 text-right"><span class="text-[10px] font-medium px-1.5 py-0.5 rounded ${badgeTone[t.confidence.tone]}" title="${esc(t.confidence.hint)}">${t.confidence.short}</span></td></tr>`; }).join('')}</tbody></table>
-                                    <p class="text-[11px] text-slate-500 mt-2">Média por dia em que a turma produziu, ${impWindow ? `${impWindow} dias antes vs. depois` : 'todo o histórico'}.${worst && best && worst !== best ? ` A turma com pior resultado é o <strong>Turno ${String(worst.turno).padStart(2, '0')}</strong>.` : ''}</p></div>` : ''}`;
+                                    <p class="text-[11px] text-slate-500 mt-2">Média por dia em que a turma produziu, ${impWindowTxt()}.${worst && best && worst !== best ? ` A turma com pior resultado é o <strong>Turno ${String(worst.turno).padStart(2, '0')}</strong>.` : ''}</p></div>` : ''}`;
                             })() : ''}
                         </article>`;
                     });
