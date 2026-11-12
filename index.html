@@ -1591,6 +1591,8 @@
         const loadPref = (k, def) => { try { const v = localStorage.getItem('dash_' + k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } };
         const savePref = (k, v) => { try { localStorage.setItem('dash_' + k, JSON.stringify(v)); } catch (e) { /* sem armazenamento local */ } };
         let impWindow = loadPref('impWindow', 30); // nº de dias úteis antes/depois (0 = todo o histórico)
+        let impAno = loadPref('impAno', null);     // ano usado como base "antes" do projeto (null = qualquer ano)
+        if (typeof impWindow === 'string') { impAno = impWindow.slice(1); impWindow = 0; } // formato antigo ('A2026')
         let filesOpen = loadPref('filesOpen', false); // painel de planilhas importadas aberto/recolhido
 
         let processedState = emptyState();
@@ -1738,14 +1740,14 @@
         }
 
         // Análise antes/depois de um projeto com janelas comparáveis
-        function analyzeImprovement(daily, impDate, win) {
+        function analyzeImprovement(daily, impDate, win, ano = impAno) {
             const active = daily.filter(d => !d.isIgnored);
             const allBefore = active.filter(d => d.date < impDate);
             const allAfter = active.filter(d => d.date >= impDate);
-            // win: nº de dias úteis antes/depois; 0 = todo o histórico; 'A2026' = antes = dias do ano 2026 até o projeto, depois = tudo desde o projeto
-            const ano = typeof win === 'string' && /^A\d{4}$/.test(win) ? win.slice(1) : null;
-            const before = ano ? allBefore.filter(d => d.date.startsWith(ano)) : win > 0 ? allBefore.slice(-win) : allBefore;
-            const after = !ano && win > 0 ? allAfter.slice(0, win) : allAfter;
+            // win: nº de dias úteis antes/depois (0 = tudo); ano: o "antes" fica só nos dias desse ano
+            const base = ano ? allBefore.filter(d => d.date.startsWith(ano)) : allBefore;
+            const before = win > 0 ? base.slice(-win) : base;
+            const after = win > 0 ? allAfter.slice(0, win) : allAfter;
             const bv = before.map(d => d.value), av = after.map(d => d.value);
             const avgBefore = mean(bv), avgAfter = mean(av);
             const impactAbsolute = (bv.length && av.length) ? avgAfter - avgBefore : 0;
@@ -2914,7 +2916,9 @@
         };
 
         // Texto da janela de comparação dos projetos
-        const impWindowTxt = (w = impWindow) => typeof w === 'string' && /^A\d{4}$/.test(w) ? `o ano de ${w.slice(1)} (antes do projeto) vs. tudo depois` : w ? `${w} dias úteis antes vs. depois` : 'todo o histórico antes vs. depois';
+        const impWindowTxt = (w = impWindow, a = impAno) => a
+            ? (w ? `${w} dias úteis de ${a} antes vs. ${w} dias depois` : `todo o ano de ${a} antes vs. tudo depois`)
+            : (w ? `${w} dias úteis antes vs. depois` : 'todo o histórico antes vs. depois');
         function windowSelectorHtml(dark = false) {
             const opts = [[15, '15d'], [30, '30d'], [60, '60d'], [90, '90d'], [0, 'Tudo']];
             const anos = [...new Set(rawData.map(d => d.date.slice(0, 4)))].filter(a => /^\d{4}$/.test(a)).sort().slice(-3);
@@ -2922,8 +2926,8 @@
             return `<div class="no-print imp-janela flex flex-wrap items-center gap-x-2 gap-y-2 shrink-0">
                 <span class="${lab}" title="Nº de dias úteis comparados antes e depois da data do projeto">Janela</span>
                 <div class="seg ${dark ? 'dark' : ''}">${opts.map(([v, l]) => `<button onclick="setImpWindow(${v})" class="${impWindow === v ? 'active' : ''}">${l}</button>`).join('')}</div>
-                ${anos.length ? `<span class="${lab} ml-1" title="Compara a média do ano escolhido (antes do projeto) com tudo depois do projeto">Ano</span>
-                <div class="seg ${dark ? 'dark' : ''}">${anos.map(a => `<button onclick="setImpWindow('A${a}')" class="${impWindow === 'A' + a ? 'active' : ''}">${a}</button>`).join('')}</div>` : ''}
+                ${anos.length ? `<span class="${lab} ml-1" title="Usa só os dias desse ano como base antes do projeto">Ano</span>
+                <div class="seg ${dark ? 'dark' : ''}"><button onclick="setImpAno(null)" class="${!impAno ? 'active' : ''}">Todos</button>${anos.map(a => `<button onclick="setImpAno('${a}')" class="${impAno === a ? 'active' : ''}">${a}</button>`).join('')}</div>` : ''}
             </div>`;
         }
 
@@ -7939,6 +7943,7 @@
         };
 
         window.setImpWindow = function(n) { impWindow = n; savePref('impWindow', n); updateUI(); };
+        window.setImpAno = function(a) { impAno = a; savePref('impAno', a); updateUI(); };
         window.setRankDim = function(d) { rankDim = d; updateUI(); };
         window.setArea = function(a) {
             selectedAreas = [a]; selectedUgb = 'Todas'; selectedMachines = ['Todas']; selectedCompareMonths = []; rankDim = null;
