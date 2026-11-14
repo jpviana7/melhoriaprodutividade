@@ -819,7 +819,14 @@
         .ld-tc-g b { font-size: 16px; line-height: 1.15; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .ld-tc-g b { color: #fff; }
         .ld-tc-g b.ok, html.dark .ld-tc-g b.ok { color: var(--ok-t); } .ld-tc-g b.bad, html.dark .ld-tc-g b.bad { color: var(--bad-t); }
         @media (max-width: 640px) { .imp-janela { display: grid !important; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px !important; width: 100%; } .imp-janela .seg { display: flex; width: 100%; } .imp-janela .seg button { flex: 1 1 0; } .imp-janela .ml-1 { margin-left: 0; } }
-                .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .pbs-trava { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; padding: 12px 14px; border-radius: 14px; background: var(--inset); font-size: 13.5px; color: #475569; }
+        .pbs-trava > span:first-child { display: inline-flex; align-items: center; gap: 8px; } html.dark .pbs-trava { color: #cbd5e1; }
+        .pbs-trava.aberta { background: rgba(255,187,0,.14); }
+        .pbs-trava-f { display: flex; gap: 8px; } .pbs-trava-f input { width: 160px; } .pbs-trava-f button { white-space: nowrap; }
+        .pbs-trava-err { flex-basis: 100%; }
+        .pbs-oculto { letter-spacing: .12em; color: var(--lbl2); }
+        @media (max-width: 640px) { .pbs-trava-f { width: 100%; } .pbs-trava-f input { flex: 1 1 auto; width: auto; min-width: 0; } }
+        .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
         .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
         html.dark .ld-kv { color: #fff; }
@@ -5029,6 +5036,24 @@
         const pbsCor = (v) => v > 15 ? '#E5484D' : v >= 12 ? '#F59E0B' : '#30A46C';
         const pbsFaixaInicio = (f) => { const m = String(f).match(/(\d+(?:,\d+)?)/); return m ? parseFloat(m[1].replace(',', '.')) : 0; };
         window.setPbs = function(k, v) { pbsState[k] = v; destroyCharts(); renderPbsContent(); lucide.createIcons(); };
+        // Nomes do PbS: ficam ocultos até digitar a senha naquele momento (mesmo com o login salvo no aparelho).
+        // A liberação não é guardada: some ao trocar de aba, ao sair do app ou depois de 5 minutos.
+        let pbsNomes = false, pbsNomesTimer = null;
+        function pbsTrava() {
+            if (pbsNomes) return `<div class="pbs-trava aberta no-print"><span><i data-lucide="eye" class="w-4 h-4"></i>Nomes visíveis · ocultam sozinhos em 5 min</span><button type="button" class="icon-btn h-9" onclick="pbsOcultar()"><i data-lucide="eye-off" class="w-4 h-4"></i>Ocultar nomes</button></div>`;
+            return `<form class="pbs-trava no-print" onsubmit="event.preventDefault(); pbsLiberar(this.senha.value, this)">
+                <span><i data-lucide="lock" class="w-4 h-4"></i>${isAdmin() ? 'Nomes e matrículas ocultos.' : 'A lista com os nomes é protegida.'} Digite a senha do usuário para ver.</span>
+                <span class="pbs-trava-f"><input name="senha" type="password" autocomplete="current-password" placeholder="Senha" class="h-10 px-3 rounded-xl text-sm outline-none"><button type="submit" class="h-10 px-4 rounded-xl text-sm font-semibold text-white bg-brand-navy">Ver nomes</button></span>
+                <span class="pbs-trava-err hide text-rose-600 text-xs font-medium">Senha incorreta.</span></form>`;
+        }
+        window.pbsLiberar = async function(senha, form) {
+            if ((await sha256(senha || '')) !== ADMIN_HASH) { const e = form && form.querySelector('.pbs-trava-err'); if (e) e.classList.remove('hide'); return; }
+            pbsNomes = true; clearTimeout(pbsNomesTimer); pbsNomesTimer = setTimeout(pbsOcultar, 5 * 60 * 1000);
+            if (!isAdmin()) { adminOn = true; applyAdmin(); try { sessionStorage.setItem(ADMIN_KEY, ADMIN_HASH); } catch (e) { /* sem armazenamento */ } } // libera a lista nesta sessão
+            renderPbsContent(); lucide.createIcons();
+        };
+        window.pbsOcultar = function() { if (!pbsNomes) return; pbsNomes = false; clearTimeout(pbsNomesTimer); if (activeTab === 'pbs') { renderPbsContent(); lucide.createIcons(); } };
+        document.addEventListener('visibilitychange', () => { if (document.hidden) pbsOcultar(); });
         window.filterPbsTable = function(v) {
             pbsState.busca = v; const q = normStr(v);
             document.querySelectorAll('#pbs-table tbody tr').forEach(tr => { tr.style.display = !q || normStr(tr.dataset.k).includes(q) ? '' : 'none'; });
@@ -5130,15 +5155,16 @@
             const lista = [...cur].sort((a, b) => b.r - a.r);
             html += `
             <section class="print-break ${CARD} p-5 sm:p-6">
-                ${sectionHead('Colaboradores', `${esc(formatMonthName(month))} · do maior para o menor · vermelho = acima do limite (H 15 · M 10)`, isAdmin() ? `<input type="search" value="${esc(st.busca)}" oninput="filterPbsTable(this.value)" placeholder="Buscar nome, matrícula ou setor…" style="max-width:18rem" class="no-print h-9 w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-lg px-3 outline-none focus:border-brand-blue">` : '', 'users')}
-                ${!isAdmin() ? `<p class="text-sm text-slate-500">A lista com os nomes aparece só para quem entra com a senha (botão <strong>Usuário</strong>).</p>` : `
+                ${sectionHead('Colaboradores', `${esc(formatMonthName(month))} · do maior para o menor · vermelho = acima do limite (H 15 · M 10)`, isAdmin() && pbsNomes ? `<input type="search" value="${esc(st.busca)}" oninput="filterPbsTable(this.value)" placeholder="Buscar nome, matrícula ou setor…" style="max-width:18rem" class="no-print h-9 w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-lg px-3 outline-none focus:border-brand-blue">` : '', 'users')}
+                ${pbsTrava()}
+                ${!isAdmin() ? '' : `
                 <div class="overflow-x-auto custom-scrollbar overflow-y-auto" style="max-height:32rem"><table id="pbs-table" class="w-full text-sm">
                     <thead class="sticky top-0 bg-white"><tr class="text-[11px] uppercase tracking-wider text-slate-400 text-left">
                         <th class="py-2 px-2 font-semibold">Colaborador</th><th class="py-2 px-2 font-semibold">Matrícula</th><th class="py-2 px-2 font-semibold">Setor</th>
                         <th class="py-2 px-2 font-semibold text-right">µg/dL</th><th class="py-2 px-2 font-semibold">Faixa</th><th class="py-2 px-2 font-semibold text-right">Variação</th></tr></thead>
                     <tbody class="divide-y divide-slate-100">${lista.map(d => { const a = anterior[d.mat]; const dv = a ? d.r - a.r : null;
-                        return `<tr data-k="${esc(d.nome + ' ' + d.mat + ' ' + pbsSetorCurto(d.setor))}">
-                            <td class="py-2 px-2 text-slate-800">${esc(d.nome)}${d.g === 'F' ? ' <span class="text-[10px] text-slate-400">(F)</span>' : ''}</td><td class="py-2 px-2 text-slate-500">${esc(d.mat)}</td><td class="py-2 px-2 text-slate-600 whitespace-nowrap">${esc(pbsSetorCurto(d.setor))}</td>
+                        return `<tr data-k="${esc((pbsNomes ? d.nome + ' ' + d.mat + ' ' : '') + pbsSetorCurto(d.setor))}">
+                            <td class="py-2 px-2 text-slate-800">${pbsNomes ? esc(d.nome) : '<span class="pbs-oculto">••••••••••</span>'}${d.g === 'F' ? ' <span class="text-[10px] text-slate-400">(F)</span>' : ''}</td><td class="py-2 px-2 text-slate-500">${pbsNomes ? esc(d.mat) : '••••••'}</td><td class="py-2 px-2 text-slate-600 whitespace-nowrap">${esc(pbsSetorCurto(d.setor))}</td>
                             <td class="py-2 px-2 text-right font-semibold"><span style="white-space:nowrap"><span class="inline-block w-2 h-2 rounded-full" style="margin-right:5px;background:${pbsCorP(d)}"></span><span class="${pbsAcima(d) ? 'text-rose-600' : ''}">${fmt(d.r, 1)}</span></span></td>
                             <td class="py-2 px-2 text-slate-500 whitespace-nowrap">${esc(d.faixa)}</td>
                             <td class="py-2 px-2 text-right text-xs whitespace-nowrap ${dv === null ? 'text-slate-400' : dv > 0 ? 'text-rose-600' : dv < 0 ? 'text-emerald-600' : 'text-slate-400'}">${dv === null ? '—' : dv === 0 ? '=' : (dv > 0 ? '▲ +' : '▼ ') + fmt(dv, 1)}</td></tr>`; }).join('')}</tbody>
@@ -8003,6 +8029,7 @@
             }
         }
         window.setTab = function(tab) {
+            if (tab !== 'pbs' && typeof pbsOcultar === 'function') pbsOcultar();
             if (tab === 'audit' && !isAdmin()) { openAdmin(); return; }
             if (window.innerWidth <= 640) window.scrollTo({ top: 0 });
             pendingEnter = tab !== activeTab || pendingEnter;
