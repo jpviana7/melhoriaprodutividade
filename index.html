@@ -901,6 +901,38 @@
         .hero-batt.cheia .pb .pb-raio { opacity: 1; animation: raio 2.2s ease-in-out 1.3s infinite; }
         #lt.fora .pb * { animation-play-state: paused !important; }
         @media (min-width: 641px) { .pb { width: 124px; } }
+
+        /* ===== App dos líderes: planilha do mês ===== */
+        #ld-mes { position: fixed; inset: 0; z-index: 85; }
+        #ld-mes.hide { display: none; }
+        .ldm-bg { position: absolute; inset: 0; background: rgba(15,23,42,.45); animation: fadeBg .18s ease-out backwards; }
+        .ldm-box { position: absolute; left: 0; right: 0; bottom: 0; max-height: 92vh; display: flex; flex-direction: column; gap: 12px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+            background: var(--card); border-radius: 22px 22px 0 0; box-shadow: 0 -12px 40px rgba(15,23,42,.25); animation: sheetIn .26s var(--ease-out) backwards; }
+        @media (min-width: 641px) { .ldm-box { left: 50%; right: auto; top: 50%; bottom: auto; width: min(620px, 94vw); transform: translate(-50%, -50%); border-radius: 22px; animation: popIn .2s var(--ease-out) backwards; } }
+        .ldm-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+        .ldm-tit { font-size: 17px; font-weight: 800; color: #0f172a; } html.dark .ldm-tit { color: #fff; }
+        .ldm-sub { font-size: 12.5px; color: var(--lbl2); }
+        .ldm-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .ldm-nav strong { font-size: 16px; font-weight: 700; color: #0f172a; } html.dark .ldm-nav strong { color: #fff; }
+        .ldm-nav button:disabled { opacity: .35; }
+        .ldm-res { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+        .ldm-res span { display: flex; flex-direction: column; gap: 2px; padding: 8px 6px; border-radius: 10px; background: var(--inset); text-align: center; min-width: 0; }
+        .ldm-res small { font-size: 10px; font-weight: 600; color: var(--lbl2); }
+        .ldm-res b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .ldm-res b { color: #fff; }
+        .ldm-tab { flex: 1 1 auto; min-height: 0; overflow: auto; border-radius: 12px; border: .5px solid var(--sep); -webkit-overflow-scrolling: touch; }
+        .ldm-tab table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+        .ldm-tab th { position: sticky; top: 0; z-index: 1; padding: 8px 6px; background: var(--inset); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lbl2); text-align: right; }
+        .ldm-tab td { padding: 8px 6px; text-align: right; border-top: .5px solid var(--sep); color: #334155; white-space: nowrap; } html.dark .ldm-tab td { color: #cbd5e1; }
+        .ldm-tab th:first-child, .ldm-tab td:first-child { text-align: left; }
+        .ldm-tab td b { font-weight: 700; color: #0f172a; } html.dark .ldm-tab td b { color: #fff; }
+        .ldm-tab td em { font-style: normal; font-size: 11px; color: var(--lbl2); }
+        @media (max-width: 380px) { .ldm-tab td em { display: none; } }
+        .ldm-tab tr.zero td { opacity: .55; }
+        .ldm-tab tfoot td { position: sticky; bottom: 0; background: var(--inset); font-weight: 800; color: #0f172a; } html.dark .ldm-tab tfoot td { color: #fff; }
+        .ldm-tab .ok, .ldm-res .ok, html.dark .ldm-tab .ok, html.dark .ldm-res b.ok { color: var(--ok-t); font-weight: 700; }
+        .ldm-tab .bad, .ldm-res .bad, html.dark .ldm-tab .bad, html.dark .ldm-res b.bad { color: var(--bad-t); font-weight: 700; }
+        .ldm-xls { display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; border-radius: 14px; background: #1B2F88; color: #fff; font-size: 15px; font-weight: 700; }
+        .ld-mesbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 44px; margin-top: 14px; border-radius: 12px; background: var(--fill); font-size: 14.5px; font-weight: 700; color: var(--tint); }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -6911,6 +6943,7 @@
             const turnos = TURNOS_BASE.map(t => { const r = rows.filter(d => String(d.turno) === t), mt = metaOfLinesDay(L, date, [t]) || null;
                 const v = sum(r.map(d => d.prod)); return { t, v, meta: mt, pct: mt ? sum(r.filter(d => comMeta(d, [t])).map(d => d.prod)) / mt * 100 : null }; });
             // Turno em foco: o do líder, no último dia em que ele produziu (ao vivo se for o que está rodando agora)
+            liderCtx = { L, T: liderSel.turno, nome };
             const T = liderSel.turno, doT = rawData.filter(d => set.has(d.maquina) && String(d.turno) === T && isMontagem(d.area));
             const fDate = doT.reduce((mx, d) => d.prod > 0 && d.date > mx ? d.date : mx, '') || date;
             const live = turnoAoVivo(), aoVivo = live.date === fDate && live.turno === T && live.frac < 1;
@@ -7039,6 +7072,7 @@
             <section class="${CARD} p-5">
                 ${sectionHead('Seu turno nos últimos dias', `${turnoLabel(T)} · baterias e saldo contra a meta do turno`, '', 'bar-chart-3')}
                 <div class="ld-dias">${dias.map((d, i) => `<div class="ld-dia ${tom(d.pct)}"><b class="ld-v">${fmt(d.v)}</b><span class="${d.mt === null ? 'text-slate-400' : d.v >= d.mt ? 'text-emerald-600' : 'text-rose-600'}">${d.mt === null ? 'sem meta' : signed(d.v - d.mt)}</span><i style="height:${Math.max(4, d.v / maxV * 60)}%;animation-delay:${i * 50}ms" title="${fmt(d.v)} · meta ${d.mt === null ? '—' : fmt(d.mt)} · ${pctTxt(d.pct)}"></i><em>${fmtDate(d.ds, { day: '2-digit', month: '2-digit' })}</em></div>`).join('')}</div>
+                <button type="button" class="ld-mesbtn" onclick="liderMes()"><i data-lucide="table" class="w-4 h-4"></i>Ver mês completo</button>
             </section>
             <section class="${CARD} p-5">
                 ${sectionHead('Média mês a mês', `${turnoLabel(T)} · baterias por dia trabalhado, últimos ${meses.length} meses`, '', 'calendar-range')}
@@ -7053,6 +7087,78 @@
             ${abas}
             ${liderAba === 'scrap' ? scrapHtml : prodHtml}`;
         }
+
+        // ===== App dos líderes: planilha do mês do turno (dia a dia), com meses anteriores =====
+        let liderCtx = null, liderMesSel = null;
+        // Mesma conta da Gestão: dias com produção da Montagem (válidos), até o dia anterior no mês corrente
+        function liderMesDados(mes) {
+            const { L, T } = liderCtx, set = new Set(L);
+            const md = montagemDays(), dRef = md.length > 1 ? md[md.length - 2] : md[md.length - 1];
+            const ate = mes === dRef.slice(0, 7) ? dRef : `${mes}-31`;
+            const prod = {}, prodMeta = {};
+            rawData.forEach(d => { if (set.has(d.maquina) && String(d.turno) === T && isMontagem(d.area) && d.date.startsWith(mes) && d.date <= ate) {
+                prod[d.date] = (prod[d.date] || 0) + d.prod;
+                if (metaDay(d.maquina, d.date, [T])) prodMeta[d.date] = (prodMeta[d.date] || 0) + d.prod; } });
+            let acc = 0, accM = 0, accP = 0, accPM = 0;
+            const linhas = mtdDaysOf(mes, ate).map(ds => {
+                const mt = metaOfLinesDay(L, ds, [T]) || 0, v = prod[ds] || 0, vm = prodMeta[ds] || 0;
+                acc += vm - mt; accM += mt; accP += v; accPM += vm;
+                return { ds, v, mt, saldo: mt ? vm - mt : null, acc, pct: mt ? vm / mt * 100 : null };
+            }).filter(x => x.v > 0 || x.mt > 0);
+            return { ate: mes === dRef.slice(0, 7) ? dRef : null, linhas, tot: { v: accP, mt: accM, saldo: accM ? accPM - accM : null, pct: accM ? accPM / accM * 100 : null, dias: linhas.filter(x => x.v > 0).length } };
+        }
+        const liderMeses = () => { if (!liderCtx) return []; const set = new Set(liderCtx.L);
+            return [...new Set(rawData.filter(d => set.has(d.maquina) && String(d.turno) === liderCtx.T && d.prod > 0).map(d => d.date.slice(0, 7)))].sort(); };
+        window.liderMes = function(mes) {
+            if (!liderCtx) return;
+            const meses = liderMeses(); if (!meses.length) return;
+            liderMesSel = mes && meses.includes(mes) ? mes : (liderMesSel && meses.includes(liderMesSel) ? liderMesSel : meses[meses.length - 1]);
+            let el = document.getElementById('ld-mes');
+            if (!el) { el = document.createElement('div'); el.id = 'ld-mes'; el.className = 'no-print'; document.body.appendChild(el);
+                document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('ld-mes') && !document.getElementById('ld-mes').classList.contains('hide')) liderMesFechar(); }); }
+            const i = meses.indexOf(liderMesSel), { linhas, tot, ate } = liderMesDados(liderMesSel);
+            const cor = (v) => v === null ? '' : v >= 0 ? 'ok' : 'bad';
+            const sg = (v) => v === null ? '—' : signed(v);
+            const sem = (ds) => fmtDate(ds, { weekday: 'short' }).replace('.', '');
+            el.className = 'no-print';
+            el.innerHTML = `<div class="ldm-bg" onclick="liderMesFechar()"></div>
+                <div class="ldm-box" role="dialog" aria-label="Mês completo">
+                    <div class="ldm-top">
+                        <div class="min-w-0"><p class="ldm-tit">${esc(liderCtx.nome)} · ${esc(turnoLabel(liderCtx.T))}</p><p class="ldm-sub">Dia a dia do seu turno${ate ? ` · até ${fmtDate(ate, { day: '2-digit', month: '2-digit' })} (dia anterior)` : ''}</p></div>
+                        <button type="button" class="icon-btn h-9 w-9 justify-center !px-0" onclick="liderMesFechar()" aria-label="Fechar"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="ldm-nav">
+                        <button type="button" class="icon-btn h-10 w-10 justify-center !px-0" ${i > 0 ? `onclick="liderMes('${meses[i - 1]}')"` : 'disabled'} aria-label="Mês anterior"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <strong>${esc(formatMonthName(liderMesSel))}</strong>
+                        <button type="button" class="icon-btn h-10 w-10 justify-center !px-0" ${i < meses.length - 1 ? `onclick="liderMes('${meses[i + 1]}')"` : 'disabled'} aria-label="Próximo mês"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="ldm-res">
+                        <span><small>Produzido</small><b>${fmt(tot.v)}</b></span>
+                        <span><small>Meta</small><b>${tot.mt ? fmt(tot.mt) : '—'}</b></span>
+                        <span><small>Saldo</small><b class="${cor(tot.saldo)}">${sg(tot.saldo)}</b></span>
+                        <span><small>% meta</small><b class="${tot.pct === null ? '' : tot.pct >= 100 ? 'ok' : 'bad'}">${tot.pct === null ? '—' : fmt(tot.pct, 0) + '%'}</b></span>
+                    </div>
+                    <div class="ldm-tab">
+                        <table><thead><tr><th>Dia</th><th>Feito</th><th>Meta</th><th>Saldo</th><th>Acum.</th></tr></thead>
+                        <tbody>${linhas.map(x => `<tr${x.v === 0 ? ' class="zero"' : ''}><td><b>${fmtDate(x.ds, { day: '2-digit', month: '2-digit' })}</b> <em>${sem(x.ds)}</em></td><td>${fmt(x.v)}</td><td>${x.mt ? fmt(x.mt) : '—'}</td><td class="${cor(x.saldo)}">${sg(x.saldo)}</td><td class="${cor(x.acc)}">${sg(x.acc)}</td></tr>`).join('') || '<tr><td colspan="5" class="text-center">Sem dados neste mês</td></tr>'}</tbody>
+                        <tfoot><tr><td>Total · ${tot.dias} dias</td><td>${fmt(tot.v)}</td><td>${tot.mt ? fmt(tot.mt) : '—'}</td><td class="${cor(tot.saldo)}">${sg(tot.saldo)}</td><td></td></tr></tfoot></table>
+                    </div>
+                    <button type="button" class="ldm-xls" onclick="liderMesExcel()"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Baixar em Excel</button>
+                </div>`;
+            document.body.style.overflow = 'hidden';
+            lucide.createIcons();
+        };
+        window.liderMesFechar = function() { const el = document.getElementById('ld-mes'); if (el) el.classList.add('hide'); document.body.style.overflow = ''; };
+        window.liderMesExcel = async function() {
+            try {
+                const X = await carregarXLSX(), { linhas, tot } = liderMesDados(liderMesSel);
+                const rows = linhas.map(x => ({ 'Dia': fmtDate(x.ds), 'Produzido': x.v, 'Meta': x.mt || null, 'Saldo do dia': x.saldo, 'Saldo acumulado': x.acc, '% da meta': x.pct === null ? null : Math.round(x.pct) }));
+                rows.push({ 'Dia': 'Total', 'Produzido': tot.v, 'Meta': tot.mt || null, 'Saldo do dia': tot.saldo, 'Saldo acumulado': null, '% da meta': tot.pct === null ? null : Math.round(tot.pct) });
+                const ws = X.utils.json_to_sheet(rows); ws['!cols'] = [12, 11, 9, 13, 16, 11].map(w => ({ wch: w }));
+                const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, liderMesSel);
+                X.writeFile(wb, `${liderCtx.nome}_${turnoShort(liderCtx.T)}_${liderMesSel}.xlsx`);
+            } catch (e) { showToast('Não foi possível gerar o Excel (verifique a internet).', 'error'); }
+        };
 
         // ===== Modo TV (sala de controle): tela cheia escura, números gigantes, troca de tela sozinha =====
         var tvOn = false, tvIdx = 0, tvTimer = null, tvRelogio = null, tvLock = null, tvMexeu = null;
