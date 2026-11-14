@@ -935,6 +935,7 @@
         .ldm-tab td em { font-style: normal; font-size: 11px; color: var(--lbl2); }
         @media (max-width: 380px) { .ldm-tab td em { display: none; } }
         .ldm-tab tr.zero td { opacity: .55; }
+        .ldm-tab tr.ldm-link { cursor: pointer; } .ldm-tab tr.ldm-link:active td { background: var(--fill); }
         .ldm-tab tfoot td { position: sticky; bottom: 0; background: var(--inset); font-weight: 800; color: #0f172a; } html.dark .ldm-tab tfoot td { color: #fff; }
         .ldm-tab .ok, .ldm-res .ok, html.dark .ldm-tab .ok, html.dark .ldm-res b.ok { color: var(--ok-t); font-weight: 700; }
         .ldm-tab .bad, .ldm-res .bad, html.dark .ldm-tab .bad, html.dark .ldm-res b.bad { color: var(--bad-t); font-weight: 700; }
@@ -6985,7 +6986,7 @@
             const dias = Object.keys(tot).filter(k => tot[k] > 0).sort().slice(-7).map(ds => { const mt = metaOfLinesDay(L, ds, [T]) || null; return { ds, v: tot[ds], mt, pct: mt ? tot[ds] / mt * 100 : null }; });
             // Média por dia do turno em cada mês (últimos 12 meses com produção)
             const porMes = {}; Object.keys(tot).forEach(ds => { if (tot[ds] > 0) { const o = porMes[ds.slice(0, 7)] || (porMes[ds.slice(0, 7)] = { v: 0, n: 0, meta: 0 }); o.v += tot[ds]; o.n++; o.meta += metaOfLinesDay(L, ds, [T]) || 0; } });
-            const meses = Object.keys(porMes).sort().slice(-12).map(k => ({ k, media: porMes[k].v / porMes[k].n, pct: porMes[k].meta ? porMes[k].v / porMes[k].meta * 100 : null }));
+            const meses = liderAnoDados(); // mesma conta da tabela e da Gestão
             const maxM = Math.max(1, ...meses.map(x => x.media));
             const mtdT = mtdFor(L, dRef, [T]);
             // Saldo do dia anterior: último dia com produção da linha antes de hoje
@@ -7102,8 +7103,9 @@
             </section>
             <section class="${CARD} p-5">
                 ${sectionHead('Média mês a mês', `${turnoLabel(T)} · baterias por dia trabalhado, últimos ${meses.length} meses`, '', 'calendar-range')}
-                <div class="ld-dias ld-meses">${meses.map((x, i) => `<div class="ld-dia ${tom(x.pct)}"><span>${fmt(x.media)}</span><i style="height:${Math.max(4, x.media / maxM * 62)}%;animation-delay:${i * 40}ms"></i><em>${shortMonth(x.k).split('/')[0]}</em><em class="${x.pct === null ? '' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? '—' : fmt(x.pct, 0)}</em></div>`).join('')}</div>
-                <p class="text-xs text-slate-400 mt-3">Em cima: baterias por dia. Embaixo: % da meta.</p>
+                <div class="ld-dias ld-meses">${meses.map((x, i) => `<div class="ld-dia ${tom(x.pct)}" role="button" style="cursor:pointer" onclick="liderMes('${x.k}')" title="Ver o dia a dia de ${esc(formatMonthName(x.k))}"><span>${fmt(x.media)}</span><i style="height:${Math.max(4, x.media / maxM * 62)}%;animation-delay:${i * 40}ms"></i><em>${shortMonth(x.k).split('/')[0]}</em><em class="${x.pct === null ? '' : x.pct >= 100 ? 'text-emerald-600' : 'text-rose-600'}">${x.pct === null ? '—' : fmt(x.pct, 0)}</em></div>`).join('')}</div>
+                <p class="text-xs text-slate-400 mt-3">Em cima: baterias por dia trabalhado. Embaixo: % da meta do mês (dias sem produção contam como meta não feita). Toque num mês para ver o dia a dia.</p>
+                <button type="button" class="ld-mesbtn" onclick="liderAno()"><i data-lucide="table" class="w-4 h-4"></i>Ver mês a mês em tabela</button>
             </section>
 `;
             box.innerHTML = `
@@ -7173,6 +7175,49 @@
                 </div>`;
             document.body.style.overflow = 'hidden';
             lucide.createIcons();
+        };
+        // Tabela dos últimos 12 meses do turno (mesma conta da planilha do mês)
+        const liderAnoDados = () => liderMeses().slice(-12).map(k => { const { linhas, tot } = liderMesDados(k);
+            const dm = linhas.filter(x => x.mt > 0).length;
+            return { k, ...tot, diasMeta: dm, media: tot.dias ? tot.v / tot.dias : 0, metaDia: dm ? tot.mt / dm : null }; });
+        window.liderAno = function() {
+            if (!liderCtx) return;
+            const rows = liderAnoDados(); if (!rows.length) return;
+            let el = document.getElementById('ld-mes');
+            if (!el) { el = document.createElement('div'); el.id = 'ld-mes'; document.body.appendChild(el); }
+            const cor = (v) => v === null ? '' : v >= 0 ? 'ok' : 'bad', sg = (v) => v === null ? '—' : signed(v);
+            const T = rows.reduce((a, r) => ({ v: a.v + r.v, mt: a.mt + r.mt, dias: a.dias + r.dias }), { v: 0, mt: 0, dias: 0 });
+            const saldoT = T.mt ? rows.reduce((a, r) => a + (r.saldo || 0), 0) : null;
+            el.className = 'no-print';
+            el.innerHTML = `<div class="ldm-bg" onclick="liderMesFechar()"></div>
+                <div class="ldm-box" role="dialog" aria-label="Mês a mês">
+                    <div class="ldm-top">
+                        <div class="min-w-0"><p class="ldm-tit">${esc(liderCtx.nome)} · ${esc(turnoLabel(liderCtx.T))}</p><p class="ldm-sub">Mês a mês · média nos dias em que o turno produziu; saldo e % contam todos os dias com meta · toque num mês para ver o dia a dia</p></div>
+                        <button type="button" class="icon-btn h-9 w-9 justify-center !px-0" onclick="liderMesFechar()" aria-label="Fechar"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    <div class="ldm-res">
+                        <span><small>Produzido</small><b>${fmt(T.v)}</b></span>
+                        <span><small>Média/dia</small><b>${T.dias ? fmt(T.v / T.dias) : '—'}</b></span>
+                        <span><small>Saldo</small><b class="${cor(saldoT)}">${sg(saldoT)}</b></span>
+                        <span><small>% meta</small><b class="${T.mt ? (T.v >= T.mt ? 'ok' : 'bad') : ''}">${T.mt ? fmt(T.v / T.mt * 100, 0) + '%' : '—'}</b></span>
+                    </div>
+                    <div class="ldm-tab">
+                        <table><thead><tr><th>Mês</th><th>Média</th><th>Meta</th><th>Saldo</th><th>%</th></tr></thead>
+                        <tbody>${rows.slice().reverse().map(r => `<tr class="ldm-link" onclick="liderMes('${r.k}')"><td><b>${esc(shortMonth(r.k))}</b> <em>${r.dias}/${r.diasMeta} dias</em></td><td>${fmt(r.media)}</td><td>${r.metaDia === null ? '—' : fmt(r.metaDia)}</td><td class="${cor(r.saldo)}">${sg(r.saldo)}</td><td class="${r.pct === null ? '' : r.pct >= 100 ? 'ok' : 'bad'}">${r.pct === null ? '—' : fmt(r.pct, 0) + '%'}</td></tr>`).join('')}</tbody></table>
+                    </div>
+                    <button type="button" class="ldm-xls" onclick="liderAnoExcel()"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Baixar em Excel</button>
+                </div>`;
+            document.body.style.overflow = 'hidden';
+            lucide.createIcons();
+        };
+        window.liderAnoExcel = async function() {
+            try {
+                const X = await carregarXLSX(), rows = liderAnoDados();
+                const out = rows.map(r => ({ 'Mês': formatMonthName(r.k), 'Dias trabalhados': r.dias, 'Produzido': r.v, 'Média por dia': Math.round(r.media), 'Meta por dia': r.metaDia === null ? null : Math.round(r.metaDia), 'Meta do mês': r.mt || null, 'Saldo': r.saldo, '% da meta': r.pct === null ? null : Math.round(r.pct) }));
+                const ws = X.utils.json_to_sheet(out); ws['!cols'] = [18, 10, 11, 12, 12, 12, 10, 10].map(w => ({ wch: w }));
+                const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Mês a mês');
+                X.writeFile(wb, `${liderCtx.nome}_${turnoShort(liderCtx.T)}_mes_a_mes.xlsx`);
+            } catch (e) { showToast('Não foi possível gerar o Excel (verifique a internet).', 'error'); }
         };
         window.liderMesFechar = function() { const el = document.getElementById('ld-mes'); if (el) el.classList.add('hide'); document.body.style.overflow = ''; };
         window.liderMesExcel = async function() {
