@@ -829,8 +829,10 @@
 .oee-fc { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; color: #334155; cursor: pointer; } html.dark .oee-fc { color: #cbd5e1; }
         .oee-fc + .oee-fc { border-top: .5px solid var(--sep); }
         .oee-fc span { flex: 1 1 auto; min-width: 0; } .oee-fc em { font-style: normal; font-size: 12px; color: var(--lbl2); white-space: nowrap; }
-        .oee-fc input { width: 16px; height: 16px; accent-color: #1B2F88; }
-        .oee-fora details summary { cursor: pointer; padding: 6px 0; font-size: 12.5px; font-weight: 600; color: var(--tint); }
+        .oee-fc small { font-size: 10px; font-weight: 700; color: #8A5A00; background: rgba(255,187,0,.2); padding: 1px 6px; border-radius: 99px; margin-left: 4px; }
+        .oee-fc-b { flex: 0 0 auto; height: 28px; padding: 0 10px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--bad-t); background: var(--bad-bg); }
+        .oee-fc-b.volta { color: var(--tint); background: var(--fill); }
+        .oee-fora details summary { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0; font-size: 13px; font-weight: 700; color: var(--tint); list-style: none; } .oee-fora details summary::-webkit-details-marker { display: none; }
         .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
         .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
@@ -5538,8 +5540,14 @@
         const OEE_PLANEJADA = /turnoparado|paradaprogramada|desprogramado|preventiva/;
         const oeeState = { months: [], dias: [], ugb: 'Todas', linha: 'Todas', turno: 'Todos', planejadas: true, meta: 85, modo: 'completo', planFam: null };
         // Família de parada que não entra na conta da disponibilidade (escolha do usuário; sem escolha, as planejadas padrão)
-        const oeeNaoConta = (k) => oeeState.planFam ? oeeState.planFam.includes(k) : OEE_PLANEJADA.test(k);
-        (() => { const p = loadPref('oee', null); if (p) { oeeState.planejadas = p.planejadas !== false; oeeState.meta = +p.meta || 85; oeeState.modo = p.modo === 'nominal' ? 'nominal' : 'completo'; if (Array.isArray(p.planFam)) oeeState.planFam = p.planFam; } })();
+        // Motivo da parada: paradas da linha toda (máquina "Linha") pelo componente (troca de turno, refeição, desprogramado...); as de máquina pela família
+        const oeeMotivo = (d) => { const f = perdaKey(d.familia), c = perdaKey(d.componente);
+            return perdaKey(d.maquina) === 'linha' && c !== 'semapontamento' ? `c:${f}>${c}` : `f:${f}`; };
+        const oeeMotivoLabel = (d) => { const c = perdaKey(d.componente);
+            return perdaKey(d.maquina) === 'linha' && c !== 'semapontamento' ? `${d.componente} · ${d.familia}` : d.familia || '(sem apontamento)'; };
+        const oeePadrao = (mot) => OEE_PLANEJADA.test(mot.replace(/^[cf]:/, '').replace('>', ''));
+        const oeeNaoConta = (mot) => oeeState.planFam ? oeeState.planFam.includes(mot) : oeePadrao(mot);
+        (() => { const p = loadPref('oee', null); if (p) { oeeState.planejadas = p.planejadas !== false; oeeState.meta = +p.meta || 85; oeeState.modo = p.modo === 'nominal' ? 'nominal' : 'completo'; if (Array.isArray(p.planMot)) oeeState.planFam = p.planMot; } })();
         window.setOee = function(k, v) {
             if (k === 'month') { const cur = oeeState.months; oeeState.months = v === '__ultimo' ? [] : cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v]; oeeState.dias = []; }
             else if (k === 'ano') { oeeState.months = v === '__ultimo' ? [] : [v]; oeeState.dias = []; } // v = último mês com dados daquele ano
@@ -5550,11 +5558,11 @@
             else if (k === 'ugb') { oeeState.ugb = v; oeeState.linha = 'Todas'; }
             else if (k === 'linha') oeeState.linha = v;
             else if (k === 'planFam') { // liga/desliga uma família na conta
-                const atual = oeeState.planFam || [...new Set(perdasData.map(d => perdaKey(d.familia)))].filter(f => OEE_PLANEJADA.test(f));
-                oeeState.planFam = atual.includes(v) ? atual.filter(x => x !== v) : [...atual, v]; }
+                const atual = oeeState.planFam || [...new Set(perdasData.map(oeeMotivo))].filter(oeePadrao);
+                oeeState.planFam = atual.includes(v) ? atual.filter(x => x !== v) : [...atual, v]; oeeState._abrirOutras = !atual.includes(v) || oeeState._abrirOutras; }
             else if (k === 'planFamPadrao') oeeState.planFam = null;
             else oeeState[k] = v;
-            savePref('oee', { planejadas: oeeState.planejadas, meta: oeeState.meta, modo: oeeState.modo, planFam: oeeState.planFam });
+            savePref('oee', { planejadas: oeeState.planejadas, meta: oeeState.meta, modo: oeeState.modo, planMot: oeeState.planFam });
             destroyCharts(); renderOeeContent(); lucide.createIcons();
             if (oeeDDAberto) { document.getElementById('oee-dd-' + oeeDDAberto)?.classList.remove('hide'); oeeDDAberto = null; }
         };
@@ -5623,12 +5631,13 @@
                 const c = usaCiclo && d.prod > 0 ? cicloOf(d.maquina, d.modelo) : null;
                 if (c) { o.prodC += d.prod; o.seg += d.prod * c; } // tempo ideal = baterias × tempo de ciclo
             });
-            const foraConta = {}; // horas das paradas que não entram na conta, por família
+            const foraConta = {}, dentroConta = {}, motLab = {}; // horas por motivo de parada: fora e dentro da conta
             montPerdas.forEach(d => {
                 if (!inSel(d.date) || !okLine(d.linha) || !TURNOS_BASE.includes(String(d.turno)) || !okT(d.turno)) return;
                 const o = get(d.linha, d.date, String(d.turno));
-                const planejada = st.planejadas && oeeNaoConta(perdaKey(d.familia));
-                if (planejada) { o.plan += d.h; foraConta[perdaKey(d.familia)] = (foraConta[perdaKey(d.familia)] || 0) + d.h; } else { o.unplan += d.h; o.fam[perdaKey(d.familia)] = (o.fam[perdaKey(d.familia)] || 0) + d.h; }
+                const mot = oeeMotivo(d); motLab[mot] = motLab[mot] || oeeMotivoLabel(d);
+                const planejada = st.planejadas && oeeNaoConta(mot);
+                if (planejada) { o.plan += d.h; foraConta[mot] = (foraConta[mot] || 0) + d.h; } else { o.unplan += d.h; dentroConta[mot] = (dentroConta[mot] || 0) + d.h; o.fam[perdaKey(d.familia)] = (o.fam[perdaKey(d.familia)] || 0) + d.h; }
             });
             // Scrap (bateria completa + sem tampa) por linha|dia (e turno quando houver)
             const scrapK = new Map();
@@ -5678,7 +5687,7 @@
             const byTurno = [...agg(rows, r => r.t).values()].map(a => finish(a, scrapT[a.k] || 0)).sort((x, y) => x.k.localeCompare(y.k));
             const prodTot = sum(rows.map(r => r.prod)), prodC = sum(rows.map(r => r.prodC || 0));
             const linhasDisp = [...new Set(montProd.filter(d => inSel(d.date) && (st.ugb === 'Todas' || ugbOf({ area: 'Montagem', maquina: d.maquina }) === st.ugb)).map(d => d.maquina))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
-            return { months, sel, byLine, total, byDay, byTurno, usaCiclo, cobertura: prodTot ? prodC / prodTot : 0, linhasDisp, foraConta };
+            return { months, sel, byLine, total, byDay, byTurno, usaCiclo, cobertura: prodTot ? prodC / prodTot : 0, linhasDisp, foraConta, dentroConta, motLab };
         }
 
 
@@ -5723,7 +5732,7 @@
         // --- OEE simplificado: média real por turno ÷ produção nominal por turno ---
         // Nominal de uma linha (por turno de 8 h) = 28.800 s ÷ ciclo médio da linha (média dos moldes com ciclo cadastrado)
         const cicloMedioLinha = (l) => { const v = Object.values(cicloLinhas[l] || {}).filter(x => x > 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-        window.setOeeModo = function(m) { oeeState.modo = m; savePref('oee', { planejadas: oeeState.planejadas, meta: oeeState.meta, modo: oeeState.modo, planFam: oeeState.planFam }); destroyCharts(); renderOeeContent(); lucide.createIcons(); };
+        window.setOeeModo = function(m) { oeeState.modo = m; savePref('oee', { planejadas: oeeState.planejadas, meta: oeeState.meta, modo: oeeState.modo, planMot: oeeState.planFam }); destroyCharts(); renderOeeContent(); lucide.createIcons(); };
         const oeeModoSeg = () => `<div class="seg no-print"><button onclick="setOeeModo('completo')" title="Disponibilidade × desempenho × qualidade" class="${oeeState.modo !== 'nominal' ? 'active' : ''}">Completo</button><button onclick="setOeeModo('nominal')" title="Média real ÷ média nominal" class="${oeeState.modo === 'nominal' ? 'active' : ''}">Real ÷ Nominal</button></div>`;
         function oeeNominalCompute(mesesForcados = null) {
             const st = oeeState;
@@ -5914,14 +5923,16 @@
                     ${fA.length ? `<p class="filter-label mt-4 mb-1">Maiores paradas não planejadas</p>${fA.map(([f, h]) => `<div class="py-1"><div class="flex justify-between text-xs"><span class="text-slate-700">${esc(famLab(f))}</span><span class="text-slate-500">${fmtH(h)} h</span></div>${barra(h, maxF, '#38BDF8')}</div>`).join('')}` : ''}
                     ${st.planejadas ? (() => {
                         const fora = Object.entries(R.foraConta).sort((a, b) => b[1] - a[1]);
-                        const dentro = Object.entries(T.fam).sort((a, b) => b[1] - a[1]);
-                        const item = (f, h, foraDaConta) => `<label class="oee-fc"><input type="checkbox" ${foraDaConta ? '' : 'checked'} onchange="setOee('planFam', this.dataset.f)" data-f="${esc(f)}"><span>${esc(famLab(f))}</span><em>${fmtH(h)} h</em></label>`;
+                        const dentro = Object.entries(R.dentroConta).sort((a, b) => b[1] - a[1]);
+                        const hFora = sum(fora.map(x => x[1]));
+                        const item = (m, h, foraDaConta) => `<div class="oee-fc"><span>${esc(R.motLab[m] || m)}${oeePadrao(m) ? ' <small>padrão</small>' : ''}</span><em>${fmtH(h)} h</em>
+                            <button type="button" class="oee-fc-b ${foraDaConta ? 'volta' : ''}" data-m="${esc(m)}" onclick="setOee('planFam', this.dataset.m)">${foraDaConta ? 'Voltar a contar' : 'Retirar'}</button></div>`;
                         return `<div class="oee-fora no-print">
-                            <p class="filter-label mt-5 mb-1">Não entram na conta · ${fmtH(sum(fora.map(x => x[1])))} h</p>
-                            ${sum(fora.map(x => x[1])) - T.planStop > 0.5 ? `<p class="text-[11px] text-slate-400 mb-1">${fmtH(sum(fora.map(x => x[1])) - T.planStop)} h são de turnos parados o tempo todo, que saem do tempo total.</p>` : ''}
-                            ${fora.length ? fora.map(([f, h]) => item(f, h, true)).join('') : '<p class="text-xs text-slate-400 py-1">Nenhuma parada fora da conta neste período.</p>'}
-                            ${dentro.length ? `<details class="mt-1"><summary>Escolher outras paradas para tirar da conta (${dentro.length})</summary>${dentro.map(([f, h]) => item(f, h, false)).join('')}</details>` : ''}
-                            <p class="text-[11px] text-slate-400 mt-2">Marcado = entra na conta como perda. Desmarcado = parada planejada, fica fora da disponibilidade.${st.planFam ? ` <button type="button" class="text-brand-blue font-medium" onclick="setOee('planFamPadrao')">Voltar ao padrão</button>` : ''}</p>
+                            <p class="filter-label mt-5 mb-1">Paradas planejadas · não entram na conta · ${fmtH(hFora)} h</p>
+                            ${fora.length ? fora.map(([m, h]) => item(m, h, true)).join('') : '<p class="text-xs text-slate-400 py-1">Nenhuma parada planejada neste período.</p>'}
+                            ${hFora - T.planStop > 0.5 ? `<p class="text-[11px] text-slate-400 mt-1">${fmtH(hFora - T.planStop)} h são de turnos parados o tempo todo, que saem do tempo total.</p>` : ''}
+                            <p class="text-[11px] text-slate-400 mt-1">Padrão: desprogramado (PCP), turno parado, parada programada e preventiva.${st.planFam ? ` <button type="button" class="text-brand-blue font-medium" onclick="setOee('planFamPadrao')">Voltar ao padrão</button>` : ''}</p>
+                            ${dentro.length ? `<details class="mt-2"${st._abrirOutras ? ' open' : ''}><summary><i data-lucide="minus-circle" class="w-4 h-4"></i>Retirar outras paradas da conta (${dentro.length})</summary>${dentro.map(([m, h]) => item(m, h, false)).join('')}</details>` : ''}
                         </div>`; })() : ''}
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6 oee-bloco">
