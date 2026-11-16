@@ -50,7 +50,7 @@ export async function listDocs(col) {
   } while (tok);
   return out;
 }
-async function setDoc(path, fields) {
+export async function setDoc(path, fields) {
   const enc = (x) => typeof x === 'string' ? { stringValue: x } : typeof x === 'number' ? { doubleValue: x } : { stringValue: JSON.stringify(x) };
   await fetch(`${BASE}/${path}?key=${API_KEY}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, x]) => [k, enc(x)])) }) });
