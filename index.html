@@ -833,6 +833,9 @@
         .oee-fc-b { flex: 0 0 auto; height: 28px; padding: 0 10px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--bad-t); background: var(--bad-bg); }
         .oee-fc-b.volta { color: var(--tint); background: var(--fill); }
         .oee-fora details summary { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0; font-size: 13px; font-weight: 700; color: var(--tint); list-style: none; } .oee-fora details summary::-webkit-details-marker { display: none; }
+#robo-alerta { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 14px; background: var(--bad-bg); color: var(--bad-t); font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+        #robo-alerta.hide { display: none; } #robo-alerta span { flex: 1 1 auto; min-width: 0; }
+        #robo-alerta button { flex: 0 0 auto; height: 32px; padding: 0 12px; border-radius: 9px; background: var(--card); color: var(--bad-t); font-weight: 700; }
         .ld-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .ld-kpi { padding: 16px 16px 15px; min-width: 0; }
         .ld-kv { margin-top: 8px; font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; }
@@ -2171,6 +2174,18 @@
             return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${hm}`;
         };
         const fmtDH = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+        // Faixa de alerta (só para quem entrou com a senha): o robô parou ou não importa planilha nova há mais de 30 h
+        function roboAlerta() {
+            let el = document.getElementById('robo-alerta');
+            const agora = Date.now(), chk = roboInfo && roboInfo.check ? Date.parse(roboInfo.check) : 0, at = roboInfo && roboInfo.at ? Date.parse(roboInfo.at) : 0;
+            const msg = !roboInfo ? '' : !chk || agora - chk > 2 * 3600e3 ? `Robô parado: a última verificação foi ${fmtDH(roboInfo.check)}. Confira o gatilho do Apps Script.`
+                : !at || agora - at > 30 * 3600e3 ? `Robô sem planilhas novas desde ${fmtDH(roboInfo.at)}. Os e-mails do Sequor podem ter parado de chegar.` : '';
+            if (!el) { if (!msg) return; el = document.createElement('div'); el.id = 'robo-alerta'; el.className = 'no-print admin-only';
+                const lt = document.getElementById('lt'); lt.parentNode.insertBefore(el, lt); }
+            el.classList.toggle('hide', !msg || LIDER);
+            el.innerHTML = msg ? `<i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i><span>${esc(msg)}</span><button type="button" onclick="setTab('audit')">Ver</button>` : '';
+            if (msg && window.lucide) lucide.createIcons();
+        }
         function showRoboStatus() {
             const el = document.getElementById('robo-status');
             if (!el) return;
@@ -2180,6 +2195,7 @@
             el.classList.toggle('text-amber-600', !!old);
             el.title = `Última importação: ${fmtDH(roboInfo.at)}\nÚltima verificação: ${fmtDH(roboInfo.check)}\n${roboInfo.resumo || ''}`;
             el.classList.remove('hide');
+            roboAlerta();
             // O resumo do robô diz se a última leva trouxe planilha de produção
             const prodFiles = String(roboInfo.resumo || '').split('\n').filter(l => /registros de produção/.test(l)).map(l => l.split(':')[0]);
             if (prodFiles.length) noteProdUpdate(roboInfo.at, prodFiles.join(', '), 'robô');
