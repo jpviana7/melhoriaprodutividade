@@ -951,6 +951,31 @@
         .ldm-tab .bad, .ldm-res .bad, html.dark .ldm-tab .bad, html.dark .ldm-res b.bad { color: var(--bad-t); font-weight: 700; }
         .ldm-xls { display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; border-radius: 14px; background: #1B2F88; color: #fff; font-size: 15px; font-weight: 700; }
         .ld-mesbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 44px; margin-top: 14px; border-radius: 12px; background: var(--fill); font-size: 14.5px; font-weight: 700; color: var(--tint); }
+
+        /* ===== Perfil de Perdas ===== */
+        .pf-filtros { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+        @media (max-width: 1100px) { .pf-filtros { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { .pf-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .pf-opcoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; padding-top: 14px; border-top: .5px solid var(--sep); }
+        .pf-chk { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; } html.dark .pf-chk { color: #cbd5e1; }
+        .pf-chk input { width: 16px; height: 16px; accent-color: #1B2F88; }
+        .pf-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+        @media (max-width: 1100px) { .pf-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { .pf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-kpis > :first-child { grid-column: 1 / -1; } }
+        .pf-mot { display: flex; flex-direction: column; }
+        .pf-mot-l { display: grid; grid-template-columns: 22px minmax(0, 1.3fr) minmax(60px, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; }
+        .pf-mot-l + .pf-mot-l { border-top: .5px solid var(--sep); }
+        .pf-mot-n { font-size: 11px; font-weight: 700; color: var(--lbl2); text-align: center; }
+        .pf-mot-t { font-size: 13.5px; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } html.dark .pf-mot-t { color: #e2e8f0; }
+        .pf-mot-b { position: relative; height: 10px; border-radius: 5px; background: var(--fill); overflow: hidden; }
+        .pf-mot-b i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: linear-gradient(90deg, #E5484D, #FF8A8E); }
+        .pf-mot-b i.mi { background: rgba(255,255,255,.55); }
+        .pf-mot-v { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; min-width: 74px; }
+        .pf-mot-v b { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-mot-v b { color: #fff; }
+        .pf-mot-v em { font-style: normal; font-size: 11px; color: var(--lbl2); white-space: nowrap; }
+        @media (max-width: 640px) { .pf-mot-l { grid-template-columns: 18px minmax(0, 1fr) auto; } .pf-mot-b { grid-column: 2 / -1; grid-row: 2; } }
+        #view-perfil > #perfil-content { display: flex; flex-direction: column; gap: 16px; }
+        @media (min-width: 641px) { #view-perfil > #perfil-content { gap: 24px; } }
     </style>
 </head>
 <body class="bg-[#F5F6F8] text-slate-800 font-sans min-h-screen">
@@ -1105,6 +1130,9 @@
                 </button>
                 <button onclick="setTab('perdas')" id="tab-perdas" class="tab-btn">
                     <i data-lucide="hourglass" class="w-4 h-4"></i> <span>Perdas</span>
+                </button>
+                <button onclick="setTab('perfil')" id="tab-perfil" class="tab-btn">
+                    <i data-lucide="activity" class="w-4 h-4"></i> <span>Perfil de Perdas</span>
                 </button>
                 <button onclick="setTab('pbs')" id="tab-pbs" class="tab-btn">
                     <i data-lucide="droplet" class="w-4 h-4"></i> <span>PbS</span>
@@ -1330,6 +1358,9 @@
         <div id="view-perdas" class="space-y-6 fade-in hide">
             <div id="perdas-content"></div>
         </div>
+        <div id="view-perfil" class="fade-in hide">
+            <div id="perfil-content"></div>
+        </div>
         <div id="view-pbs" class="space-y-6 fade-in hide">
             <div id="pbs-content"></div>
         </div>
@@ -1467,7 +1498,7 @@
         let materialNames = {}; // código do material (sem zeros à esquerda) → descrição, aprendido das planilhas de produção
         let scrapMetas = {}; // meta de scrap em baterias por mês: { Montagem: 3000, 'Montagem 01': 500, LIM01: 200 }
         let fileNames = [];
-        let activeTab = (() => { try { const t = JSON.parse(localStorage.getItem('dash_tab')); return ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements', 'audit'].includes(t) ? t : 'dashboard'; } catch (e) { return 'dashboard'; } })();
+        let activeTab = (() => { try { const t = JSON.parse(localStorage.getItem('dash_tab')); return ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'perfil', 'pbs', 'oee', 'metas', 'improvements', 'audit'].includes(t) ? t : 'dashboard'; } catch (e) { return 'dashboard'; } })();
 
         // Período: anos e meses (multi-seleção). 'Todos' = sem restrição.
         let selectedYears = ['Todos'];
@@ -2939,7 +2970,7 @@
                 badgeImp.innerText = impLen;
                 badgeImp.classList.toggle('hide', !impLen);
                 document.getElementById('audit-badge').classList.toggle('hide', ps.auditStats.totalMissingAlerts === 0);
-                ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements', 'audit'].forEach(t => {
+                ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'perfil', 'pbs', 'oee', 'metas', 'improvements', 'audit'].forEach(t => {
                     document.getElementById(`tab-${t}`).classList.toggle('active', activeTab === t);
                     document.getElementById(`view-${t}`).classList.toggle('hide', activeTab !== t);
                 });
@@ -2953,6 +2984,7 @@
                 else if (activeTab === 'gestao') renderGestaoContent();
                 else if (activeTab === 'scrap') renderScrapContent();
                 else if (activeTab === 'perdas') renderPerdasContent();
+                else if (activeTab === 'perfil') renderPerfilContent();
                 else if (activeTab === 'pbs') renderPbsContent();
                 else if (activeTab === 'oee') renderOeeContent();
                 else if (activeTab === 'metas') renderMetasContent();
@@ -7281,6 +7313,332 @@
             } catch (e) { showToast('Não foi possível gerar o Excel (verifique a internet).', 'error'); }
         };
 
+        // ===== Perfil de Perdas (dados da automação: medicao.csv e registrosProducao.csv) — só Montagem =====
+        const perfilState = { anos: [], meses: [], dias: [], linha: 'Todas', equip: 'Todos', turno: 'Todos', micro: 2, alto: false, aberto: null };
+        (() => { const p = loadPref('perfil', null); if (p) { perfilState.micro = [1, 2, 5].includes(p.micro) ? p.micro : 2; perfilState.alto = p.alto === true; } })();
+        let perfilDados = null, perfilCarregando = false; // { 'AAAA-MM': { r, h, p, q } }
+        const getPerfilCollection = () => collection(db, 'dashboard_perfil');
+        async function loadPerfil(forcar = false) {
+            if (perfilDados && !forcar) return;
+            perfilCarregando = true;
+            try {
+                const snap = await getDocs(getPerfilCollection());
+                const out = {}; snap.forEach(d => { try { out[d.id] = JSON.parse(d.data().data); } catch (e) { /* mês com problema */ } });
+                perfilDados = out;
+            } catch (e) { console.warn('perfil', e); perfilDados = perfilDados || {}; }
+            perfilCarregando = false;
+        }
+        const perfilMotivo = (m) => { if (m === '(sem motivo)' || /^EVP\./.test(m)) return m; const t = m.replace(/_/g, ' ').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); };
+        const PERFIL_ALTO = /tempo alto/i;
+        // Resume os CSVs da automação (roda no navegador)
+        // Resumo dos arquivos do Perfil de Perdas (automação): só Montagem.
+        // Saída por mês: { r: eventos [ds,l,e,t,motivo, n<1,m<1, n1-2,m1-2, n2-5,m2-5, n>=5,m>=5] (motivo '·run' = rodando, só minutos em m>=5),
+        //                  h: paradas por hora [ds,l,e,hora, min parada, min tempo alto], p: produção [ds,l,e,t, baterias, 'seg:qtd ...'], q: produção por hora [ds,l,e,hora,n] }
+        function perfilAgregar(txtMed, txtProd) {
+          const ALTO = /tempo alto/i, LIM_CICLO = 120;
+          const pad = (n) => String(n).padStart(2, '0');
+          // hora local da string (sem fuso): ms desde 1970 tratando como UTC
+          const ms = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), +s.slice(11, 13), +s.slice(14, 16), +s.slice(17, 19), +(s.slice(20, 23) || 0));
+          const slot = (t) => { const d = new Date(t), h = d.getUTCHours(); const base = h < 6 ? new Date(t - 86400e3) : d;
+            return { ds: `${base.getUTCFullYear()}-${pad(base.getUTCMonth() + 1)}-${pad(base.getUTCDate())}`, h, t: h >= 6 && h < 14 ? '1' : h >= 14 && h < 22 ? '2' : '3' }; };
+          const linhas = (txt) => { const L = txt.split(/\r?\n/); const cab = L[0].replace(/^﻿/, '').split(';'); return { cab, L }; };
+          const R = new Map(), H = new Map(), P = new Map(), Q = new Map();
+          const bin = (min) => min < 1 ? 0 : min < 2 ? 1 : min < 5 ? 2 : 3;
+          // ---- medição ----
+          if (txtMed) {
+            const { cab, L } = linhas(txtMed); const ix = (n) => cab.indexOf(n);
+            const iI = ix('dataHoraInicio'), iF = ix('dataHoraFim'), iR = ix('rodando'), iA = ix('alarme'), iE = ix('Equipamento'), iL = ix('Linha'), iC = ix('cod_maquina');
+            for (let k = 1; k < L.length; k++) {
+              const c = L[k].split(';'); if (c.length < 5) continue;
+              if (!/\.MONT\./.test(c[iC] || '') ) continue;
+              const a = ms(c[iI]), b = ms(c[iF]); if (!(b > a)) continue;
+              const run = c[iR] === '1', motivo = run ? '·run' : (c[iA] || '(sem motivo)').trim(), l = c[iL], e = c[iE];
+              const durMin = (b - a) / 60000, bi = bin(durMin), alto = ALTO.test(motivo);
+              // reparte o trecho por hora (cada pedaço vai para o dia/turno/hora certos); a ocorrência conta no pedaço do início
+              let t0 = a, primeiro = true;
+              while (t0 < b) {
+                const t1 = Math.min(b, Math.floor(t0 / 3600e3) * 3600e3 + 3600e3), s = slot(t0), m = (t1 - t0) / 60000;
+                const kr = `${s.ds}|${l}|${e}|${s.t}|${motivo}`; let v = R.get(kr); if (!v) R.set(kr, v = [0, 0, 0, 0, 0, 0, 0, 0]);
+                if (run) v[7] += m; else { v[bi * 2 + 1] += m; if (primeiro) v[bi * 2]++; }
+                if (!run) { const kh = `${s.ds}|${l}|${e}|${s.h}`; let w = H.get(kh); if (!w) H.set(kh, w = [0, 0]); w[alto ? 1 : 0] += m; }
+                primeiro = false; t0 = t1;
+              }
+            }
+          }
+          // ---- produção (um registro por bateria) ----
+          if (txtProd) {
+            const { cab, L } = linhas(txtProd); const ix = (n) => cab.indexOf(n);
+            const iD = ix('dataHora'), iP = ix('producao'), iM = ix('idMaquina'), iE = ix('Equipamento'), iL = ix('Linha');
+            const ult = new Map();
+            const reg = [];
+            for (let k = 1; k < L.length; k++) { const c = L[k].split(';'); if (c.length < 5 || !/\.MONT\./.test(c[iM] || '')) continue; reg.push([ms(c[iD]), c[iL], c[iE], +c[iP] || 1]); }
+            reg.sort((x, y) => x[0] - y[0]);
+            for (const [t, l, e, n] of reg) {
+              const s = slot(t), kp = `${s.ds}|${l}|${e}|${s.t}`; let v = P.get(kp); if (!v) P.set(kp, v = { n: 0, h: {} });
+              v.n += n;
+              const kk = `${l}|${e}`, ant = ult.get(kk); ult.set(kk, t);
+              if (ant !== undefined) { const seg = (t - ant) / 1000; if (seg > 0 && seg <= LIM_CICLO) { const b = Math.round(seg); v.h[b] = (v.h[b] || 0) + 1; } }
+              const kq = `${s.ds}|${l}|${e}|${s.h}`; Q.set(kq, (Q.get(kq) || 0) + n);
+            }
+          }
+          // ---- por mês ----
+          const out = {}; const mes = (ds) => out[ds.slice(0, 7)] || (out[ds.slice(0, 7)] = { r: [], h: [], p: [], q: [] });
+          const r2 = (x) => Math.round(x * 100) / 100;
+          R.forEach((v, k) => { const [ds, l, e, t, mo] = k.split('|'); mes(ds).r.push([ds, l, e, t, mo, ...v.map(r2)]); });
+          H.forEach((v, k) => { const [ds, l, e, h] = k.split('|'); mes(ds).h.push([ds, l, e, +h, r2(v[0]), r2(v[1])]); });
+          P.forEach((v, k) => { const [ds, l, e, t] = k.split('|'); mes(ds).p.push([ds, l, e, t, v.n, Object.entries(v.h).map(([s, q]) => s + ':' + q).join(' ')]); });
+          Q.forEach((n, k) => { const [ds, l, e, h] = k.split('|'); mes(ds).q.push([ds, l, e, +h, n]); });
+          return out;
+        }
+        window.perfilImportar = async function(input) {
+            const files = [...(input.files || [])]; input.value = '';
+            if (!files.length) return;
+            showToast('Lendo os arquivos do Perfil de Perdas…', 'info');
+            let med = null, prod = null;
+            for (const f of files) {
+                const txt = await f.text(); const cab = txt.slice(0, 300).replace(/^﻿/, '');
+                if (/dataHoraInicio;dataHoraFim/.test(cab)) med = txt; else if (/^dataHora;producao/.test(cab)) prod = txt;
+            }
+            if (!med && !prod) { showToast('Nenhum arquivo reconhecido. Use medicao.csv e registrosProducao.csv da pasta reports_bi.', 'error'); return; }
+            const novo = perfilAgregar(med, prod);
+            await loadPerfil(true);
+            // Substitui, nos meses que vieram, as datas cobertas por cada arquivo (medição: r/h · produção: p/q)
+            const faixa = (k) => { const ds = Object.values(novo).flatMap(m => m[k].map(x => x[0])).sort(); return ds.length ? [ds[0], ds[ds.length - 1]] : null; };
+            const fM = med ? faixa('r') : null, fP = prod ? faixa('p') : null;
+            const fora = (f) => (x) => !f || x[0] < f[0] || x[0] > f[1];
+            const meses = [...new Set([...Object.keys(novo)])];
+            const salvar = [];
+            for (const m of meses) {
+                const a = perfilDados[m] || { r: [], h: [], p: [], q: [] }, n = novo[m];
+                const doc_ = { r: [...a.r.filter(fora(fM)), ...(med ? n.r : [])], h: [...a.h.filter(fora(fM)), ...(med ? n.h : [])],
+                    p: [...a.p.filter(fora(fP)), ...(prod ? n.p : [])], q: [...a.q.filter(fora(fP)), ...(prod ? n.q : [])] };
+                const txt = JSON.stringify(doc_);
+                if (txt.length > 1000000) { showToast(`O mês ${m} passou do limite de 1 MB do banco.`, 'error'); return; }
+                perfilDados[m] = doc_; salvar.push([m, txt]);
+            }
+            try {
+                await Promise.all(salvar.map(([m, txt]) => setDoc(doc(db, 'dashboard_perfil', m), { data: txt, at: new Date().toISOString() })));
+                showToast(`Perfil de Perdas atualizado: ${salvar.length} ${salvar.length === 1 ? 'mês' : 'meses'}${fM ? ` · medição ${fmtDate(fM[0], { day: '2-digit', month: '2-digit' })} a ${fmtDate(fM[1], { day: '2-digit', month: '2-digit' })}` : ''}${fP ? ` · produção até ${fmtDate(fP[1], { day: '2-digit', month: '2-digit' })}` : ''}.`, 'success');
+            } catch (e) { console.error(e); showToast('Não foi possível salvar na nuvem (verifique a internet).', 'error'); }
+            perfilState.anos = []; perfilState.meses = []; perfilState.dias = [];
+            destroyCharts(); renderPerfilContent(); lucide.createIcons();
+        };
+        window.setPerfil = function(k, v, manter = false) {
+            const st = perfilState, alterna = (arr, x) => arr.includes(x) ? arr.filter(y => y !== x) : [...arr, x].sort();
+            if (k === 'ano') { st.anos = v === '__todos' ? [] : alterna(st.anos, v); st.meses = st.meses.filter(m => !st.anos.length || st.anos.includes(m.slice(0, 4))); st.dias = []; }
+            else if (k === 'mes') { st.meses = v === '__todos' ? [] : alterna(st.meses, v); st.dias = []; }
+            else if (k === 'dia') st.dias = v === '__todos' ? [] : alterna(st.dias, v);
+            else if (k === 'micro') st.micro = +v;
+            else if (k === 'alto') st.alto = !st.alto;
+            else if (k === 'linha') { st.linha = v; st.equip = 'Todos'; }
+            else st[k] = v;
+            st.aberto = manter ? k : null;
+            savePref('perfil', { micro: st.micro, alto: st.alto });
+            destroyCharts(); renderPerfilContent(); lucide.createIcons();
+        };
+        function renderPerfilContent() {
+            const box = document.getElementById('perfil-content');
+            const importar = `<label class="admin-only icon-btn h-10 cursor-pointer"><i data-lucide="upload" class="w-4 h-4"></i>Importar arquivos<input type="file" accept=".csv,text/csv" multiple class="hidden" onchange="perfilImportar(this)"></label>`;
+            if (!perfilDados) {
+                box.innerHTML = `<div class="${CARD} py-16 text-center text-sm text-slate-500"><i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mb-2"></i><br>Carregando o Perfil de Perdas…</div>`;
+                if (!perfilCarregando) loadPerfil().then(() => { if (activeTab === 'perfil') { renderPerfilContent(); lucide.createIcons(); } });
+                return;
+            }
+            const meses = Object.keys(perfilDados).sort();
+            if (!meses.length) {
+                setHero('perfil', { frase: 'Paradas, micro paradas e ciclo real das máquinas' });
+                box.innerHTML = `<div class="${CARD} py-14 px-6 text-center"><div class="w-14 h-14 rounded-2xl bg-brand-yellow/15 text-brand-navy flex items-center justify-center mb-4 mx-auto"><i data-lucide="activity" class="w-7 h-7"></i></div>
+                    <h2 class="text-lg font-semibold text-slate-900">Ainda não há dados do Perfil de Perdas</h2>
+                    <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Importe os arquivos <strong>medicao.csv</strong> e <strong>registrosProducao.csv</strong> da pasta <strong>reports_bi</strong> da automação.</p>
+                    <div class="mt-5 flex justify-center">${importar}</div><p class="guest-only text-xs text-slate-400 mt-3">Para importar, entre com a senha (botão Usuário).</p></div>`;
+                return;
+            }
+            const st = perfilState;
+            const todosDias = [...new Set(meses.flatMap(m => [...perfilDados[m].r.map(x => x[0]), ...perfilDados[m].p.map(x => x[0])]))].sort();
+            const anos = [...new Set(todosDias.map(d => d.slice(0, 4)))];
+            st.anos = st.anos.filter(a => anos.includes(a));
+            const mesesAno = meses.filter(m => !st.anos.length || st.anos.includes(m.slice(0, 4)));
+            if (!st.meses.length && !st.anos.length && !st.dias.length && !st._iniciado) { st.meses = [meses[meses.length - 1]]; st._iniciado = true; }
+            st.meses = st.meses.filter(m => mesesAno.includes(m));
+            const diasMes = todosDias.filter(d => (!st.anos.length || st.anos.includes(d.slice(0, 4))) && (!st.meses.length || st.meses.includes(d.slice(0, 7))));
+            st.dias = st.dias.filter(d => diasMes.includes(d));
+            const diasSel = new Set(st.dias.length ? st.dias : diasMes);
+            // Linhas e equipamentos
+            const todasR = meses.flatMap(m => perfilDados[m].r);
+            const linhas = [...new Set(todasR.map(x => x[1]))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+            const equips = [...new Set(todasR.filter(x => st.linha === 'Todas' || x[1] === st.linha).map(x => x[2]))].sort();
+            if (st.equip !== 'Todos' && !equips.includes(st.equip)) st.equip = 'Todos';
+            const ok = (x) => diasSel.has(x[0]) && (st.linha === 'Todas' || x[1] === st.linha) && (st.equip === 'Todos' || x[2] === st.equip);
+            const okT = (t) => st.turno === 'Todos' || t === st.turno;
+            const turnoDaHora = (h) => h >= 6 && h < 14 ? '1' : h >= 14 && h < 22 ? '2' : '3';
+            const mesesSel = meses.filter(m => [...diasSel].some(d => d.startsWith(m)));
+            const R = mesesSel.flatMap(m => perfilDados[m].r).filter(x => ok(x) && okT(x[3]));
+            const Hh = mesesSel.flatMap(m => perfilDados[m].h).filter(x => ok(x) && okT(turnoDaHora(x[3])));
+            const P = mesesSel.flatMap(m => perfilDados[m].p).filter(x => ok(x) && okT(x[3]));
+            const Q = mesesSel.flatMap(m => perfilDados[m].q).filter(x => ok(x) && okT(turnoDaHora(x[3])));
+            // ---- contas ----
+            const nb = st.micro === 1 ? 1 : st.micro === 2 ? 2 : 3; // nº de faixas (<1, 1-2, 2-5) que são micro parada
+            let run = 0, microM = 0, microN = 0, paradaM = 0, paradaN = 0, altoM = 0;
+            const porMot = {}, porDia = {}, porTurno = { '1': [0, 0, 0], '2': [0, 0, 0], '3': [0, 0, 0] }, runDia = {};
+            R.forEach(x => {
+                if (x[4] === '·run') { run += x[12]; runDia[x[0]] = (runDia[x[0]] || 0) + x[12]; return; }
+                const alto = PERFIL_ALTO.test(x[4]);
+                if (alto) altoM += x[6] + x[8] + x[10] + x[12];
+                if (alto && !st.alto) return;
+                let mm = 0, mn = 0, pm = 0, pn = 0;
+                for (let b = 0; b < 4; b++) { if (b < nb) { mm += x[6 + b * 2]; mn += x[5 + b * 2]; } else { pm += x[6 + b * 2]; pn += x[5 + b * 2]; } }
+                microM += mm; microN += mn; paradaM += pm; paradaN += pn;
+                const o = porMot[x[4]] || (porMot[x[4]] = { m: 0, n: 0, micro: 0 }); o.m += mm + pm; o.n += mn + pn; o.micro += mm;
+                const d = porDia[x[0]] || (porDia[x[0]] = {}); d[x[4]] = (d[x[4]] || 0) + mm + pm;
+                const t = porTurno[x[3]]; if (t) { t[0] += mm + pm; t[1] += mn + pn; t[2] += mm; }
+            });
+            const perdas = microM + paradaM, total = run + perdas;
+            const pctRun = total ? run / total * 100 : null;
+            // Produção e ciclo real
+            const hist = {}; let prod = 0; const prodDia = {}, histDia = {}, histTurno = { '1': {}, '2': {}, '3': {} };
+            P.forEach(x => { prod += x[4]; prodDia[x[0]] = (prodDia[x[0]] || 0) + x[4];
+                String(x[5] || '').split(' ').forEach(par => { if (!par) return; const [s, q] = par.split(':').map(Number);
+                    hist[s] = (hist[s] || 0) + q; const hd = histDia[x[0]] || (histDia[x[0]] = {}); hd[s] = (hd[s] || 0) + q; const ht = histTurno[x[3]]; if (ht) ht[s] = (ht[s] || 0) + q; }); });
+            const quantil = (h, q) => { const ks = Object.keys(h).map(Number).sort((a, b) => a - b), n = ks.reduce((s, k) => s + h[k], 0); if (!n) return null; let acc = 0; for (const k of ks) { acc += h[k]; if (acc >= n * q) return k; } return ks[ks.length - 1]; };
+            const media = (h) => { let s = 0, n = 0; Object.entries(h).forEach(([k, q]) => { s += k * q; n += q; }); return n ? s / n : null; };
+            const cicloMed = quantil(hist, 0.5), cicloMedia = media(hist), cicloP10 = quantil(hist, 0.1), cicloP90 = quantil(hist, 0.9);
+            const temProd = prod > 0;
+            const linhasProd = [...new Set(P.map(x => x[1]))];
+            // ---- painel do topo ----
+            const titPer = st.dias.length ? (st.dias.length === 1 ? fmtDate(st.dias[0]) : `${st.dias.length} dias`) : st.meses.length ? st.meses.map(m => shortMonth(m)).join(' + ') : st.anos.length ? st.anos.join(' + ') : 'Todo o período';
+            setHero('perfil', { periodo: `${titPer}${st.linha !== 'Todas' ? ' · ' + st.linha : ''}${st.equip !== 'Todos' ? ' · ' + st.equip : ''}`,
+                frase: `${fmtH(perdas / 60)} h de perdas · ${fmt(microN + paradaN)} ocorrências`, pct: pctRun, txt: pctRun === null ? '' : fmt(pctRun, 0) + '%', legenda: 'do tempo rodando', tom: pctRun >= 85 ? 'ok' : pctRun >= 70 ? 'warn' : 'bad', cheia: pctRun >= 85 });
+            // ---- filtros ----
+            const ddAb = (k) => st.aberto === k ? '' : 'hide';
+            const multi = (k, titulo, resumo, itens, ativo) => `<div class="flex flex-col gap-1 min-w-0"><span class="filter-label">${titulo}</span>
+                <div class="relative fx-dd"><button onclick="fxAbrir('pf-${k}')" class="dd-btn ${ativo ? 'oee-dd-ativo' : ''}"><span class="truncate">${esc(resumo)}</span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0"></i></button>
+                <div id="fxdd-pf-${k}" class="dd-list ${ddAb(k)}">${itens}</div></div></div>`;
+            const op = (k, v, on, label, todos = false, unico = false) => `<label class="dd-option ${todos ? 'is-all' : ''}" onclick="event.preventDefault(); event.stopPropagation(); setPerfil('${k}', '${v}', ${!todos && !unico})"><input type="${unico ? 'radio' : 'checkbox'}" ${on ? 'checked' : ''} tabindex="-1"><span>${esc(label)}</span></label>`;
+            const mesNome = (m) => `${MONTH_NAMES[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}`;
+            const resumoLista = (sel, todos, f) => !sel.length ? todos : sel.length === 1 ? f(sel[0]) : `${sel.length} selecionados`;
+            const filtros = `<div class="pf-filtros">
+                ${multi('ano', 'Ano', resumoLista(st.anos, 'Todos', a => a), op('ano', '__todos', !st.anos.length, 'Todos', true) + anos.map(a => op('ano', a, !st.anos.length || st.anos.includes(a), a)).join(''), st.anos.length > 0)}
+                ${multi('mes', 'Mês', resumoLista(st.meses, 'Todos', mesNome), op('mes', '__todos', !st.meses.length, 'Todos', true) + mesesAno.map(m => op('mes', m, !st.meses.length || st.meses.includes(m), mesNome(m))).join(''), st.meses.length > 0)}
+                ${multi('dia', 'Dia', resumoLista(st.dias, 'Todos', d => fmtDate(d, { day: '2-digit', month: '2-digit' })), op('dia', '__todos', !st.dias.length, 'Todos', true) + diasMes.map(d => op('dia', d, !st.dias.length || st.dias.includes(d), fmtDate(d, { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', ''))).join(''), st.dias.length > 0)}
+                ${multi('linha', 'Linha', st.linha === 'Todas' ? 'Todas' : st.linha, ['Todas', ...linhas].map(l => op('linha', l, st.linha === l, l === 'Todas' ? 'Todas as linhas' : l, l === 'Todas', true)).join(''), st.linha !== 'Todas')}
+                ${multi('equip', 'Equipamento', st.equip === 'Todos' ? 'Todos' : st.equip, ['Todos', ...equips].map(e => op('equip', e, st.equip === e, e === 'Todos' ? 'Todos' : e, e === 'Todos', true)).join(''), st.equip !== 'Todos')}
+                ${multi('turno', 'Turno', st.turno === 'Todos' ? 'Todos' : 'Turno 0' + st.turno, [['Todos', 'Todos'], ['1', 'Turno 01 · 6h–14h'], ['2', 'Turno 02 · 14h–22h'], ['3', 'Turno 03 · 22h–6h']].map(([v, l]) => op('turno', v, st.turno === v, l, v === 'Todos', true)).join(''), st.turno !== 'Todos')}
+            </div>
+            <div class="pf-opcoes no-print">
+                <span class="filter-label">Micro parada</span>
+                <div class="seg">${[1, 2, 5].map(v => `<button onclick="setPerfil('micro', ${v})" class="${st.micro === v ? 'active' : ''}">&lt; ${v} min</button>`).join('')}</div>
+                <label class="pf-chk"><input type="checkbox" ${st.alto ? 'checked' : ''} onchange="setPerfil('alto')"> Contar "paradas de tempo alto" como perda (${fmtH(altoM / 60)} h · máquina sem programação)</label>
+                <span class="flex-1"></span>${importar}
+            </div>`;
+            // ---- cartões ----
+            const kpi = (rot, val, sub, cls = '') => `<div class="${CARD} p-4 sm:p-5 min-w-0"><p class="filter-label kpi-label">${rot}</p><p class="text-[22px] sm:text-[28px] leading-none font-bold tracking-tight mt-3 ${cls}">${val}</p><p class="text-[11px] sm:text-xs text-slate-500 mt-2 leading-snug">${sub}</p></div>`;
+            const kpis = `<div class="pf-kpis">
+                ${kpi('Produção', temProd ? comUnidade(fmt(prod) + ' bat') : '—', temProd ? `contada na COS · ${linhasProd.join(', ')}` : 'Sem contagem de baterias para esse filtro')}
+                ${kpi('Tempo rodando', comUnidade(fmtH(run / 60) + ' h'), pctRun === null ? '' : `<strong class="${pctRun >= 85 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(pctRun, 1)}%</strong> do tempo medido`)}
+                ${kpi('Perdas', comUnidade(fmtH(perdas / 60) + ' h'), `${fmtH(microM / 60)} h micro · ${fmtH(paradaM / 60)} h paradas`, 'text-rose-600')}
+                ${kpi('Ciclo real', cicloMed === null ? '—' : comUnidade(fmt(cicloMed) + ' s'), cicloMed === null ? 'Sem contagem de baterias' : `mediana · média ${fmt(cicloMedia, 1)} s · 80% entre ${fmt(cicloP10)} e ${fmt(cicloP90)} s`)}
+                ${kpi('Ocorrências', fmt(microN + paradaN), `${fmt(microN)} micro paradas · ${fmt(paradaN)} paradas`)}
+            </div>`;
+            const motivos = Object.entries(porMot).sort((a, b) => b[1].m - a[1].m);
+            const top5 = motivos.slice(0, 5).map(x => x[0]);
+            const dias = [...diasSel].filter(d => runDia[d] || porDia[d] || prodDia[d]).sort();
+            const totalPerdas = perdas || 1;
+            const tabelaMot = `<div class="pf-mot">${motivos.slice(0, 15).map(([k, o], i) => `<div class="pf-mot-l"><span class="pf-mot-n">${i + 1}</span><span class="pf-mot-t" title="${esc(k)}">${esc(perfilMotivo(k))}</span>
+                <span class="pf-mot-b"><i style="width:${(o.m / motivos[0][1].m * 100).toFixed(1)}%"></i><i class="mi" style="width:${(o.micro / motivos[0][1].m * 100).toFixed(1)}%"></i></span>
+                <span class="pf-mot-v"><b>${fmtH(o.m / 60)} h</b><em>${fmt(o.n)}× · ${fmt(o.m / totalPerdas * 100, 0)}%</em></span></div>`).join('') || '<p class="text-sm text-slate-400">Sem paradas no filtro.</p>'}</div>`;
+            box.innerHTML = `
+            <section class="${CARD} p-4 sm:p-5">${filtros}</section>
+            ${kpis}
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Uso do tempo', 'Rodando, micro paradas e paradas', '', 'pie-chart')}
+                    <div class="chart-box h-60"><canvas id="pf-tempo"></canvas></div>
+                </section>
+                <section class="print-break ${CARD} p-5 sm:p-6 xl:col-span-2">
+                    ${sectionHead('Principais causas', `Minutos perdidos e ocorrências · parte clara = micro paradas (&lt; ${st.micro} min)`, '', 'list-ordered')}
+                    ${tabelaMot}
+                </section>
+            </div>
+            <section class="print-break ${CARD} p-5 sm:p-6">
+                ${sectionHead('Perdas por dia', 'Horas paradas das 5 maiores causas e das demais · linha: % do tempo rodando', '', 'calendar-days')}
+                <div class="chart-box h-80"><canvas id="pf-dia"></canvas></div>
+            </section>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Ciclo real', temProd ? 'Segundos entre uma bateria e a seguinte (pausas acima de 2 min ficam fora) · mediana por dia' : 'Sem contagem de baterias para esse filtro', '', 'timer')}
+                    ${temProd ? `<div class="chart-box h-72"><canvas id="pf-ciclo-dia"></canvas></div>` : '<p class="text-sm text-slate-400">A contagem por bateria hoje vem só da COS da LIM12 e da LIM01.</p>'}
+                </section>
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Distribuição do ciclo', temProd ? `Quantas baterias saíram em cada tempo de ciclo · mediana ${fmt(cicloMed)} s` : '', '', 'bar-chart-3')}
+                    ${temProd ? `<div class="chart-box h-72"><canvas id="pf-ciclo-hist"></canvas></div>` : '<p class="text-sm text-slate-400">—</p>'}
+                </section>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Por turno', 'Horas perdidas, ocorrências e ciclo real (mediana)', '', 'clock')}
+                    <div class="chart-box h-64"><canvas id="pf-turno"></canvas></div>
+                </section>
+                <section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Por hora do dia', 'Minutos parados em cada hora (soma do período) · barras: produção', '', 'clock-3')}
+                    <div class="chart-box h-64"><canvas id="pf-hora"></canvas></div>
+                </section>
+            </div>`;
+            if (!window.Chart) return;
+            const lab = (d) => fmtDate(d, { day: '2-digit', month: '2-digit' });
+            const cores = ['#E5484D', '#F59E0B', '#006FB9', '#8B5CF6', '#14B8A6'];
+            charts.pfTempo = new Chart(document.getElementById('pf-tempo'), { type: 'doughnut',
+                data: { labels: ['Rodando', `Micro paradas (< ${st.micro} min)`, 'Paradas'], datasets: [{ data: [run, microM, paradaM].map(v => Math.round(v)), backgroundColor: [C.good, '#F59E0B', C.bad], borderColor: C.card, borderWidth: 3 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '64%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+                    tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${fmtH(c.raw / 60)} h (${fmt(total ? c.raw / total * 100 : 0, 1)}%)` } } } } });
+            charts.pfDia = new Chart(document.getElementById('pf-dia'), {
+                data: { labels: dias.map(lab), datasets: [
+                    ...top5.map((k, i) => ({ type: 'bar', label: perfilMotivo(k), data: dias.map(d => +(((porDia[d] || {})[k] || 0) / 60).toFixed(2)), backgroundColor: cores[i], stack: 's', yAxisID: 'y', order: 2 })),
+                    { type: 'bar', label: 'Demais', data: dias.map(d => +((Object.entries(porDia[d] || {}).filter(([k]) => !top5.includes(k)).reduce((s, [, v]) => s + v, 0)) / 60).toFixed(2)), backgroundColor: C.muted, stack: 's', yAxisID: 'y', order: 2 },
+                    { type: 'line', label: '% rodando', data: dias.map(d => { const p = Object.values(porDia[d] || {}).reduce((s, v) => s + v, 0), r = runDia[d] || 0; return r + p ? +(r / (r + p) * 100).toFixed(1) : null; }), borderColor: C.navy, backgroundColor: C.navy, borderWidth: 2, pointRadius: 2, tension: 0.25, yAxisID: 'y2', order: 1 }
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: { x: { ...axisX(), stacked: true }, y: { ...axisY(), stacked: true, title: { display: true, text: 'horas', color: C.text3 }, ticks: { callback: (v) => fmt(v) } },
+                        y2: { position: 'right', min: 0, max: 100, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => v + '%' } } },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+                        tooltip: { ...tooltipStyle, displayColors: true, callbacks: { title: (it) => fmtDate(dias[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.raw == null || c.raw === 0 ? null : c.dataset.yAxisID === 'y2' ? `% rodando: ${fmt(c.raw, 1)}%` : `${c.dataset.label}: ${fmtH(c.raw)} h` } } } } });
+            if (temProd) {
+                const diasP = dias.filter(d => histDia[d]);
+                charts.pfCicloDia = new Chart(document.getElementById('pf-ciclo-dia'), {
+                    data: { labels: diasP.map(lab), datasets: [
+                        { type: 'line', label: 'Ciclo real (mediana, s)', data: diasP.map(d => quantil(histDia[d], 0.5)), borderColor: C.bad, backgroundColor: C.bad, borderWidth: 2.5, pointRadius: 3, tension: 0.25, yAxisID: 'y2', order: 1 },
+                        { type: 'bar', label: 'Baterias', data: diasP.map(d => prodDia[d] || 0), backgroundColor: C.blue, yAxisID: 'y', order: 2 }
+                    ] },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                        scales: { x: axisX(), y: axisY(), y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => v + ' s' } } },
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+                            tooltip: { ...tooltipStyle, callbacks: { title: (it) => fmtDate(diasP[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.dataset.yAxisID === 'y2' ? `Ciclo real: ${fmt(c.raw)} s` : `Baterias: ${fmt(c.raw)}` } } } } });
+                const segs = Array.from({ length: Math.max(1, Math.min(120, (cicloP90 || 60) * 2) - 5) }, (_, i) => i + 5);
+                charts.pfCicloHist = new Chart(document.getElementById('pf-ciclo-hist'), { type: 'bar',
+                    data: { labels: segs.map(s => s + ' s'), datasets: [{ label: 'Baterias', data: segs.map(s => hist[s] || 0), backgroundColor: segs.map(s => s === cicloMed ? C.navy : C.blue + 'AA'), borderRadius: 3, barPercentage: 1, categoryPercentage: .95 }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { ...axisX(), ticks: { maxTicksLimit: 12 } }, y: axisY() },
+                        plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => `Ciclo de ${segs[it[0].dataIndex]} s`, label: (c) => `${fmt(c.raw)} baterias` } } } } });
+            }
+            charts.pfTurno = new Chart(document.getElementById('pf-turno'), {
+                data: { labels: ['Turno 01', 'Turno 02', 'Turno 03'], datasets: [
+                    { type: 'bar', label: 'Horas perdidas', data: ['1', '2', '3'].map(t => +(porTurno[t][0] / 60).toFixed(1)), backgroundColor: C.bad, borderRadius: 6, maxBarThickness: 60, yAxisID: 'y', order: 2 },
+                    { type: 'line', label: 'Ocorrências', data: ['1', '2', '3'].map(t => porTurno[t][1]), borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 2.5, pointRadius: 5, yAxisID: 'y2', order: 1 }
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: { x: axisX(), y: { ...axisY(), title: { display: true, text: 'horas', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidas: ${fmtH(c.raw)} h`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = quantil(histTurno[t], 0.5); return m === null ? '' : `Ciclo real: ${fmt(m)} s`; } } } } } });
+            const horas = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
+            const parH = {}, prodH = {}; Hh.forEach(x => { parH[x[3]] = (parH[x[3]] || 0) + x[4] + (st.alto ? x[5] : 0); }); Q.forEach(x => { prodH[x[3]] = (prodH[x[3]] || 0) + x[4]; });
+            charts.pfHora = new Chart(document.getElementById('pf-hora'), {
+                data: { labels: horas.map(h => String(h).padStart(2, '0') + 'h'), datasets: [
+                    { type: 'line', label: 'Minutos parados', data: horas.map(h => Math.round(parH[h] || 0)), borderColor: C.bad, backgroundColor: C.bad + '22', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 1 },
+                    ...(temProd ? [{ type: 'bar', label: 'Baterias', data: horas.map(h => prodH[h] || 0), backgroundColor: C.blue + '66', yAxisID: 'y2', order: 2 }] : [])
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: { x: { ...axisX(), ticks: { maxTicksLimit: 12 } }, y: { ...axisY(), title: { display: true, text: 'min', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, display: temProd, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } }, tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.raw)}` } } } } });
+        }
+
         // ===== Modo TV (sala de controle): tela cheia escura, números gigantes, troca de tela sozinha =====
         var tvOn = false, tvIdx = 0, tvTimer = null, tvRelogio = null, tvLock = null, tvMexeu = null;
         const TV_SEG = 20;
@@ -7515,7 +7873,7 @@
             countUp(view); growBars(view);
         }
         // Barra de abas do celular: 4 abas + "Mais"; indicador que desliza até a aba ativa
-        const EXTRA_TABS = [['perdas', 'hourglass', 'Perdas'], ['pbs', 'droplet', 'PbS'], ['oee', 'gauge', 'OEE'], ['metas', 'flag', 'Metas'], ['improvements', 'target', 'Projetos'], ['audit', 'database', 'Dados']];
+        const EXTRA_TABS = [['perdas', 'hourglass', 'Perdas'], ['perfil', 'activity', 'Perfil de perdas'], ['pbs', 'droplet', 'PbS'], ['oee', 'gauge', 'OEE'], ['metas', 'flag', 'Metas'], ['improvements', 'target', 'Projetos'], ['audit', 'database', 'Dados']];
         function setupMobileNav() {
             const nav = document.getElementById('tabs-container');
             if (!nav || document.getElementById('tab-more')) return;
@@ -7903,7 +8261,7 @@
             const q = new URLSearchParams(location.search);
             if (!q.has('tab') && !q.has('dia')) return;
             const tab = q.get('tab');
-            if (tab && ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements'].includes(tab)) activeTab = tab;
+            if (tab && ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'perfil', 'pbs', 'oee', 'metas', 'improvements'].includes(tab)) activeTab = tab;
             if (/^\d{4}-\d{2}-\d{2}$/.test(q.get('dia') || '')) bomDiaDate = q.get('dia');
             if (/^[123]$/.test(q.get('turno') || '')) bomDiaTurno = q.get('turno');
             history.replaceState(null, '', location.pathname);
@@ -7951,7 +8309,7 @@
         })();
 
         // 2) Deslizar para o lado troca de aba
-        const ORDEM_ABAS = ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'pbs', 'oee', 'metas', 'improvements', 'audit'];
+        const ORDEM_ABAS = ['dashboard', 'bomdia', 'gestao', 'scrap', 'perdas', 'perfil', 'pbs', 'oee', 'metas', 'improvements', 'audit'];
         (function () {
             let x0 = null, y0 = 0, t0 = 0;
             const ignorar = (t) => t.closest('.overflow-x-auto, canvas, input, select, textarea, #area-buttons, .seg, .dd-list, [id^="fxdd-"], [id^="oee-dd-"], [id^="pdd-"], [id^="sdd-"], .hm-table, [class*="overflow-x"]');
@@ -8070,10 +8428,10 @@
             window.addEventListener('resize', () => { segMem.clear(); document.querySelectorAll('.seg-pill').forEach(p => p.dataset.k = ''); animarSegs(); });
         })();
 
-        const TITULO_ABA = { dashboard: 'Montagem', bomdia: 'Bom Dia', gestao: 'Gestão', scrap: 'Scrap', perdas: 'Perdas', pbs: 'PbS', oee: 'OEE', metas: 'Metas', improvements: 'Projetos', audit: 'Dados' };
+        const TITULO_ABA = { dashboard: 'Montagem', bomdia: 'Bom Dia', gestao: 'Gestão', scrap: 'Scrap', perdas: 'Perdas', perfil: 'Perfil de Perdas', pbs: 'PbS', oee: 'OEE', metas: 'Metas', improvements: 'Projetos', audit: 'Dados' };
         // Painel do topo: cada aba informa o período, uma frase e, quando há meta, a carga da bateria (% da meta)
         const heroInfo = {};
-        const HERO_PADRAO = { scrap: 'Baterias refugadas e taxa de scrap', perdas: 'Horas paradas por família, máquina e componente', pbs: 'Chumbo no sangue', oee: 'Disponibilidade × desempenho × qualidade',
+        const HERO_PADRAO = { scrap: 'Baterias refugadas e taxa de scrap', perdas: 'Horas paradas por família, máquina e componente', perfil: 'Paradas, micro paradas e ciclo real das máquinas', pbs: 'Chumbo no sangue', oee: 'Disponibilidade × desempenho × qualidade',
             metas: 'Metas diárias, de scrap e tempos de ciclo', improvements: 'Projetos de melhoria e ganho por turno', audit: 'Planilhas, verificação de dias e backup' };
         let heroAba = null;
         // Produção por dia (últimos n dias com produção até a data), para a linha de tendência do painel
