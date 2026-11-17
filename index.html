@@ -7422,7 +7422,7 @@
               const s = slot(t), kp = `${s.ds}|${l}|${e}|${s.t}`; let v = P.get(kp); if (!v) P.set(kp, v = { n: 0, h: {} });
               v.n += n;
               const kk = `${l}|${e}`, ant = ult.get(kk); ult.set(kk, t);
-              if (ant !== undefined) { const seg = (t - ant) / 1000; if (seg > 0 && seg <= LIM_CICLO) { const b = Math.round(seg); v.h[b] = (v.h[b] || 0) + 1; } }
+              if (ant !== undefined) { const seg = (t - ant) / 1000; if (seg > 0 && seg <= LIM_CICLO) { const b = Math.round(seg * 10); v.h[b] = (v.h[b] || 0) + 1; } } // décimos de segundo
               const kq = `${s.ds}|${l}|${e}|${s.h}`; Q.set(kq, (Q.get(kq) || 0) + n);
             }
           }
@@ -7431,7 +7431,7 @@
           const r2 = (x) => Math.round(x * 100) / 100;
           R.forEach((v, k) => { const [ds, l, e, t, mo] = k.split('|'); mes(ds).r.push([ds, l, e, t, mo, ...v.map(r2)]); });
           H.forEach((v, k) => { const [ds, l, e, h] = k.split('|'); mes(ds).h.push([ds, l, e, +h, r2(v[0]), r2(v[1])]); });
-          P.forEach((v, k) => { const [ds, l, e, t] = k.split('|'); mes(ds).p.push([ds, l, e, t, v.n, Object.entries(v.h).map(([s, q]) => s + ':' + q).join(' ')]); });
+          P.forEach((v, k) => { const [ds, l, e, t] = k.split('|'); mes(ds).p.push([ds, l, e, t, v.n, '#' + Object.entries(v.h).map(([s, q]) => s + ':' + q).join(' ')]); }); // '#': chaves em décimos de segundo
           Q.forEach((n, k) => { const [ds, l, e, h] = k.split('|'); mes(ds).q.push([ds, l, e, +h, n]); });
           return out;
         }
@@ -7553,10 +7553,14 @@
             // Produção e ciclo real
             const hist = {}; let prod = 0; const prodDia = {}, histDia = {}, histTurno = { '1': {}, '2': {}, '3': {} };
             P.forEach(x => { prod += x[4]; prodDia[x[0]] = (prodDia[x[0]] || 0) + x[4];
-                String(x[5] || '').split(' ').forEach(par => { if (!par) return; const [s, q] = par.split(':').map(Number);
-                    hist[s] = (hist[s] || 0) + q; const hd = histDia[x[0]] || (histDia[x[0]] = {}); hd[s] = (hd[s] || 0) + q; const ht = histTurno[x[3]]; if (ht) ht[s] = (ht[s] || 0) + q; }); });
-            const quantil = (h, q) => { const ks = Object.keys(h).map(Number).sort((a, b) => a - b), n = ks.reduce((s, k) => s + h[k], 0); if (!n) return null; let acc = 0; for (const k of ks) { acc += h[k]; if (acc >= n * q) return k; } return ks[ks.length - 1]; };
-            const media = (h) => { let s = 0, n = 0; Object.entries(h).forEach(([k, q]) => { s += k * q; n += q; }); return n ? s / n : null; };
+                const txt = String(x[5] || ''), dec = txt.startsWith('#'), hd = histDia[x[0]] || (histDia[x[0]] = {}), ht = histTurno[x[3]];
+                const soma = (b, q) => { hist[b] = (hist[b] || 0) + q; hd[b] = (hd[b] || 0) + q; if (ht) ht[b] = (ht[b] || 0) + q; };
+                txt.replace(/^#/, '').split(' ').forEach(par => { if (!par) return; const [k, q] = par.split(':').map(Number);
+                    if (dec) soma(k, q); else for (let j = -5; j < 5; j++) soma(k * 10 + j, q / 10); }); }); // histograma em décimos de segundo
+            // Quantil em segundos, interpolado dentro da faixa de 0,1 s
+            const quantil = (h, q) => { const ks = Object.keys(h).map(Number).sort((a, b) => a - b), n = ks.reduce((s, k) => s + h[k], 0); if (!n) return null;
+                let acc = 0; for (const k of ks) { const ant = acc; acc += h[k]; if (acc >= n * q) return (k - 0.5 + (n * q - ant) / h[k]) / 10; } return ks[ks.length - 1] / 10; };
+            const media = (h) => { let s = 0, n = 0; Object.entries(h).forEach(([k, q]) => { s += k / 10 * q; n += q; }); return n ? s / n : null; };
             const cicloMed = quantil(hist, 0.5), cicloMedia = media(hist), cicloP10 = quantil(hist, 0.1), cicloP90 = quantil(hist, 0.9);
             const temProd = prod > 0;
             const linhasProd = [...new Set(P.map(x => x[1]))];
@@ -7592,7 +7596,7 @@
                 ${kpi('Produção', temProd ? comUnidade(fmt(prod) + ' bat') : '—', temProd ? `contada na COS · ${linhasProd.join(', ')}` : 'Sem contagem de baterias para esse filtro')}
                 ${kpi('Tempo rodando', comUnidade(fmtH(run / 60) + ' h'), pctRun === null ? '' : `<strong class="${pctRun >= 85 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(pctRun, 1)}%</strong> do tempo medido`)}
                 ${kpi('Perdas', comUnidade(fmtH(perdas / 60) + ' h'), `${fmtH(microM / 60)} h micro · ${fmtH(paradaM / 60)} h paradas`, 'text-rose-600')}
-                ${kpi('Ciclo real', cicloMed === null ? '—' : comUnidade(fmt(cicloMed) + ' s'), cicloMed === null ? 'Sem contagem de baterias' : `mediana · média ${fmt(cicloMedia, 1)} s · 80% entre ${fmt(cicloP10)} e ${fmt(cicloP90)} s`)}
+                ${kpi('Ciclo real', cicloMed === null ? '—' : comUnidade(fmt(cicloMed, 1) + ' s'), cicloMed === null ? 'Sem contagem de baterias' : `mediana · média ${fmt(cicloMedia, 1)} s · 80% entre ${fmt(cicloP10, 1)} e ${fmt(cicloP90, 1)} s`)}
                 ${kpi('Ocorrências', fmt(microN + paradaN), `${fmt(microN)} micro paradas · ${fmt(paradaN)} paradas`)}
             </div>`;
             const motivos = Object.entries(porMot).sort((a, b) => b[1].m - a[1].m);
@@ -7636,7 +7640,7 @@
                     ${temProd ? `<div class="chart-box h-72"><canvas id="pf-ciclo-dia"></canvas></div>` : '<p class="text-sm text-slate-400">A contagem por bateria hoje vem só da COS da LIM12 e da LIM01.</p>'}
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6">
-                    ${sectionHead('Distribuição do ciclo', temProd ? `Quantas baterias saíram em cada tempo de ciclo · mediana ${fmt(cicloMed)} s` : '', '', 'bar-chart-3')}
+                    ${sectionHead('Distribuição do ciclo', temProd ? `Quantas baterias saíram em cada tempo de ciclo · mediana ${fmt(cicloMed, 1)} s` : '', '', 'bar-chart-3')}
                     ${temProd ? `<div class="chart-box h-72"><canvas id="pf-ciclo-hist"></canvas></div>` : '<p class="text-sm text-slate-400">—</p>'}
                 </section>
             </div>
@@ -7670,18 +7674,22 @@
                         tooltip: { ...tooltipStyle, displayColors: true, callbacks: { title: (it) => fmtDate(dias[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.raw == null || c.raw === 0 ? null : c.dataset.yAxisID === 'y2' ? `% rodando: ${fmt(c.raw, 1)}%` : `${c.dataset.label}: ${fmtH(c.raw)} h` } } } } });
             if (temProd) {
                 const diasP = dias.filter(d => histDia[d]);
+                // eixo do ciclo perto dos valores, para a variação de décimos aparecer
+                const valsC = diasP.map(d => quantil(histDia[d], 0.5)).filter(v => v !== null);
+                const faixaCiclo = valsC.length ? { min: Math.max(0, Math.floor(Math.min(...valsC)) - 2), max: Math.ceil(Math.max(...valsC)) + 2 } : { beginAtZero: true };
                 charts.pfCicloDia = new Chart(document.getElementById('pf-ciclo-dia'), {
                     data: { labels: diasP.map(lab), datasets: [
-                        { type: 'line', label: 'Ciclo real (mediana, s)', data: diasP.map(d => quantil(histDia[d], 0.5)), borderColor: C.bad, backgroundColor: C.bad, borderWidth: 2.5, pointRadius: 3, tension: 0.25, yAxisID: 'y2', order: 1 },
+                        { type: 'line', label: 'Ciclo real (mediana, s)', data: diasP.map(d => +quantil(histDia[d], 0.5).toFixed(1)), borderColor: C.bad, backgroundColor: C.bad, borderWidth: 2.5, pointRadius: 3, tension: 0.25, yAxisID: 'y2', order: 1 },
                         { type: 'bar', label: 'Baterias', data: diasP.map(d => prodDia[d] || 0), backgroundColor: C.blue, yAxisID: 'y', order: 2 }
                     ] },
                     options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                        scales: { x: axisX(), y: axisY(), y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => v + ' s' } } },
+                        scales: { x: axisX(), y: axisY(), y2: { position: 'right', ...faixaCiclo, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v, 1) + ' s' } } },
                         plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
-                            tooltip: { ...tooltipStyle, callbacks: { title: (it) => fmtDate(diasP[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.dataset.yAxisID === 'y2' ? `Ciclo real: ${fmt(c.raw)} s` : `Baterias: ${fmt(c.raw)}` } } } } });
-                const segs = Array.from({ length: Math.max(1, Math.min(120, (cicloP90 || 60) * 2) - 5) }, (_, i) => i + 5);
+                            tooltip: { ...tooltipStyle, callbacks: { title: (it) => fmtDate(diasP[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.dataset.yAxisID === 'y2' ? `Ciclo real: ${fmt(c.raw, 1)} s` : `Baterias: ${fmt(c.raw)}` } } } } });
+                const segs = Array.from({ length: Math.max(1, Math.min(120, Math.round((cicloP90 || 60) * 2)) - 5) }, (_, i) => i + 5);
+                const hist1 = {}; Object.entries(hist).forEach(([k, q]) => { const s1 = Math.round(k / 10); hist1[s1] = (hist1[s1] || 0) + q; });
                 charts.pfCicloHist = new Chart(document.getElementById('pf-ciclo-hist'), { type: 'bar',
-                    data: { labels: segs.map(s => s + ' s'), datasets: [{ label: 'Baterias', data: segs.map(s => hist[s] || 0), backgroundColor: segs.map(s => s === cicloMed ? C.navy : C.blue + 'AA'), borderRadius: 3, barPercentage: 1, categoryPercentage: .95 }] },
+                    data: { labels: segs.map(s => s + ' s'), datasets: [{ label: 'Baterias', data: segs.map(s => Math.round(hist1[s] || 0)), backgroundColor: segs.map(s => s === Math.round(cicloMed) ? C.navy : C.blue + 'AA'), borderRadius: 3, barPercentage: 1, categoryPercentage: .95 }] },
                     options: { responsive: true, maintainAspectRatio: false, scales: { x: { ...axisX(), ticks: { maxTicksLimit: 12 } }, y: axisY() },
                         plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => `Ciclo de ${segs[it[0].dataIndex]} s`, label: (c) => `${fmt(c.raw)} baterias` } } } } });
             }
@@ -7693,7 +7701,7 @@
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                     scales: { x: axisX(), y: { ...axisY(), title: { display: true, text: 'horas', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
                     plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
-                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidas: ${fmtH(c.raw)} h`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = quantil(histTurno[t], 0.5); return m === null ? '' : `Ciclo real: ${fmt(m)} s`; } } } } } });
+                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidas: ${fmtH(c.raw)} h`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = quantil(histTurno[t], 0.5); return m === null ? '' : `Ciclo real: ${fmt(m, 1)} s`; } } } } } });
             const horas = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
             const parH = {}, prodH = {}; Hh.forEach(x => { parH[x[3]] = (parH[x[3]] || 0) + x[4] + (st.alto ? x[5] : 0); }); Q.forEach(x => { prodH[x[3]] = (prodH[x[3]] || 0) + x[4]; });
             charts.pfHora = new Chart(document.getElementById('pf-hora'), {
