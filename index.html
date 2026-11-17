@@ -966,7 +966,8 @@
         .pf-mot-l { display: grid; grid-template-columns: 22px minmax(0, 1.3fr) minmax(60px, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; }
         .pf-mot-l + .pf-mot-l { border-top: .5px solid var(--sep); }
         .pf-mot-n { font-size: 11px; font-weight: 700; color: var(--lbl2); text-align: center; }
-        .pf-mot-t { font-size: 13.5px; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } html.dark .pf-mot-t { color: #e2e8f0; }
+        .pf-mot-t { font-size: 13.5px; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pf-mot-t small { display: block; font-size: 10.5px; color: var(--lbl2); overflow: hidden; text-overflow: ellipsis; } html.dark .pf-mot-t { color: #e2e8f0; }
         .pf-mot-b { position: relative; height: 10px; border-radius: 5px; background: var(--fill); overflow: hidden; }
         .pf-mot-b i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: linear-gradient(90deg, #E5484D, #FF8A8E); }
         .pf-mot-b i.mi { background: rgba(255,255,255,.55); }
@@ -7317,6 +7318,7 @@
         const perfilState = { anos: [], meses: [], dias: [], linha: 'Todas', equip: 'Todos', turno: 'Todos', micro: 2, alto: false, aberto: null };
         (() => { const p = loadPref('perfil', null); if (p) { perfilState.micro = [1, 2, 5].includes(p.micro) ? p.micro : 2; perfilState.alto = p.alto === true; } })();
         let perfilDados = null, perfilCarregando = false; // { 'AAAA-MM': { r, h, p, q } }
+        let perfilDesc = {}; // descrição dos alarmes: { 'LIM12|EVP|código': 'descrição em português' }
         const getPerfilCollection = () => collection(db, 'dashboard_perfil');
         async function loadPerfil(forcar = false) {
             if (perfilDados && !forcar) return;
@@ -7325,10 +7327,33 @@
                 const snap = await getDocs(getPerfilCollection());
                 const out = {}; snap.forEach(d => { try { out[d.id] = JSON.parse(d.data().data); } catch (e) { /* mês com problema */ } });
                 perfilDados = out;
+                const ds = await getDoc(doc(db, 'dashboard_config', 'perfilDesc'));
+                if (ds.exists()) { try { perfilDesc = JSON.parse(ds.data().data) || {}; } catch (e) { perfilDesc = {}; } }
             } catch (e) { console.warn('perfil', e); perfilDados = perfilDados || {}; }
             perfilCarregando = false;
         }
-        const perfilMotivo = (m) => { if (m === '(sem motivo)' || /^EVP\./.test(m)) return m; const t = m.replace(/_/g, ' ').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); };
+        const perfilBonito = (m) => { const t = String(m).replace(/_/g, ' ').trim().toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); };
+        // Nome do motivo: a descrição da automação para aquela máquina (linha|equipamento); sem descrição, o próprio código
+        const perfilMotivo = (m, maq) => { if (m === '(sem motivo)') return m; const d = maq ? perfilDesc[`${maq}|${m}`] : null;
+            if (d) return /_/.test(d) || d === d.toUpperCase() ? perfilBonito(d) : d;
+            return /^[A-Z]{2,4}\.A\./.test(m) ? m : perfilBonito(m); };
+        // Tabela de descrições (descricao.csv): só máquinas da Montagem; a chave é linha|equipamento|código
+        function perfilLerDesc(txt) {
+            const L = txt.split(/\r?\n/), out = {};
+            for (let k = 1; k < L.length; k++) {
+                // separa por ';' respeitando campos entre aspas ("Por favor; reinicie o vácuo")
+                const c = []; let cur = '', q = false; const ln = L[k];
+                for (let i = 0; i < ln.length; i++) { const ch = ln[i]; if (ch === '"') { if (q && ln[i + 1] === '"') { cur += '"'; i++; } else q = !q; } else if (ch === ';' && !q) { c.push(cur); cur = ''; } else cur += ch; }
+                c.push(cur);
+                if (c.length < 4 || !/\.MONT\./.test(c[0])) continue;
+                const p = c[0].split('.'), linha = p[3], eq = (String(p[4] || '').match(/^[A-Za-z]+/) || [''])[0].toUpperCase();
+                const desc = (c[3] || c[2] || '').trim(); if (!linha || !eq || !c[1] || !desc) continue;
+                out[`${linha}|${eq}|${c[1].trim()}`] = desc;
+            }
+            return out;
+        }
+        // Lê CSV em UTF-8 ou, se não for, no padrão do Windows (acentos do Excel)
+        const perfilTexto = async (f) => { const buf = await f.arrayBuffer(); try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { return new TextDecoder('windows-1252').decode(buf); } };
         const PERFIL_ALTO = /tempo alto/i;
         // Resume os CSVs da automação (roda no navegador)
         // Resumo dos arquivos do Perfil de Perdas (automação): só Montagem.
@@ -7341,7 +7366,7 @@
           const ms = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), +s.slice(11, 13), +s.slice(14, 16), +s.slice(17, 19), +(s.slice(20, 23) || 0));
           const slot = (t) => { const d = new Date(t), h = d.getUTCHours(); const base = h < 6 ? new Date(t - 86400e3) : d;
             return { ds: `${base.getUTCFullYear()}-${pad(base.getUTCMonth() + 1)}-${pad(base.getUTCDate())}`, h, t: h >= 6 && h < 14 ? '1' : h >= 14 && h < 22 ? '2' : '3' }; };
-          const linhas = (txt) => { const L = txt.split(/\r?\n/); const cab = L[0].replace(/^﻿/, '').split(';'); return { cab, L }; };
+          const linhas = (txt) => { const L = txt.split(/\r?\n/); const cab = L[0].replace(/^\uFEFF/, '').split(';'); return { cab, L }; };
           const R = new Map(), H = new Map(), P = new Map(), Q = new Map();
           const bin = (min) => min < 1 ? 0 : min < 2 ? 1 : min < 5 ? 2 : 3;
           // ---- medição ----
@@ -7394,12 +7419,19 @@
             const files = [...(input.files || [])]; input.value = '';
             if (!files.length) return;
             showToast('Lendo os arquivos do Perfil de Perdas…', 'info');
-            let med = null, prod = null;
+            let med = null, prod = null, desc = null;
             for (const f of files) {
-                const txt = await f.text(); const cab = txt.slice(0, 300).replace(/^﻿/, '');
+                const txt = await perfilTexto(f); const cab = txt.slice(0, 300).replace(/^\uFEFF/, '');
                 if (/dataHoraInicio;dataHoraFim/.test(cab)) med = txt; else if (/^dataHora;producao/.test(cab)) prod = txt;
+                else if (/^cod_maquina;ID;/i.test(cab)) desc = txt;
             }
-            if (!med && !prod) { showToast('Nenhum arquivo reconhecido. Use medicao.csv e registrosProducao.csv da pasta reports_bi.', 'error'); return; }
+            if (desc) {
+                const d = perfilLerDesc(desc);
+                try { await setDoc(doc(db, 'dashboard_config', 'perfilDesc'), { data: JSON.stringify(d), at: new Date().toISOString() }); perfilDesc = d;
+                    showToast(`Descrição dos alarmes atualizada: ${fmt(Object.keys(d).length)} códigos da Montagem.`, 'success'); }
+                catch (e) { console.error(e); showToast('Não foi possível salvar a descrição dos alarmes.', 'error'); }
+            }
+            if (!med && !prod) { if (!desc) showToast('Nenhum arquivo reconhecido. Use medicao.csv, registrosProducao.csv e descricao.csv da pasta reports_bi.', 'error'); destroyCharts(); renderPerfilContent(); lucide.createIcons(); return; }
             const novo = perfilAgregar(med, prod);
             await loadPerfil(true);
             // Substitui, nos meses que vieram, as datas cobertas por cada arquivo (medição: r/h · produção: p/q)
@@ -7449,7 +7481,7 @@
                 setHero('perfil', { frase: 'Paradas, micro paradas e ciclo real das máquinas' });
                 box.innerHTML = `<div class="${CARD} py-14 px-6 text-center"><div class="w-14 h-14 rounded-2xl bg-brand-yellow/15 text-brand-navy flex items-center justify-center mb-4 mx-auto"><i data-lucide="activity" class="w-7 h-7"></i></div>
                     <h2 class="text-lg font-semibold text-slate-900">Ainda não há dados do Perfil de Perdas</h2>
-                    <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Importe os arquivos <strong>medicao.csv</strong> e <strong>registrosProducao.csv</strong> da pasta <strong>reports_bi</strong> da automação.</p>
+                    <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Importe os arquivos <strong>medicao.csv</strong>, <strong>registrosProducao.csv</strong> e <strong>descricao.csv</strong> da pasta <strong>reports_bi</strong> da automação.</p>
                     <div class="mt-5 flex justify-center">${importar}</div><p class="guest-only text-xs text-slate-400 mt-3">Para importar, entre com a senha (botão Usuário).</p></div>`;
                 return;
             }
@@ -7479,6 +7511,7 @@
             // ---- contas ----
             const nb = st.micro === 1 ? 1 : st.micro === 2 ? 2 : 3; // nº de faixas (<1, 1-2, 2-5) que são micro parada
             let run = 0, microM = 0, microN = 0, paradaM = 0, paradaN = 0, altoM = 0;
+            const motMaq = {}; // máquina (linha|equipamento) de cada motivo, para achar a descrição
             const porMot = {}, porDia = {}, porTurno = { '1': [0, 0, 0], '2': [0, 0, 0], '3': [0, 0, 0] }, runDia = {};
             R.forEach(x => {
                 if (x[4] === '·run') { run += x[12]; runDia[x[0]] = (runDia[x[0]] || 0) + x[12]; return; }
@@ -7488,6 +7521,7 @@
                 let mm = 0, mn = 0, pm = 0, pn = 0;
                 for (let b = 0; b < 4; b++) { if (b < nb) { mm += x[6 + b * 2]; mn += x[5 + b * 2]; } else { pm += x[6 + b * 2]; pn += x[5 + b * 2]; } }
                 microM += mm; microN += mn; paradaM += pm; paradaN += pn;
+                if (!motMaq[x[4]]) motMaq[x[4]] = `${x[1]}|${x[2]}`;
                 const o = porMot[x[4]] || (porMot[x[4]] = { m: 0, n: 0, micro: 0 }); o.m += mm + pm; o.n += mn + pn; o.micro += mm;
                 const d = porDia[x[0]] || (porDia[x[0]] = {}); d[x[4]] = (d[x[4]] || 0) + mm + pm;
                 const t = porTurno[x[3]]; if (t) { t[0] += mm + pm; t[1] += mn + pn; t[2] += mm; }
@@ -7543,7 +7577,7 @@
             const top5 = motivos.slice(0, 5).map(x => x[0]);
             const dias = [...diasSel].filter(d => runDia[d] || porDia[d] || prodDia[d]).sort();
             const totalPerdas = perdas || 1;
-            const tabelaMot = `<div class="pf-mot">${motivos.slice(0, 15).map(([k, o], i) => `<div class="pf-mot-l"><span class="pf-mot-n">${i + 1}</span><span class="pf-mot-t" title="${esc(k)}">${esc(perfilMotivo(k))}</span>
+            const tabelaMot = `<div class="pf-mot">${motivos.slice(0, 15).map(([k, o], i) => `<div class="pf-mot-l"><span class="pf-mot-n">${i + 1}</span><span class="pf-mot-t" title="${esc(k)}">${esc(perfilMotivo(k, motMaq[k]))}${perfilMotivo(k, motMaq[k]) !== perfilBonito(k) && perfilMotivo(k, motMaq[k]) !== k ? `<small>${esc(k)}</small>` : ''}</span>
                 <span class="pf-mot-b"><i style="width:${(o.m / motivos[0][1].m * 100).toFixed(1)}%"></i><i class="mi" style="width:${(o.micro / motivos[0][1].m * 100).toFixed(1)}%"></i></span>
                 <span class="pf-mot-v"><b>${fmtH(o.m / 60)} h</b><em>${fmt(o.n)}× · ${fmt(o.m / totalPerdas * 100, 0)}%</em></span></div>`).join('') || '<p class="text-sm text-slate-400">Sem paradas no filtro.</p>'}</div>`;
             box.innerHTML = `
@@ -7592,7 +7626,7 @@
                     tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${fmtH(c.raw / 60)} h (${fmt(total ? c.raw / total * 100 : 0, 1)}%)` } } } } });
             charts.pfDia = new Chart(document.getElementById('pf-dia'), {
                 data: { labels: dias.map(lab), datasets: [
-                    ...top5.map((k, i) => ({ type: 'bar', label: perfilMotivo(k), data: dias.map(d => +(((porDia[d] || {})[k] || 0) / 60).toFixed(2)), backgroundColor: cores[i], stack: 's', yAxisID: 'y', order: 2 })),
+                    ...top5.map((k, i) => ({ type: 'bar', label: perfilMotivo(k, motMaq[k]), data: dias.map(d => +(((porDia[d] || {})[k] || 0) / 60).toFixed(2)), backgroundColor: cores[i], stack: 's', yAxisID: 'y', order: 2 })),
                     { type: 'bar', label: 'Demais', data: dias.map(d => +((Object.entries(porDia[d] || {}).filter(([k]) => !top5.includes(k)).reduce((s, [, v]) => s + v, 0)) / 60).toFixed(2)), backgroundColor: C.muted, stack: 's', yAxisID: 'y', order: 2 },
                     { type: 'line', label: '% rodando', data: dias.map(d => { const p = Object.values(porDia[d] || {}).reduce((s, v) => s + v, 0), r = runDia[d] || 0; return r + p ? +(r / (r + p) * 100).toFixed(1) : null; }), borderColor: C.navy, backgroundColor: C.navy, borderWidth: 2, pointRadius: 2, tension: 0.25, yAxisID: 'y2', order: 1 }
                 ] },
@@ -9104,6 +9138,17 @@
         async function processUploadedFiles(files) {
             files = Array.from(files || []);
             if (!files.length) return;
+            // Arquivos da automação (pasta reports_bi) vão para o Perfil de Perdas, não para a produção
+            const ehPerfil = async (f) => { if (!/\.csv$/i.test(f.name)) return false; const cab = (await f.slice(0, 200).text()).replace(/^\uFEFF/, '');
+                return /^(dataHoraInicio;dataHoraFim|dataHora;producao|cod_maquina;ID;|maquina;cod_maquina;)/i.test(cab); };
+            const perfilArqs = [];
+            for (const f of files) if (await ehPerfil(f)) perfilArqs.push(f);
+            if (perfilArqs.length) {
+                files = files.filter(f => !perfilArqs.includes(f));
+                await perfilImportar({ files: perfilArqs, value: '' });
+                if (activeTab !== 'perfil') setTab('perfil');
+                if (!files.length) return;
+            }
             showError(null);
             const fc = document.getElementById('file-count');
             fc.classList.remove('hide');
