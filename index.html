@@ -982,6 +982,26 @@
         .pf-rosca-c b { font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
         .pf-rosca-c b.ok { color: var(--ok-t); } .pf-rosca-c b.warn { color: #D99000; } .pf-rosca-c b.bad { color: var(--bad-t); }
         .pf-rosca-c span { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--lbl2); }
+        .pf-hm { border-collapse: separate; border-spacing: 3px; width: 100%; font-variant-numeric: tabular-nums; }
+        .pf-hm th { font-size: 11px; font-weight: 600; color: var(--lbl2); padding: 0 2px; text-align: center; white-space: nowrap; }
+        .pf-hm tbody th { text-align: left; padding-right: 6px; color: #334155; } html.dark .pf-hm tbody th { color: #cbd5e1; }
+        .pf-hm td { padding: 0; }
+        .pf-hm-c { display: flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; border-radius: 7px; font-size: 11px; font-weight: 600; color: #334155; transition: transform .12s; }
+        html.dark .pf-hm-c { color: #e2e8f0; }
+        .pf-hm-c:hover { transform: scale(1.12); box-shadow: 0 0 0 2px var(--blue); position: relative; z-index: 1; }
+        .pf-hm-c.vazio { background: var(--fill); opacity: .45; } .pf-hm-c.vazio:hover { transform: none; box-shadow: none; }
+        .pf-hm-h td.pf-hm-t, .pf-hm-h th.pf-hm-t { padding-left: 6px; }
+        .pf-hm-v tr.pf-hm-t > * { padding-top: 6px; }
+        .pf-hm-c.pouco { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,255,255,.35) 4px 6px); }
+        .pf-hm-v { display: none; }
+        @media (max-width: 640px) { .pf-hm-h { display: none; } .pf-hm-v { display: table; } .pf-hm-c { min-width: 0; height: 26px; } }
+        .pf-hm-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+        .pf-hm-lbl { font-size: 12px; font-weight: 600; color: var(--lbl2); margin-right: 2px; }
+        .pf-hm-chip { display: inline-flex; gap: 6px; align-items: baseline; padding: 5px 10px; border-radius: 999px; background: var(--inset); font-size: 12px; color: var(--lbl2); }
+        .pf-hm-chip b { color: #0f172a; font-weight: 700; } html.dark .pf-hm-chip b { color: #fff; }
+        .pf-hm-leg { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--lbl2); }
+        .pf-hm-leg i { display: block; width: 72px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgba(229,72,77,.08), rgba(229,72,77,.96)); }
+        .pf-hm-leg i.prod { background: linear-gradient(90deg, rgba(0,111,185,.08), rgba(0,111,185,.96)); }
         .pf-uso-l { display: flex; flex-direction: column; gap: 10px; }
         .pf-uso-i { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--inset); }
         .pf-uso-dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 4px; }
@@ -7337,8 +7357,8 @@
         };
 
         // ===== Perfil de Perdas (dados da automação: medicao.csv e registrosProducao.csv) — só Montagem =====
-        const perfilState = { anos: null, meses: null, dias: null, linha: 'Todas', equip: 'Todos', turno: 'Todos', micro: 2, alto: false, aberto: null };
-        (() => { const p = loadPref('perfil', null); if (p) { perfilState.micro = [1, 2, 5].includes(p.micro) ? p.micro : 2; perfilState.alto = p.alto === true; } })();
+        const perfilState = { anos: null, meses: null, dias: null, linha: 'Todas', equip: 'Todos', turno: 'Todos', micro: 2, alto: false, mapa: 'parado', aberto: null };
+        (() => { const p = loadPref('perfil', null); if (p) { perfilState.micro = [1, 2, 5].includes(p.micro) ? p.micro : 2; perfilState.alto = p.alto === true; if (p.mapa === 'prod') perfilState.mapa = 'prod'; } })();
         let perfilDados = null, perfilCarregando = false; // { 'AAAA-MM': { r, h, p, q } }
         let perfilDesc = {}; // descrição dos alarmes: { 'LIM12|EVP|código': 'descrição em português' }
         const getPerfilCollection = () => collection(db, 'dashboard_perfil');
@@ -7492,8 +7512,44 @@
             else if (k === 'linha') { st.linha = v; st.equip = 'Todos'; }
             else st[k] = v;
             st.aberto = manter ? k : null;
-            savePref('perfil', { micro: st.micro, alto: st.alto });
+            savePref('perfil', { micro: st.micro, alto: st.alto, mapa: st.mapa });
             destroyCharts(); renderPerfilContent(); lucide.createIcons();
+        };
+        // Números escritos no gráfico (Perfil de Perdas). Em cada dataset: rotulo(v) => texto; rotuloPos: 'base' | 'topo' | 'ponto' | 'total'
+        const pfNums = {
+            id: 'pfNums',
+            afterDatasetsDraw(chart) {
+                const { ctx, chartArea: { top, bottom } } = chart;
+                const FONT = '700 10.5px -apple-system, BlinkMacSystemFont, Inter, ui-sans-serif, system-ui, sans-serif';
+                ctx.save(); ctx.font = FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                chart.data.datasets.forEach((ds, di) => {
+                    if (!ds.rotulo || !chart.isDatasetVisible(di)) return;
+                    const meta = chart.getDatasetMeta(di), pts = meta.data;
+                    const txts = ds.data.map((v, i) => { if (ds.rotuloPos === 'total') { v = chart.data.datasets.reduce((a, d, j) => a + (chart.isDatasetVisible(j) && d.stack === ds.stack ? (+d.data[i] || 0) : 0), 0); } return v == null || v === 0 || !Number.isFinite(+v) ? '' : ds.rotulo(v, i); });
+                    // Sem espaço para todos: escreve um a cada k
+                    const passo = pts.length > 1 ? Math.abs(pts[1].x - pts[0].x) : Infinity;
+                    const larg = Math.max(0, ...txts.map(t => ctx.measureText(t).width)) + (ds.rotuloPos === 'ponto' ? 12 : 4);
+                    const k = Math.max(1, Math.ceil(larg / Math.max(1, passo)));
+                    pts.forEach((el, i) => {
+                        const t = txts[i]; const ralo = ds.rotuloPos === 'ponto' || ds.rotuloPos === 'total'; if (!t || el.skip || (ralo && i % k && (i !== pts.length - 1 || i % k < k / 2))) return;
+                        if (ds.rotuloPos === 'ponto') {
+                            const w = ctx.measureText(t).width + 10, y = Math.max(top + 8, el.y - 14);
+                            ctx.fillStyle = ds.borderColor; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(el.x - w / 2, y - 8, w, 16, 8) : ctx.rect(el.x - w / 2, y - 8, w, 16); ctx.fill();
+                            ctx.fillStyle = '#fff'; ctx.fillText(t, el.x, y + .5); return;
+                        }
+                        const alto = Math.abs(el.base - el.y), tw = ctx.measureText(t).width;
+                        if (ds.rotuloPos === 'total') {
+                            const topo = Math.min(...chart.data.datasets.map((d, j) => d.stack === ds.stack && chart.isDatasetVisible(j) ? chart.getDatasetMeta(j).data[i]?.y ?? Infinity : Infinity));
+                            if (topo - 8 < top - 2) return; ctx.fillStyle = C.label; ctx.fillText(t, el.x, topo - 8); return;
+                        }
+                        // Dentro da barra: deitado se couber na largura; em pé se a barra for estreita mas alta; senão, por cima
+                        if (el.width >= tw + 6 && alto > 22) { ctx.fillStyle = '#fff'; ctx.fillText(t, el.x, ds.rotuloPos === 'base' ? el.base - 9 : el.y + 9); return; }
+                        if (el.width >= 9 && alto >= tw + 10) { ctx.save(); ctx.translate(el.x, ds.rotuloPos === 'base' ? el.base - 5 : el.y + 5); ctx.rotate(-Math.PI / 2); ctx.textAlign = ds.rotuloPos === 'base' ? 'left' : 'right'; ctx.fillStyle = '#fff'; ctx.fillText(t, 0, .5); ctx.restore(); return; }
+                        if (el.width >= tw + 2 && el.y - 8 > top) { ctx.fillStyle = C.label; ctx.fillText(t, el.x, el.y - 8); }
+                    });
+                });
+                ctx.restore();
+            }
         };
         function renderPerfilContent() {
             const box = document.getElementById('perfil-content');
@@ -7649,7 +7705,7 @@
                     <div class="pf-regua-b">${partes.map(([n, v, c]) => `<i style="width:${(potencial ? v / potencial * 100 : 0).toFixed(2)}%;background:${c}" title="${n}: ${fmt(v)} baterias"></i>`).join('')}</div>
                     <div class="pf-regua-l">${partes.map(([n, v, c, sub]) => `<div class="pf-uso-i"><span class="pf-uso-dot" style="background:${c}"></span><div class="min-w-0 flex-1"><p class="pf-uso-n">${n}</p><p class="pf-uso-s">${sub}</p></div>
                         <div class="text-right"><p class="pf-uso-v">${fmt(v)}</p><p class="pf-uso-s">${fmt(potencial ? v / potencial * 100 : 0, 1)}%</p></div></div>`).join('')}</div>
-                    <div class="chart-box h-72 mt-5"><canvas id="pf-regua-dia"></canvas></div>
+                    <p class="pf-hm-lbl mt-5">Por dia · no topo, quanto do potencial virou bateria</p><div class="chart-box h-72 mt-2"><canvas id="pf-regua-dia"></canvas></div>
                     ${semContagem.size ? `<p class="text-xs font-medium text-amber-700 mt-3">Ficaram fora da régua ${semContagem.size} ${semContagem.size === 1 ? 'dia' : 'dias'} em que a máquina rodou, mas a automação não mandou a contagem de baterias: ${[...semContagem].sort().map(d => fmtDate(d, { day: '2-digit', month: '2-digit' })).join(', ')}.</p>` : ''}
                     <p class="text-xs text-slate-400 mt-3">${batVazio >= potencial * 0.005 ? '"Rodando sem produzir": a máquina aparece como rodando, mas passa mais de 2 min sem sair bateria e sem parada registrada. ' : ''}Só a COS tem contagem de baterias, então a régua usa as perdas dela. Quando a EVP para, a COS fica sem conjuntos e essa parada já aparece aqui; por isso a EVP não é somada de novo.</p>
                 </div></section>`; })();
@@ -7660,6 +7716,61 @@
             const tabelaMot = `<div class="pf-mot">${motivos.slice(0, 15).map(([k, o], i) => `<div class="pf-mot-l"><span class="pf-mot-n">${i + 1}</span><span class="pf-mot-t" title="${esc(k)}">${esc(perfilMotivo(k, motMaq[k]))}${perfilMotivo(k, motMaq[k]) !== perfilBonito(k) && perfilMotivo(k, motMaq[k]) !== k ? `<small>${esc(k)}</small>` : ''}</span>
                 <span class="pf-mot-b"><i style="width:${(o.m / motivos[0][1].m * 100).toFixed(1)}%"></i><i class="mi" style="width:${(o.micro / motivos[0][1].m * 100).toFixed(1)}%"></i></span>
                 <span class="pf-mot-v"><b>${fmt(o.m)} min</b><em>${fmt(o.n)}× · ${fmt(o.m / totalPerdas * 100, 0)}%</em></span></div>`).join('') || '<p class="text-sm text-slate-400">Sem paradas no filtro.</p>'}</div>`;
+            // ---- Mapa de calor: hora × dia da semana (dia de produção: a madrugada conta no dia em que o turno 3 começou) ----
+            const mapa = (() => {
+                const SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], SEM_L = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'], ORD = [1, 2, 3, 4, 5, 6, 0];
+                const dds = (ds) => new Date(ds + 'T12:00:00').getDay();
+                const hrs = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
+                const modo = temProd && st.mapa === 'prod' ? 'prod' : 'parado';
+                const cel = {}; const k = (w, h) => w + '|' + h;
+                if (modo === 'parado') {
+                    // tempo medido de cada turno (rodando + parado), repartido pelas 8 horas do turno
+                    const medT = {}; R.forEach(x => { const m = x[4] === '·run' ? x[12] : (PERFIL_ALTO.test(x[4]) && !st.alto ? 0 : x[6] + x[8] + x[10] + x[12]); const kk = x[0] + '|' + x[3]; medT[kk] = (medT[kk] || 0) + m; });
+                    Object.entries(medT).forEach(([kk, m]) => { if (m < 120) return; /* turno com menos de 2 h medidas = linha fora de operação */ const [ds, t] = kk.split('|'), w = dds(ds);
+                        hrs.filter(h => turnoDaHora(h) === t).forEach(h => { const c = cel[k(w, h)] || (cel[k(w, h)] = { v: 0, disp: 0, n: 0, d: new Set() }); c.disp += m / 8; c.d.add(ds); c.n = c.d.size; }); });
+                    Hh.forEach(x => { const c = cel[k(dds(x[0]), x[3])]; if (c) c.v += x[4] + (st.alto ? x[5] : 0); });
+                    Object.values(cel).forEach(c => { c.p = c.disp >= 5 ? Math.min(100, c.v / c.disp * 100) : null; });
+                } else {
+                    const diasW = {}; Q.forEach(x => { (diasW[dds(x[0])] || (diasW[dds(x[0])] = new Set())).add(x[0]); });
+                    Object.entries(diasW).forEach(([w, ds]) => hrs.forEach(h => { if (okT(turnoDaHora(h))) cel[k(w, h)] = { v: 0, n: ds.size }; }));
+                    Q.forEach(x => { const c = cel[k(dds(x[0]), x[3])]; if (c) c.v += x[4]; });
+                    Object.values(cel).forEach(c => { c.p = c.n && c.v ? c.v / c.n : null; }); // hora sem nenhuma bateria = máquina fora de operação
+                }
+                const comP = Object.values(cel).filter(c => c.p !== null);
+                if (!comP.length) return '';
+                // A escala de cor ignora as horas vistas em um dia só (quando há mais dias), para um dia atípico não apagar o resto
+                const vals = (comP.some(c => c.n >= 2) ? comP.filter(c => c.n >= 2) : comP).map(c => c.p);
+                const max = Math.max(...vals) || 1, min = Math.min(...vals);
+                const cor = (p) => { if (p === null) return null; const t = Math.max(0, Math.min(1, modo === 'parado' ? p / max : (max > min ? (p - min) / (max - min) : 1)));
+                    const a = 0.08 + 0.88 * t; return { bg: modo === 'parado' ? `rgba(229,72,77,${a.toFixed(2)})` : `rgba(0,111,185,${a.toFixed(2)})`, fg: a > 0.55 ? '#fff' : null }; };
+                const txt = (p) => modo === 'parado' ? fmt(p, 0) : fmt(p, 0);
+                const dica = (w, h, c) => `${SEM_L[w]}, ${String(h).padStart(2, '0')}h: ` + (modo === 'parado'
+                    ? `${fmt(c.p, 1)}% parado · ${fmt(c.v)} min em ${c.n} ${c.n === 1 ? 'dia' : 'dias'}`
+                    : `${fmt(c.p, 0)} baterias por hora (média de ${c.n} ${c.n === 1 ? 'dia' : 'dias'})`);
+                const td = (w, h) => { const c = cel[k(w, h)]; if (!c || c.p === null) return `<td><span class="pf-hm-c vazio"></span></td>`;
+                    const q = cor(c.p), pouco = c.n < 2 && vals.length < comP.length; return `<td><span class="pf-hm-c${pouco ? ' pouco' : ''}" title="${esc(dica(w, h, c) + (pouco ? ' · só 1 dia, fora da escala de cor' : ''))}" style="background:${q.bg}${q.fg ? `;color:${q.fg}` : ''}">${txt(c.p)}</span></td>`; };
+                const semUsadas = ORD.filter(w => hrs.some(h => cel[k(w, h)]));
+                const hh = (h) => String(h).padStart(2, '0');
+                const sepT = (h) => h === 14 || h === 22 ? ' class="pf-hm-t"' : '';
+                const horiz = `<table class="pf-hm pf-hm-h"><thead><tr><th></th>${hrs.map(h => `<th${sepT(h)}>${hh(h)}</th>`).join('')}</tr></thead>
+                    <tbody>${semUsadas.map(w => `<tr><th>${SEM[w]}</th>${hrs.map(h => td(w, h).replace('<td>', `<td${sepT(h)}>`)).join('')}</tr>`).join('')}</tbody></table>`;
+                const vert = `<table class="pf-hm pf-hm-v"><thead><tr><th></th>${semUsadas.map(w => `<th>${SEM[w]}</th>`).join('')}</tr></thead>
+                    <tbody>${hrs.map(h => `<tr${sepT(h)}><th>${hh(h)}h</th>${semUsadas.map(w => td(w, h)).join('')}</tr>`).join('')}</tbody></table>`;
+                // As faixas mais críticas
+                const piores = Object.entries(cel).filter(([, c]) => c.p !== null && c.n >= 2).sort((a, b) => modo === 'parado' ? b[1].p - a[1].p : a[1].p - b[1].p).slice(0, 3);
+                const chips = piores.map(([kk, c]) => { const [w, h] = kk.split('|').map(Number);
+                    return `<span class="pf-hm-chip"><b>${SEM[w]} ${hh(h)}h</b>${modo === 'parado' ? fmt(c.p, 0) + '% parado' : fmt(c.p, 0) + ' bat/h'}</span>`; }).join('');
+                const segM = temProd ? `<div class="seg no-print"><button onclick="setPerfil('mapa','parado')" class="${modo === 'parado' ? 'active' : ''}">% parado</button><button onclick="setPerfil('mapa','prod')" class="${modo === 'prod' ? 'active' : ''}">Baterias/h</button></div>` : '';
+                const leg = modo === 'parado' ? ['0%', `${fmt(max, 0)}%`] : [fmt(min, 0), fmt(max, 0)];
+                return `<section class="print-break ${CARD} p-5 sm:p-6">
+                    ${sectionHead('Mapa de calor · hora × dia da semana', modo === 'parado'
+                        ? `% do tempo parado em cada hora, somando os dias do período${st.alto ? '' : ' (sem tempo alto)'} · a madrugada conta no dia em que o turno 3 começou`
+                        : `Baterias por hora, média dos dias do período · a madrugada conta no dia em que o turno 3 começou`, segM, 'grid-3x3')}
+                    <div class="pf-hm-top"><span class="pf-hm-lbl">${modo === 'parado' ? 'Horas mais críticas' : 'Horas mais fracas'}</span>${chips}
+                        <span class="pf-hm-leg">${leg[0]}<i class="${modo}"></i>${leg[1]}</span></div>
+                    <div class="overflow-x-auto custom-scrollbar">${horiz}${vert}</div>
+                </section>`;
+            })();
             box.innerHTML = `
             <section class="${CARD} p-4 sm:p-5">${filtros}</section>
             ${kpis}
@@ -7680,7 +7791,7 @@
                 ${tabelaMot}
             </section>
             <section class="print-break ${CARD} p-5 sm:p-6">
-                ${sectionHead('Perdas por dia', 'Minutos parados das 5 maiores causas e das demais · linha: % do tempo rodando', '', 'calendar-days')}
+                ${sectionHead('Perdas por dia', 'Minutos parados das 5 maiores causas e das demais · número no topo: total do dia · linha: % do tempo rodando', '', 'calendar-days')}
                 <div class="chart-box h-80"><canvas id="pf-dia"></canvas></div>
             </section>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
@@ -7702,7 +7813,8 @@
                     ${sectionHead('Por hora do dia', 'Minutos parados em cada hora (soma do período) · barras: produção', '', 'clock-3')}
                     <div class="chart-box h-64"><canvas id="pf-hora"></canvas></div>
                 </section>
-            </div>`;
+            </div>
+            ${mapa}`;
             if (!window.Chart) return;
             const lab = (d) => fmtDate(d, { day: '2-digit', month: '2-digit' });
             const cores = ['#E5484D', '#F59E0B', '#006FB9', '#8B5CF6', '#14B8A6'];
@@ -7710,10 +7822,10 @@
                 data: { labels: ['Rodando', `Micro paradas (< ${st.micro} min)`, 'Paradas'], datasets: [{ data: [run, microM, paradaM].map(v => Math.round(v)), backgroundColor: [C.good, '#F59E0B', C.bad], borderColor: C.card, borderWidth: 4, borderRadius: 6, spacing: 2, hoverOffset: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false },
                     tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${fmt(c.raw)} min (${fmt(total ? c.raw / total * 100 : 0, 1)}%)` } } } } });
-            charts.pfDia = new Chart(document.getElementById('pf-dia'), {
+            charts.pfDia = new Chart(document.getElementById('pf-dia'), { plugins: [pfNums],
                 data: { labels: dias.map(lab), datasets: [
                     ...top5.map((k, i) => ({ type: 'bar', label: perfilMotivo(k, motMaq[k]), data: dias.map(d => Math.round((porDia[d] || {})[k] || 0)), backgroundColor: cores[i], stack: 's', yAxisID: 'y', order: 2 })),
-                    { type: 'bar', label: 'Demais', data: dias.map(d => Math.round(Object.entries(porDia[d] || {}).filter(([k]) => !top5.includes(k)).reduce((s, [, v]) => s + v, 0))), backgroundColor: C.muted, stack: 's', yAxisID: 'y', order: 2 },
+                    { type: 'bar', label: 'Demais', data: dias.map(d => Math.round(Object.entries(porDia[d] || {}).filter(([k]) => !top5.includes(k)).reduce((s, [, v]) => s + v, 0))), backgroundColor: C.muted, stack: 's', yAxisID: 'y', order: 2, rotulo: (v) => fmt(v), rotuloPos: 'total' },
                     { type: 'line', label: '% rodando', data: dias.map(d => { const p = Object.values(porDia[d] || {}).reduce((s, v) => s + v, 0), r = runDia[d] || 0; return r + p ? +(r / (r + p) * 100).toFixed(1) : null; }), borderColor: C.navy, backgroundColor: C.navy, borderWidth: 2, pointRadius: 2, tension: 0.25, yAxisID: 'y2', order: 1 }
                 ] },
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
@@ -7725,11 +7837,11 @@
                 const diasP = dias.filter(d => histDia[d]);
                 // eixo do ciclo perto dos valores, para a variação de décimos aparecer
                 const valsC = diasP.map(d => media(histDia[d])).filter(v => v !== null);
-                const faixaCiclo = valsC.length ? { min: Math.max(0, Math.floor(Math.min(...valsC)) - 2), max: Math.ceil(Math.max(...valsC)) + 2 } : { beginAtZero: true };
-                charts.pfCicloDia = new Chart(document.getElementById('pf-ciclo-dia'), {
+                const faixaCiclo = valsC.length ? { min: Math.max(0, Math.floor(Math.min(...valsC)) - 3), max: Math.ceil(Math.max(...valsC)) + 2 } : { beginAtZero: true };
+                charts.pfCicloDia = new Chart(document.getElementById('pf-ciclo-dia'), { plugins: [pfNums],
                     data: { labels: diasP.map(lab), datasets: [
-                        { type: 'line', label: 'Ciclo real (média, s)', data: diasP.map(d => +media(histDia[d]).toFixed(1)), borderColor: C.bad, backgroundColor: C.bad, borderWidth: 2.5, pointRadius: 3, tension: 0.25, yAxisID: 'y2', order: 1 },
-                        { type: 'bar', label: 'Baterias', data: diasP.map(d => prodDia[d] || 0), backgroundColor: C.blue, yAxisID: 'y', order: 2 }
+                        { type: 'line', label: 'Ciclo real (média, s)', data: diasP.map(d => +media(histDia[d]).toFixed(1)), borderColor: C.bad, backgroundColor: C.bad, borderWidth: 2.5, pointRadius: 3, tension: 0.25, yAxisID: 'y2', order: 1, rotulo: (v) => fmt(v, 1), rotuloPos: 'ponto' },
+                        { type: 'bar', label: 'Baterias', data: diasP.map(d => prodDia[d] || 0), backgroundColor: C.blue, yAxisID: 'y', order: 2, rotulo: (v) => fmt(v), rotuloPos: 'base' }
                     ] },
                     options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                         scales: { x: axisX(), y: axisY(), y2: { position: 'right', ...faixaCiclo, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v, 1) + ' s' } } },
@@ -7742,10 +7854,10 @@
                     options: { responsive: true, maintainAspectRatio: false, scales: { x: { ...axisX(), ticks: { maxTicksLimit: 12 } }, y: axisY() },
                         plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => `Ciclo de ${segs[it[0].dataIndex]} s`, label: (c) => `${fmt(c.raw)} baterias` } } } } });
             }
-            charts.pfTurno = new Chart(document.getElementById('pf-turno'), {
+            charts.pfTurno = new Chart(document.getElementById('pf-turno'), { plugins: [pfNums],
                 data: { labels: ['Turno 01', 'Turno 02', 'Turno 03'], datasets: [
-                    { type: 'bar', label: 'Minutos perdidos', data: ['1', '2', '3'].map(t => Math.round(porTurno[t][0])), backgroundColor: C.bad, borderRadius: 6, maxBarThickness: 60, yAxisID: 'y', order: 2 },
-                    { type: 'line', label: 'Ocorrências', data: ['1', '2', '3'].map(t => porTurno[t][1]), borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 2.5, pointRadius: 5, yAxisID: 'y2', order: 1 }
+                    { type: 'bar', label: 'Minutos perdidos', data: ['1', '2', '3'].map(t => Math.round(porTurno[t][0])), backgroundColor: C.bad, borderRadius: 6, maxBarThickness: 60, yAxisID: 'y', order: 2, rotulo: (v) => fmt(v) + ' min', rotuloPos: 'base' },
+                    { type: 'line', label: 'Ocorrências', data: ['1', '2', '3'].map(t => porTurno[t][1]), borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 2.5, pointRadius: 5, yAxisID: 'y2', order: 1, rotulo: (v) => fmt(v) + '×', rotuloPos: 'ponto' }
                 ] },
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                     scales: { x: axisX(), y: { ...axisY(), title: { display: true, text: 'min', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
@@ -7756,13 +7868,13 @@
             if (temProd && document.getElementById('pf-regua-dia')) {
                 const dR = dias.filter(d => prodDia[d] || perdaDiaP[d] || runDiaP[d]);
                 const dv = (d) => histDia[d] ? lentSeg(histDia[d]) / ritmo : 0;
-                charts.pfReguaDia = new Chart(document.getElementById('pf-regua-dia'), { type: 'bar',
+                charts.pfReguaDia = new Chart(document.getElementById('pf-regua-dia'), { plugins: [pfNums], type: 'bar',
                     data: { labels: dR.map(lab), datasets: [
                         { label: 'Produzidas', data: dR.map(d => prodDia[d] || 0), backgroundColor: C.good, stack: 's' },
                         { label: 'Lentidão', data: dR.map(d => Math.round(dv(d))), backgroundColor: '#8B5CF6', stack: 's' },
                         { label: 'Rodando sem produzir', data: dR.map(d => Math.round(bat(vazioMin(runDiaP[d] || 0, prodDia[d] || 0, histDia[d] ? lentSeg(histDia[d]) : 0)))), backgroundColor: '#64748B', stack: 's' },
                         { label: 'Micro paradas', data: dR.map(d => Math.round(bat((perdaDiaP[d] || [0, 0])[0]))), backgroundColor: '#F59E0B', stack: 's' },
-                        { label: 'Paradas', data: dR.map(d => Math.round(bat((perdaDiaP[d] || [0, 0])[1]))), backgroundColor: C.bad, stack: 's' }
+                        { label: 'Paradas', data: dR.map(d => Math.round(bat((perdaDiaP[d] || [0, 0])[1]))), backgroundColor: C.bad, stack: 's', rotulo: (v, i) => fmt((prodDia[dR[i]] || 0) / v * 100, 0) + '%', rotuloPos: 'total' }
                     ] },
                     options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                         scales: { x: { ...axisX(), stacked: true }, y: { ...axisY(), stacked: true, title: { display: true, text: 'baterias', color: C.text3 } } },
