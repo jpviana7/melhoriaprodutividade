@@ -975,8 +975,7 @@
         .pf-mot-v b { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-mot-v b { color: #fff; }
         .pf-mot-v em { font-style: normal; font-size: 11px; color: var(--lbl2); white-space: nowrap; }
         @media (max-width: 640px) { .pf-mot-l { grid-template-columns: 18px minmax(0, 1fr) auto; } .pf-mot-b { grid-column: 2 / -1; grid-row: 2; } }
-        .pf-uso { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) minmax(0, 1.2fr); gap: 28px; align-items: center; }
-        @media (max-width: 1100px) { .pf-uso { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); } .pf-uso-m { grid-column: 1 / -1; } }
+        .pf-uso { display: grid; grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); gap: 28px; align-items: center; }
         @media (max-width: 640px) { .pf-uso { grid-template-columns: 1fr; gap: 18px; } }
         .pf-rosca { position: relative; height: 280px; } @media (max-width: 640px) { .pf-rosca { height: 240px; max-width: 260px; margin: 0 auto; } }
         .pf-rosca-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
@@ -989,11 +988,6 @@
         .pf-uso-n { font-size: 14.5px; font-weight: 700; color: #0f172a; } html.dark .pf-uso-n { color: #fff; }
         .pf-uso-v { font-size: 22px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-uso-v { color: #fff; }
         .pf-uso-s { font-size: 12px; color: var(--lbl2); }
-        .pf-maq + .pf-maq { margin-top: 12px; }
-        .pf-maq-h { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: #334155; margin-bottom: 5px; } html.dark .pf-maq-h { color: #cbd5e1; }
-        .pf-maq-h span { font-weight: 600; } .pf-maq-h b { font-size: 12px; font-weight: 700; }
-        .pf-maq-b { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--fill); gap: 2px; }
-        .pf-maq-b i { display: block; height: 100%; transform-origin: left; animation: carga .9s var(--ease-out) backwards; }
         .pf-regua-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
         .pf-regua-n { margin-top: 4px; font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-regua-n { color: #fff; }
         .pf-regua-n.text-rose-600 { color: var(--bad-t); }
@@ -7549,16 +7543,14 @@
             let run = 0, microM = 0, microN = 0, paradaM = 0, paradaN = 0, altoM = 0;
             const motMaq = {}; // máquina (linha|equipamento) de cada motivo, para achar a descrição
             const porMot = {}, porDia = {}, porTurno = { '1': [0, 0, 0], '2': [0, 0, 0], '3': [0, 0, 0] }, runDia = {};
-            const porMaq = {}; // uso do tempo de cada máquina (linha · equipamento)
-            const maqDe = (x) => porMaq[`${x[1]} · ${x[2]}`] || (porMaq[`${x[1]} · ${x[2]}`] = { run: 0, micro: 0, parada: 0 });
             R.forEach(x => {
-                if (x[4] === '·run') { maqDe(x).run += x[12]; run += x[12]; runDia[x[0]] = (runDia[x[0]] || 0) + x[12]; return; }
+                if (x[4] === '·run') { run += x[12]; runDia[x[0]] = (runDia[x[0]] || 0) + x[12]; return; }
                 const alto = PERFIL_ALTO.test(x[4]);
                 if (alto) altoM += x[6] + x[8] + x[10] + x[12];
                 if (alto && !st.alto) return;
                 let mm = 0, mn = 0, pm = 0, pn = 0;
                 for (let b = 0; b < 4; b++) { if (b < nb) { mm += x[6 + b * 2]; mn += x[5 + b * 2]; } else { pm += x[6 + b * 2]; pn += x[5 + b * 2]; } }
-                microM += mm; microN += mn; paradaM += pm; paradaN += pn; const mq = maqDe(x); mq.micro += mm; mq.parada += pm;
+                microM += mm; microN += mn; paradaM += pm; paradaN += pn;
                 if (!motMaq[x[4]]) motMaq[x[4]] = `${x[1]}|${x[2]}`;
                 const o = porMot[x[4]] || (porMot[x[4]] = { m: 0, n: 0, micro: 0 }); o.m += mm + pm; o.n += mn + pn; o.micro += mm;
                 const d = porDia[x[0]] || (porDia[x[0]] = {}); d[x[4]] = (d[x[4]] || 0) + mm + pm;
@@ -7679,12 +7671,6 @@
                         ${[['Rodando', run, C.good, 'Máquina produzindo'], [`Micro paradas`, microM, '#F59E0B', `Paradas curtas (&lt; ${st.micro} min) · ${fmt(microN)} vezes`], ['Paradas', paradaM, C.bad, `${st.micro} min ou mais · ${fmt(paradaN)} vezes`]].map(([n, v, c, sub]) => `
                         <div class="pf-uso-i"><span class="pf-uso-dot" style="background:${c}"></span><div class="min-w-0 flex-1"><p class="pf-uso-n">${n}</p><p class="pf-uso-s">${sub}</p></div>
                             <div class="text-right"><p class="pf-uso-v">${fmt(total ? v / total * 100 : 0, 1)}%</p><p class="pf-uso-s">${fmt(v)} min</p></div></div>`).join('')}
-                    </div>
-                    <div class="pf-uso-m">
-                        <p class="filter-label mb-2">Por máquina</p>
-                        ${Object.entries(porMaq).filter(([, o]) => o.run + o.micro + o.parada > 0).sort((a, b) => a[0].localeCompare(b[0], 'pt', { numeric: true })).map(([k, o]) => { const t = o.run + o.micro + o.parada;
-                            return `<div class="pf-maq"><div class="pf-maq-h"><span>${esc(k)}</span><b class="${o.run / t * 100 >= 85 ? 'text-emerald-600' : o.run / t * 100 >= 70 ? 'text-amber-600' : 'text-rose-600'}">${fmt(o.run / t * 100, 0)}% rodando</b></div>
-                            <div class="pf-maq-b" title="Rodando ${fmt(o.run)} min · micro ${fmt(o.micro)} min · paradas ${fmt(o.parada)} min"><i style="width:${(o.run / t * 100).toFixed(1)}%;background:${C.good}"></i><i style="width:${(o.micro / t * 100).toFixed(1)}%;background:#F59E0B"></i><i style="width:${(o.parada / t * 100).toFixed(1)}%;background:${C.bad}"></i></div></div>`; }).join('')}
                     </div>
                 </div>
             </section>
