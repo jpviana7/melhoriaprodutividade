@@ -959,9 +959,9 @@
         .pf-opcoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; padding-top: 14px; border-top: .5px solid var(--sep); }
         .pf-chk { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; } html.dark .pf-chk { color: #cbd5e1; }
         .pf-chk input { width: 16px; height: 16px; accent-color: #1B2F88; }
-        .pf-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+        .pf-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
         @media (max-width: 1100px) { .pf-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-        @media (max-width: 640px) { .pf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-kpis > :first-child { grid-column: 1 / -1; } }
+        @media (max-width: 640px) { .pf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .pf-mot { display: flex; flex-direction: column; }
         .pf-mot-l { display: grid; grid-template-columns: 22px minmax(0, 1.3fr) minmax(60px, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; }
         .pf-mot-l + .pf-mot-l { border-top: .5px solid var(--sep); }
@@ -994,6 +994,15 @@
         .pf-maq-h span { font-weight: 600; } .pf-maq-h b { font-size: 12px; font-weight: 700; }
         .pf-maq-b { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--fill); gap: 2px; }
         .pf-maq-b i { display: block; height: 100%; transform-origin: left; animation: carga .9s var(--ease-out) backwards; }
+        .pf-regua-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+        .pf-regua-n { margin-top: 4px; font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-regua-n { color: #fff; }
+        .pf-regua-n.text-rose-600 { color: var(--bad-t); }
+        .pf-regua-n small { font-size: 13px; font-weight: 600; color: var(--lbl2); letter-spacing: 0; }
+        .pf-regua-b { display: flex; gap: 2px; height: 26px; border-radius: 9px; overflow: hidden; background: var(--fill); }
+        .pf-regua-b i { display: block; height: 100%; transform-origin: left; animation: carga 1s var(--ease-out) backwards; }
+        .pf-regua-l { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 14px; }
+        @media (max-width: 1100px) { .pf-regua-l { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { .pf-regua-l { grid-template-columns: 1fr; } }
         #view-perfil > #perfil-content { display: flex; flex-direction: column; gap: 16px; }
         @media (min-width: 641px) { #view-perfil > #perfil-content { gap: 24px; } }
     </style>
@@ -7571,6 +7580,34 @@
             const cicloMed = quantil(hist, 0.5), cicloMedia = media(hist), cicloP10 = quantil(hist, 0.1), cicloP90 = quantil(hist, 0.9);
             const temProd = prod > 0;
             const linhasProd = [...new Set(P.map(x => x[1]))];
+            // ---- Régua em baterias (só nas máquinas com contagem de baterias) ----
+            // Melhor ritmo = ciclo dos 10% mais rápidos de todo o histórico da linha (não muda com o filtro de data/turno)
+            const lerHist = (txt, soma) => { txt = String(txt || ''); const dec = txt.startsWith('#');
+                txt.replace(/^#/, '').split(' ').forEach(par => { if (!par) return; const [k, q] = par.split(':').map(Number); if (dec) soma(k, q); else for (let j = -5; j < 5; j++) soma(k * 10 + j, q / 10); }); };
+            const okMaq = (x) => !PERFIL_FORA.test(x[1]) && (st.linha === 'Todas' || x[1] === st.linha) && (st.equip === 'Todos' || x[2] === st.equip);
+            const histRef = {}; meses.forEach(m => perfilDados[m].p.filter(okMaq).forEach(x => lerHist(x[5], (b, q) => { histRef[b] = (histRef[b] || 0) + q; })));
+            const ritmo = temProd ? quantil(histRef, 0.1) : null;
+            const lentSeg = (h) => { let s = 0; Object.entries(h).forEach(([k, q]) => { const sx = k / 10; if (sx > ritmo) s += (sx - ritmo) * q; }); return s; };
+            const velSeg = temProd ? lentSeg(hist) : 0;
+            const prodMaq = new Set(P.map(x => `${x[1]}|${x[2]}`));
+            // Só entram os turnos com contagem de baterias (dias em que a automação não mandou a contagem ficam fora da régua)
+            const comContagem = new Set(P.filter(x => x[4] > 0).map(x => `${x[1]}|${x[2]}|${x[0]}|${x[3]}`));
+            const semContagem = new Set();
+            let microP = 0, paradaP = 0, runP = 0; const perdaDiaP = {}, runDiaP = {};
+            R.forEach(x => {
+                if (!prodMaq.has(`${x[1]}|${x[2]}`)) return;
+                if (!comContagem.has(`${x[1]}|${x[2]}|${x[0]}|${x[3]}`)) { if (x[4] === '·run' && x[12] > 30) semContagem.add(x[0]); return; }
+                if (x[4] === '·run') { runP += x[12]; runDiaP[x[0]] = (runDiaP[x[0]] || 0) + x[12]; return; }
+                if (PERFIL_ALTO.test(x[4]) && !st.alto) return;
+                let mm = 0, pm = 0; for (let b = 0; b < 4; b++) { if (b < nb) mm += x[6 + b * 2]; else pm += x[6 + b * 2]; }
+                microP += mm; paradaP += pm; const d = perdaDiaP[x[0]] || (perdaDiaP[x[0]] = [0, 0]); d[0] += mm; d[1] += pm;
+            });
+            const bat = (min) => ritmo ? min * 60 / ritmo : 0; // minutos parados → baterias que o melhor ritmo faria
+            const batParada = bat(paradaP), batMicro = bat(microP), batLent = ritmo ? velSeg / ritmo : 0;
+            // Tempo em que a máquina aparece rodando, mas não sai bateria (intervalos de mais de 2 min sem parada registrada)
+            const vazioMin = (r, p, v) => ritmo ? Math.max(0, r - (p * ritmo + v) / 60) : 0;
+            const vazioP = vazioMin(runP, prod, velSeg), batVazio = bat(vazioP);
+            const potencial = prod + batParada + batMicro + batLent + batVazio;
             // ---- painel do topo ----
             const titPer = st.dias !== null ? (st.dias.length === 1 ? fmtDate(st.dias[0]) : `${st.dias.length} dias`) : st.meses !== null ? st.meses.map(m => shortMonth(m)).join(' + ') || 'Nenhum mês' : st.anos !== null ? st.anos.join(' + ') || 'Nenhum ano' : 'Todo o período';
             setHero('perfil', { periodo: `${titPer}${st.linha !== 'Todas' ? ' · ' + st.linha : ''}${st.equip !== 'Todos' ? ' · ' + st.equip : ''}`,
@@ -7604,8 +7641,26 @@
                 ${kpi('Tempo rodando', comUnidade(fmt(run) + ' min'), pctRun === null ? '' : `<strong class="${pctRun >= 85 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(pctRun, 1)}%</strong> do tempo medido`)}
                 ${kpi('Perdas', comUnidade(fmt(perdas) + ' min'), `${fmt(microM)} min micro · ${fmt(paradaM)} min paradas`, 'text-rose-600')}
                 ${kpi('Ciclo real', cicloMedia === null ? '—' : comUnidade(fmt(cicloMedia, 1) + ' s'), cicloMedia === null ? 'Sem contagem de baterias' : `média · 80% das baterias entre ${fmt(cicloP10, 1)} e ${fmt(cicloP90, 1)} s`)}
+                ${kpi('Perda de velocidade', temProd ? comUnidade(fmt(velSeg / 60) + ' min') : '—', temProd ? `≈ ${fmt(batLent)} baterias · ritmo real ${fmt(cicloMedia, 1)} s × melhor ${fmt(ritmo, 1)} s` : 'Sem contagem de baterias', temProd ? 'text-rose-600' : '')}
                 ${kpi('Ocorrências', fmt(microN + paradaN), `${fmt(microN)} micro paradas · ${fmt(paradaN)} paradas`)}
             </div>`;
+            // Régua: produzido + o que se perdeu (paradas, micro paradas e lentidão), tudo em baterias
+            const regua = !temProd ? '' : (() => {
+                const partes = [['Produzidas', prod, C.good, 'o que saiu de fato'], ['Perdidas em paradas', batParada, C.bad, `${fmt(paradaP)} min parada (${st.micro} min ou mais)`],
+                    ['Perdidas em micro paradas', batMicro, '#F59E0B', `${fmt(microP)} min em paradas curtas`], ['Perdidas por lentidão', batLent, '#8B5CF6', `ciclo acima de ${fmt(ritmo, 1)} s`], ['Rodando sem produzir', batVazio, '#64748B', `${fmt(vazioP)} min "rodando" sem sair bateria`]].filter(x => x[0] !== 'Rodando sem produzir' || x[1] >= potencial * 0.005);
+                const perdidas = batParada + batMicro + batLent + batVazio;
+                return `<section class="print-break ${CARD} p-5 sm:p-6">
+                ${sectionHead('Perdas em baterias', `O que a máquina faria no melhor ritmo (${fmt(ritmo, 1)} s por bateria) e para onde foi · ${linhasProd.map(l => l + ' · COS').join(', ')}`, '', 'battery-charging')}
+                <div class="pf-regua">
+                    <div class="pf-regua-top"><div><p class="filter-label">Potencial no melhor ritmo</p><p class="pf-regua-n">${fmt(potencial)} <small>baterias</small></p></div>
+                        <div class="text-right"><p class="filter-label">Perdidas</p><p class="pf-regua-n text-rose-600">${fmt(perdidas)} <small>${fmt(potencial ? perdidas / potencial * 100 : 0, 0)}%</small></p></div></div>
+                    <div class="pf-regua-b">${partes.map(([n, v, c]) => `<i style="width:${(potencial ? v / potencial * 100 : 0).toFixed(2)}%;background:${c}" title="${n}: ${fmt(v)} baterias"></i>`).join('')}</div>
+                    <div class="pf-regua-l">${partes.map(([n, v, c, sub]) => `<div class="pf-uso-i"><span class="pf-uso-dot" style="background:${c}"></span><div class="min-w-0 flex-1"><p class="pf-uso-n">${n}</p><p class="pf-uso-s">${sub}</p></div>
+                        <div class="text-right"><p class="pf-uso-v">${fmt(v)}</p><p class="pf-uso-s">${fmt(potencial ? v / potencial * 100 : 0, 1)}%</p></div></div>`).join('')}</div>
+                    <div class="chart-box h-72 mt-5"><canvas id="pf-regua-dia"></canvas></div>
+                    ${semContagem.size ? `<p class="text-xs font-medium text-amber-700 mt-3">Ficaram fora da régua ${semContagem.size} ${semContagem.size === 1 ? 'dia' : 'dias'} em que a máquina rodou, mas a automação não mandou a contagem de baterias: ${[...semContagem].sort().map(d => fmtDate(d, { day: '2-digit', month: '2-digit' })).join(', ')}.</p>` : ''}
+                    <p class="text-xs text-slate-400 mt-3">${batVazio >= potencial * 0.005 ? '"Rodando sem produzir": a máquina aparece como rodando, mas passa mais de 2 min sem sair bateria e sem parada registrada. ' : ''}Só a COS tem contagem de baterias, então a régua usa as perdas dela. Quando a EVP para, a COS fica sem conjuntos e essa parada já aparece aqui; por isso a EVP não é somada de novo.</p>
+                </div></section>`; })();
             const motivos = Object.entries(porMot).sort((a, b) => b[1].m - a[1].m);
             const top5 = motivos.slice(0, 5).map(x => x[0]);
             const dias = [...diasSel].filter(d => runDia[d] || porDia[d] || prodDia[d]).sort();
@@ -7633,6 +7688,7 @@
                     </div>
                 </div>
             </section>
+            ${regua}
             <section class="print-break ${CARD} p-5 sm:p-6">
                 ${sectionHead('Principais causas', `Minutos perdidos e ocorrências · parte clara = micro paradas (&lt; ${st.micro} min)`, '', 'list-ordered')}
                 ${tabelaMot}
@@ -7711,6 +7767,23 @@
                         tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidos: ${fmt(c.raw)} min`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = media(histTurno[t]); return m === null ? '' : `Ciclo real: ${fmt(m, 1)} s`; } } } } } });
             const horas = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
             const parH = {}, prodH = {}; Hh.forEach(x => { parH[x[3]] = (parH[x[3]] || 0) + x[4] + (st.alto ? x[5] : 0); }); Q.forEach(x => { prodH[x[3]] = (prodH[x[3]] || 0) + x[4]; });
+            if (temProd && document.getElementById('pf-regua-dia')) {
+                const dR = dias.filter(d => prodDia[d] || perdaDiaP[d] || runDiaP[d]);
+                const dv = (d) => histDia[d] ? lentSeg(histDia[d]) / ritmo : 0;
+                charts.pfReguaDia = new Chart(document.getElementById('pf-regua-dia'), { type: 'bar',
+                    data: { labels: dR.map(lab), datasets: [
+                        { label: 'Produzidas', data: dR.map(d => prodDia[d] || 0), backgroundColor: C.good, stack: 's' },
+                        { label: 'Lentidão', data: dR.map(d => Math.round(dv(d))), backgroundColor: '#8B5CF6', stack: 's' },
+                        { label: 'Rodando sem produzir', data: dR.map(d => Math.round(bat(vazioMin(runDiaP[d] || 0, prodDia[d] || 0, histDia[d] ? lentSeg(histDia[d]) : 0)))), backgroundColor: '#64748B', stack: 's' },
+                        { label: 'Micro paradas', data: dR.map(d => Math.round(bat((perdaDiaP[d] || [0, 0])[0]))), backgroundColor: '#F59E0B', stack: 's' },
+                        { label: 'Paradas', data: dR.map(d => Math.round(bat((perdaDiaP[d] || [0, 0])[1]))), backgroundColor: C.bad, stack: 's' }
+                    ] },
+                    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                        scales: { x: { ...axisX(), stacked: true }, y: { ...axisY(), stacked: true, title: { display: true, text: 'baterias', color: C.text3 } } },
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
+                            tooltip: { ...tooltipStyle, displayColors: true, callbacks: { title: (it) => fmtDate(dR[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => `${c.dataset.label}: ${fmt(c.raw)}`,
+                                footer: (it) => { const i = it[0].dataIndex, tot = it.reduce((a, x) => a + x.raw, 0); return `Potencial: ${fmt(tot)} · produzido ${fmt(tot ? it[0].raw / tot * 100 : 0, 0)}%`; } } } } } });
+            }
             charts.pfHora = new Chart(document.getElementById('pf-hora'), {
                 data: { labels: horas.map(h => String(h).padStart(2, '0') + 'h'), datasets: [
                     { type: 'line', label: 'Minutos parados', data: horas.map(h => Math.round(parH[h] || 0)), borderColor: C.bad, backgroundColor: C.bad + '22', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y', order: 1 },
