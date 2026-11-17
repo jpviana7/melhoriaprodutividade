@@ -7004,7 +7004,7 @@
         // ===== App dos líderes (endereço /lideres): produção e scrap de uma linha, sem filtros =====
         let liderSel = loadPref('lider', null); // { ugb, linha } ('' em linha = a UGB inteira)
         let liderPasso = null;
-        let liderAba = loadPref('liderAba', 'prod'); // 'prod' ou 'scrap'
+        let liderAba = 'prod'; // a aba de scrap foi retirada do app dos líderes
         window.setLiderAba = function(a) { liderAba = a; savePref('liderAba', a); heroAba = null; renderLider(); lucide.createIcons(); window.scrollTo({ top: 0 }); };                  // escolha em andamento: { ugb } ou {}
         const RAIO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
         window.liderEscolher = function(ugb, linha, turno) {
@@ -7144,7 +7144,7 @@
             const u = ultimaProducao, velho = !u || Date.now() - new Date(u.at).getTime() > 12 * 3600 * 1000;
             const ultDia = rawData.reduce((mx, d) => set.has(d.maquina) && d.prod > 0 && d.date > mx ? d.date : mx, '');
             const atualiz = `<div class="ld-upd ${velho ? 'velho' : ''}"><span class="ld-upd-dot"></span><span>${u ? `Atualizado <strong>${fmtQuando(u.at)}</strong>` : 'Atualização sem registro'}</span>${ultDia ? `<em>dados até ${fmtDate(ultDia, { day: '2-digit', month: '2-digit' })}</em>` : ''}</div>`;
-            const abas = `<div class="seg ld-abas"><button type="button" onclick="setLiderAba('prod')" class="${liderAba !== 'scrap' ? 'active' : ''}">Produção</button><button type="button" onclick="setLiderAba('scrap')" class="${liderAba === 'scrap' ? 'active' : ''}">Scrap</button></div>`;
+            const abas = ''; const _abasScrap = `<div class="seg ld-abas"><button type="button" onclick="setLiderAba('prod')" class="${liderAba !== 'scrap' ? 'active' : ''}">Produção</button><button type="button" onclick="setLiderAba('scrap')" class="${liderAba === 'scrap' ? 'active' : ''}">Scrap</button></div>`;
             const scrapHtml = `
             <section class="${CARD} ld-card p-5">
                 ${sectionHead(`Scrap do seu turno · ${mNome}`, `${turnoLabel(T)} · bateria completa + sem tampa`, '', 'trash-2')}
