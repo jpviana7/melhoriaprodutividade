@@ -7574,7 +7574,7 @@
             // ---- painel do topo ----
             const titPer = st.dias !== null ? (st.dias.length === 1 ? fmtDate(st.dias[0]) : `${st.dias.length} dias`) : st.meses !== null ? st.meses.map(m => shortMonth(m)).join(' + ') || 'Nenhum mês' : st.anos !== null ? st.anos.join(' + ') || 'Nenhum ano' : 'Todo o período';
             setHero('perfil', { periodo: `${titPer}${st.linha !== 'Todas' ? ' · ' + st.linha : ''}${st.equip !== 'Todos' ? ' · ' + st.equip : ''}`,
-                frase: `${fmtH(perdas / 60)} h de perdas · ${fmt(microN + paradaN)} ocorrências`, pct: pctRun, txt: pctRun === null ? '' : fmt(pctRun, 0) + '%', legenda: 'do tempo rodando', tom: pctRun >= 85 ? 'ok' : pctRun >= 70 ? 'warn' : 'bad', cheia: pctRun >= 85 });
+                frase: `${fmt(perdas)} min de perdas · ${fmt(microN + paradaN)} ocorrências`, pct: pctRun, txt: pctRun === null ? '' : fmt(pctRun, 0) + '%', legenda: 'do tempo rodando', tom: pctRun >= 85 ? 'ok' : pctRun >= 70 ? 'warn' : 'bad', cheia: pctRun >= 85 });
             // ---- filtros ----
             const ddAb = (k) => st.aberto === k ? '' : 'hide';
             const multi = (k, titulo, resumo, itens, ativo) => `<div class="flex flex-col gap-1 min-w-0"><span class="filter-label">${titulo}</span>
@@ -7594,15 +7594,15 @@
             <div class="pf-opcoes no-print">
                 <span class="filter-label">Micro parada</span>
                 <div class="seg">${[1, 2, 5].map(v => `<button onclick="setPerfil('micro', ${v})" class="${st.micro === v ? 'active' : ''}">&lt; ${v} min</button>`).join('')}</div>
-                <label class="pf-chk"><input type="checkbox" ${st.alto ? 'checked' : ''} onchange="setPerfil('alto')"> Contar "paradas de tempo alto" como perda (${fmtH(altoM / 60)} h · máquina sem programação)</label>
+                <label class="pf-chk"><input type="checkbox" ${st.alto ? 'checked' : ''} onchange="setPerfil('alto')"> Contar "paradas de tempo alto" como perda (${fmt(altoM)} min · máquina sem programação)</label>
                 <span class="flex-1"></span>${importar}
             </div>`;
             // ---- cartões ----
             const kpi = (rot, val, sub, cls = '') => `<div class="${CARD} p-4 sm:p-5 min-w-0"><p class="filter-label kpi-label">${rot}</p><p class="text-[22px] sm:text-[28px] leading-none font-bold tracking-tight mt-3 ${cls}">${val}</p><p class="text-[11px] sm:text-xs text-slate-500 mt-2 leading-snug">${sub}</p></div>`;
             const kpis = `<div class="pf-kpis">
                 ${kpi('Produção', temProd ? comUnidade(fmt(prod) + ' bat') : '—', temProd ? `contada na COS · ${linhasProd.join(', ')}` : 'Sem contagem de baterias para esse filtro')}
-                ${kpi('Tempo rodando', comUnidade(fmtH(run / 60) + ' h'), pctRun === null ? '' : `<strong class="${pctRun >= 85 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(pctRun, 1)}%</strong> do tempo medido`)}
-                ${kpi('Perdas', comUnidade(fmtH(perdas / 60) + ' h'), `${fmtH(microM / 60)} h micro · ${fmtH(paradaM / 60)} h paradas`, 'text-rose-600')}
+                ${kpi('Tempo rodando', comUnidade(fmt(run) + ' min'), pctRun === null ? '' : `<strong class="${pctRun >= 85 ? 'text-emerald-600' : 'text-rose-600'}">${fmt(pctRun, 1)}%</strong> do tempo medido`)}
+                ${kpi('Perdas', comUnidade(fmt(perdas) + ' min'), `${fmt(microM)} min micro · ${fmt(paradaM)} min paradas`, 'text-rose-600')}
                 ${kpi('Ciclo real', cicloMedia === null ? '—' : comUnidade(fmt(cicloMedia, 1) + ' s'), cicloMedia === null ? 'Sem contagem de baterias' : `média · 80% das baterias entre ${fmt(cicloP10, 1)} e ${fmt(cicloP90, 1)} s`)}
                 ${kpi('Ocorrências', fmt(microN + paradaN), `${fmt(microN)} micro paradas · ${fmt(paradaN)} paradas`)}
             </div>`;
@@ -7612,7 +7612,7 @@
             const totalPerdas = perdas || 1;
             const tabelaMot = `<div class="pf-mot">${motivos.slice(0, 15).map(([k, o], i) => `<div class="pf-mot-l"><span class="pf-mot-n">${i + 1}</span><span class="pf-mot-t" title="${esc(k)}">${esc(perfilMotivo(k, motMaq[k]))}${perfilMotivo(k, motMaq[k]) !== perfilBonito(k) && perfilMotivo(k, motMaq[k]) !== k ? `<small>${esc(k)}</small>` : ''}</span>
                 <span class="pf-mot-b"><i style="width:${(o.m / motivos[0][1].m * 100).toFixed(1)}%"></i><i class="mi" style="width:${(o.micro / motivos[0][1].m * 100).toFixed(1)}%"></i></span>
-                <span class="pf-mot-v"><b>${fmtH(o.m / 60)} h</b><em>${fmt(o.n)}× · ${fmt(o.m / totalPerdas * 100, 0)}%</em></span></div>`).join('') || '<p class="text-sm text-slate-400">Sem paradas no filtro.</p>'}</div>`;
+                <span class="pf-mot-v"><b>${fmt(o.m)} min</b><em>${fmt(o.n)}× · ${fmt(o.m / totalPerdas * 100, 0)}%</em></span></div>`).join('') || '<p class="text-sm text-slate-400">Sem paradas no filtro.</p>'}</div>`;
             box.innerHTML = `
             <section class="${CARD} p-4 sm:p-5">${filtros}</section>
             ${kpis}
@@ -7623,13 +7623,13 @@
                     <div class="pf-uso-l">
                         ${[['Rodando', run, C.good, 'Máquina produzindo'], [`Micro paradas`, microM, '#F59E0B', `Paradas curtas (&lt; ${st.micro} min) · ${fmt(microN)} vezes`], ['Paradas', paradaM, C.bad, `${st.micro} min ou mais · ${fmt(paradaN)} vezes`]].map(([n, v, c, sub]) => `
                         <div class="pf-uso-i"><span class="pf-uso-dot" style="background:${c}"></span><div class="min-w-0 flex-1"><p class="pf-uso-n">${n}</p><p class="pf-uso-s">${sub}</p></div>
-                            <div class="text-right"><p class="pf-uso-v">${fmt(total ? v / total * 100 : 0, 1)}%</p><p class="pf-uso-s">${fmtH(v / 60)} h</p></div></div>`).join('')}
+                            <div class="text-right"><p class="pf-uso-v">${fmt(total ? v / total * 100 : 0, 1)}%</p><p class="pf-uso-s">${fmt(v)} min</p></div></div>`).join('')}
                     </div>
                     <div class="pf-uso-m">
                         <p class="filter-label mb-2">Por máquina</p>
                         ${Object.entries(porMaq).filter(([, o]) => o.run + o.micro + o.parada > 0).sort((a, b) => a[0].localeCompare(b[0], 'pt', { numeric: true })).map(([k, o]) => { const t = o.run + o.micro + o.parada;
                             return `<div class="pf-maq"><div class="pf-maq-h"><span>${esc(k)}</span><b class="${o.run / t * 100 >= 85 ? 'text-emerald-600' : o.run / t * 100 >= 70 ? 'text-amber-600' : 'text-rose-600'}">${fmt(o.run / t * 100, 0)}% rodando</b></div>
-                            <div class="pf-maq-b" title="Rodando ${fmtH(o.run / 60)} h · micro ${fmtH(o.micro / 60)} h · paradas ${fmtH(o.parada / 60)} h"><i style="width:${(o.run / t * 100).toFixed(1)}%;background:${C.good}"></i><i style="width:${(o.micro / t * 100).toFixed(1)}%;background:#F59E0B"></i><i style="width:${(o.parada / t * 100).toFixed(1)}%;background:${C.bad}"></i></div></div>`; }).join('')}
+                            <div class="pf-maq-b" title="Rodando ${fmt(o.run)} min · micro ${fmt(o.micro)} min · paradas ${fmt(o.parada)} min"><i style="width:${(o.run / t * 100).toFixed(1)}%;background:${C.good}"></i><i style="width:${(o.micro / t * 100).toFixed(1)}%;background:#F59E0B"></i><i style="width:${(o.parada / t * 100).toFixed(1)}%;background:${C.bad}"></i></div></div>`; }).join('')}
                     </div>
                 </div>
             </section>
@@ -7638,7 +7638,7 @@
                 ${tabelaMot}
             </section>
             <section class="print-break ${CARD} p-5 sm:p-6">
-                ${sectionHead('Perdas por dia', 'Horas paradas das 5 maiores causas e das demais · linha: % do tempo rodando', '', 'calendar-days')}
+                ${sectionHead('Perdas por dia', 'Minutos parados das 5 maiores causas e das demais · linha: % do tempo rodando', '', 'calendar-days')}
                 <div class="chart-box h-80"><canvas id="pf-dia"></canvas></div>
             </section>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
@@ -7653,7 +7653,7 @@
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                 <section class="print-break ${CARD} p-5 sm:p-6">
-                    ${sectionHead('Por turno', 'Horas perdidas, ocorrências e ciclo real (média)', '', 'clock')}
+                    ${sectionHead('Por turno', 'Minutos perdidos, ocorrências e ciclo real (média)', '', 'clock')}
                     <div class="chart-box h-64"><canvas id="pf-turno"></canvas></div>
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6">
@@ -7667,18 +7667,18 @@
             charts.pfTempo = new Chart(document.getElementById('pf-tempo'), { type: 'doughnut',
                 data: { labels: ['Rodando', `Micro paradas (< ${st.micro} min)`, 'Paradas'], datasets: [{ data: [run, microM, paradaM].map(v => Math.round(v)), backgroundColor: [C.good, '#F59E0B', C.bad], borderColor: C.card, borderWidth: 4, borderRadius: 6, spacing: 2, hoverOffset: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false },
-                    tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${fmtH(c.raw / 60)} h (${fmt(total ? c.raw / total * 100 : 0, 1)}%)` } } } } });
+                    tooltip: { ...tooltipStyle, callbacks: { label: (c) => `${c.label}: ${fmt(c.raw)} min (${fmt(total ? c.raw / total * 100 : 0, 1)}%)` } } } } });
             charts.pfDia = new Chart(document.getElementById('pf-dia'), {
                 data: { labels: dias.map(lab), datasets: [
-                    ...top5.map((k, i) => ({ type: 'bar', label: perfilMotivo(k, motMaq[k]), data: dias.map(d => +(((porDia[d] || {})[k] || 0) / 60).toFixed(2)), backgroundColor: cores[i], stack: 's', yAxisID: 'y', order: 2 })),
-                    { type: 'bar', label: 'Demais', data: dias.map(d => +((Object.entries(porDia[d] || {}).filter(([k]) => !top5.includes(k)).reduce((s, [, v]) => s + v, 0)) / 60).toFixed(2)), backgroundColor: C.muted, stack: 's', yAxisID: 'y', order: 2 },
+                    ...top5.map((k, i) => ({ type: 'bar', label: perfilMotivo(k, motMaq[k]), data: dias.map(d => Math.round((porDia[d] || {})[k] || 0)), backgroundColor: cores[i], stack: 's', yAxisID: 'y', order: 2 })),
+                    { type: 'bar', label: 'Demais', data: dias.map(d => Math.round(Object.entries(porDia[d] || {}).filter(([k]) => !top5.includes(k)).reduce((s, [, v]) => s + v, 0))), backgroundColor: C.muted, stack: 's', yAxisID: 'y', order: 2 },
                     { type: 'line', label: '% rodando', data: dias.map(d => { const p = Object.values(porDia[d] || {}).reduce((s, v) => s + v, 0), r = runDia[d] || 0; return r + p ? +(r / (r + p) * 100).toFixed(1) : null; }), borderColor: C.navy, backgroundColor: C.navy, borderWidth: 2, pointRadius: 2, tension: 0.25, yAxisID: 'y2', order: 1 }
                 ] },
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                    scales: { x: { ...axisX(), stacked: true }, y: { ...axisY(), stacked: true, title: { display: true, text: 'horas', color: C.text3 }, ticks: { callback: (v) => fmt(v) } },
+                    scales: { x: { ...axisX(), stacked: true }, y: { ...axisY(), stacked: true, title: { display: true, text: 'min', color: C.text3 }, ticks: { callback: (v) => fmt(v) } },
                         y2: { position: 'right', min: 0, max: 100, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => v + '%' } } },
                     plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
-                        tooltip: { ...tooltipStyle, displayColors: true, callbacks: { title: (it) => fmtDate(dias[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.raw == null || c.raw === 0 ? null : c.dataset.yAxisID === 'y2' ? `% rodando: ${fmt(c.raw, 1)}%` : `${c.dataset.label}: ${fmtH(c.raw)} h` } } } } });
+                        tooltip: { ...tooltipStyle, displayColors: true, callbacks: { title: (it) => fmtDate(dias[it[0].dataIndex], { weekday: 'short', day: '2-digit', month: '2-digit' }), label: (c) => c.raw == null || c.raw === 0 ? null : c.dataset.yAxisID === 'y2' ? `% rodando: ${fmt(c.raw, 1)}%` : `${c.dataset.label}: ${fmt(c.raw)} min` } } } } });
             if (temProd) {
                 const diasP = dias.filter(d => histDia[d]);
                 // eixo do ciclo perto dos valores, para a variação de décimos aparecer
@@ -7702,13 +7702,13 @@
             }
             charts.pfTurno = new Chart(document.getElementById('pf-turno'), {
                 data: { labels: ['Turno 01', 'Turno 02', 'Turno 03'], datasets: [
-                    { type: 'bar', label: 'Horas perdidas', data: ['1', '2', '3'].map(t => +(porTurno[t][0] / 60).toFixed(1)), backgroundColor: C.bad, borderRadius: 6, maxBarThickness: 60, yAxisID: 'y', order: 2 },
+                    { type: 'bar', label: 'Minutos perdidos', data: ['1', '2', '3'].map(t => Math.round(porTurno[t][0])), backgroundColor: C.bad, borderRadius: 6, maxBarThickness: 60, yAxisID: 'y', order: 2 },
                     { type: 'line', label: 'Ocorrências', data: ['1', '2', '3'].map(t => porTurno[t][1]), borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 2.5, pointRadius: 5, yAxisID: 'y2', order: 1 }
                 ] },
                 options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                    scales: { x: axisX(), y: { ...axisY(), title: { display: true, text: 'horas', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
+                    scales: { x: axisX(), y: { ...axisY(), title: { display: true, text: 'min', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
                     plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
-                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidas: ${fmtH(c.raw)} h`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = media(histTurno[t]); return m === null ? '' : `Ciclo real: ${fmt(m, 1)} s`; } } } } } });
+                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidos: ${fmt(c.raw)} min`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = media(histTurno[t]); return m === null ? '' : `Ciclo real: ${fmt(m, 1)} s`; } } } } } });
             const horas = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
             const parH = {}, prodH = {}; Hh.forEach(x => { parH[x[3]] = (parH[x[3]] || 0) + x[4] + (st.alto ? x[5] : 0); }); Q.forEach(x => { prodH[x[3]] = (prodH[x[3]] || 0) + x[4]; });
             charts.pfHora = new Chart(document.getElementById('pf-hora'), {
