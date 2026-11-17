@@ -1002,6 +1002,22 @@
         .pf-hm-leg { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--lbl2); }
         .pf-hm-leg i { display: block; width: 72px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgba(229,72,77,.08), rgba(229,72,77,.96)); }
         .pf-hm-leg i.prod { background: linear-gradient(90deg, rgba(0,111,185,.08), rgba(0,111,185,.96)); }
+        .pf-tn { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        @media (max-width: 640px) { .pf-tn { grid-template-columns: 1fr; } }
+        .pf-tn-c { padding: 16px; border-radius: 16px; background: var(--inset); display: flex; flex-direction: column; gap: 10px; }
+        .pf-tn-c.pior { box-shadow: inset 0 0 0 1.5px var(--bad-ring); background: var(--bad-bg); }
+        .pf-tn-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        .pf-tn-h b { font-size: 15px; font-weight: 700; color: #0f172a; } html.dark .pf-tn-h b { color: #fff; }
+        .pf-tn-h span { font-size: 12px; color: var(--lbl2); }
+        .pf-tn-v em { font-style: normal; font-weight: 700; color: var(--bad-t); }
+        .pf-tn-v { font-size: 28px; line-height: 1; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-tn-v { color: #fff; }
+        .pf-tn-c.pior .pf-tn-v { color: var(--bad-t); }
+        .pf-tn-v small { display: block; margin-top: 4px; font-size: 12px; font-weight: 500; letter-spacing: 0; color: var(--lbl2); }
+        .pf-tn-s { padding-top: 4px; border-top: 1px solid var(--sep); }
+        .pf-tn-s > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-top: 6px; }
+        .pf-tn-s span { font-size: 13px; color: var(--lbl2); }
+        .pf-tn-s b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0f172a; } html.dark .pf-tn-s b { color: #fff; }
+        .pf-tn-s b.ok { color: var(--ok-t) !important; } .pf-tn-s b.bad { color: var(--bad-t) !important; } .pf-tn-s b.warn { color: #B45309 !important; } html.dark .pf-tn-s b.warn { color: #FFB224 !important; }
         .pf-uso-l { display: flex; flex-direction: column; gap: 10px; }
         .pf-uso-i { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--inset); }
         .pf-uso-dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 4px; }
@@ -7716,6 +7732,25 @@
             const tabelaMot = `<div class="pf-mot">${motivos.slice(0, 15).map(([k, o], i) => `<div class="pf-mot-l"><span class="pf-mot-n">${i + 1}</span><span class="pf-mot-t" title="${esc(k)}">${esc(perfilMotivo(k, motMaq[k]))}${perfilMotivo(k, motMaq[k]) !== perfilBonito(k) && perfilMotivo(k, motMaq[k]) !== k ? `<small>${esc(k)}</small>` : ''}</span>
                 <span class="pf-mot-b"><i style="width:${(o.m / motivos[0][1].m * 100).toFixed(1)}%"></i><i class="mi" style="width:${(o.micro / motivos[0][1].m * 100).toFixed(1)}%"></i></span>
                 <span class="pf-mot-v"><b>${fmt(o.m)} min</b><em>${fmt(o.n)}× · ${fmt(o.m / totalPerdas * 100, 0)}%</em></span></div>`).join('') || '<p class="text-sm text-slate-400">Sem paradas no filtro.</p>'}</div>`;
+            // ---- Cartões por turno ----
+            const cartoesTurno = (() => {
+                const runT = { '1': 0, '2': 0, '3': 0 }; R.forEach(x => { if (x[4] === '·run' && runT[x[3]] !== undefined) runT[x[3]] += x[12]; });
+                const TT = ['1', '2', '3'].filter(t => runT[t] + porTurno[t][0] > 0);
+                if (!TT.length) return '<p class="text-sm text-slate-400">Sem dados no período.</p>';
+                const maxM = Math.max(...TT.map(t => porTurno[t][0])) || 1;
+                const pior = TT.length > 1 ? TT.reduce((a, t) => porTurno[t][0] > porTurno[a][0] ? t : a) : null;
+                const HOR = { '1': '06h–14h', '2': '14h–22h', '3': '22h–06h' };
+                return `<div class="pf-tn">${TT.map(t => { const [m, n, mi] = porTurno[t], r = runT[t], pr = r + m ? r / (r + m) * 100 : null, cm = media(histTurno[t]);
+                    return `<div class="pf-tn-c${t === pior ? ' pior' : ''}">
+                        <div class="pf-tn-h"><b>Turno 0${t}</b><span>${HOR[t]}</span></div>
+                        <p class="pf-tn-v">${fmt(m)}<small>min perdidos${t === pior ? ' · <em>o maior</em>' : ''}</small></p>
+                        <div class="pf-mot-b" title="${fmt(mi)} min em micro paradas · ${fmt(m - mi)} min em paradas"><i style="width:${(m / maxM * 100).toFixed(1)}%"></i></div>
+                        <div class="pf-tn-s">
+                            <div><span>Rodando</span><b class="${pr === null ? '' : pr >= 85 ? 'ok' : pr >= 70 ? 'warn' : 'bad'}">${pr === null ? '—' : fmt(pr, 0) + '%'}</b></div>
+                            <div><span>Ocorrências</span><b>${fmt(n)}</b></div>
+                            <div><span>Ciclo real</span><b>${cm === null ? '—' : fmt(cm, 1) + ' s'}</b></div>
+                        </div></div>`; }).join('')}</div>`;
+            })();
             // ---- Mapa de calor: hora × dia da semana (dia de produção: a madrugada conta no dia em que o turno 3 começou) ----
             const mapa = (() => {
                 const SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], SEM_L = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'], ORD = [1, 2, 3, 4, 5, 6, 0];
@@ -7806,8 +7841,8 @@
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                 <section class="print-break ${CARD} p-5 sm:p-6">
-                    ${sectionHead('Por turno', 'Minutos perdidos, ocorrências e ciclo real (média)', '', 'clock')}
-                    <div class="chart-box h-64"><canvas id="pf-turno"></canvas></div>
+                    ${sectionHead('Por turno', `Minutos perdidos, % do tempo rodando e ciclo real (média)${st.turno !== 'Todos' ? ' · filtro de turno ativo' : ''}`, '', 'clock')}
+                    ${cartoesTurno}
                 </section>
                 <section class="print-break ${CARD} p-5 sm:p-6">
                     ${sectionHead('Por hora do dia', 'Minutos parados em cada hora (soma do período) · barras: produção', '', 'clock-3')}
@@ -7854,15 +7889,6 @@
                     options: { responsive: true, maintainAspectRatio: false, scales: { x: { ...axisX(), ticks: { maxTicksLimit: 12 } }, y: axisY() },
                         plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { title: (it) => `Ciclo de ${segs[it[0].dataIndex]} s`, label: (c) => `${fmt(c.raw)} baterias` } } } } });
             }
-            charts.pfTurno = new Chart(document.getElementById('pf-turno'), { plugins: [pfNums],
-                data: { labels: ['Turno 01', 'Turno 02', 'Turno 03'], datasets: [
-                    { type: 'bar', label: 'Minutos perdidos', data: ['1', '2', '3'].map(t => Math.round(porTurno[t][0])), backgroundColor: C.bad, borderRadius: 6, maxBarThickness: 60, yAxisID: 'y', order: 2, rotulo: (v) => fmt(v) + ' min', rotuloPos: 'base' },
-                    { type: 'line', label: 'Ocorrências', data: ['1', '2', '3'].map(t => porTurno[t][1]), borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 2.5, pointRadius: 5, yAxisID: 'y2', order: 1, rotulo: (v) => fmt(v) + '×', rotuloPos: 'ponto' }
-                ] },
-                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                    scales: { x: axisX(), y: { ...axisY(), title: { display: true, text: 'min', color: C.text3 } }, y2: { position: 'right', beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => fmt(v) } } },
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 } } },
-                        tooltip: { ...tooltipStyle, callbacks: { label: (c) => c.dataset.yAxisID === 'y2' ? `Ocorrências: ${fmt(c.raw)}` : `Perdidos: ${fmt(c.raw)} min`, footer: (it) => { const t = ['1', '2', '3'][it[0].dataIndex], m = media(histTurno[t]); return m === null ? '' : `Ciclo real: ${fmt(m, 1)} s`; } } } } } });
             const horas = Array.from({ length: 24 }, (_, i) => (i + 6) % 24);
             const parH = {}, prodH = {}; Hh.forEach(x => { parH[x[3]] = (parH[x[3]] || 0) + x[4] + (st.alto ? x[5] : 0); }); Q.forEach(x => { prodH[x[3]] = (prodH[x[3]] || 0) + x[4]; });
             if (temProd && document.getElementById('pf-regua-dia')) {
