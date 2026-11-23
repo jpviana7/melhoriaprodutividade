@@ -1544,6 +1544,21 @@
 
         // --- Estado Global ---
         let rawData = [];
+        // Correções de lançamento (ex.: produção que o Sequor mandou mas não aconteceu). Ficam salvas na configuração e
+        // valem por cima dos dados importados, mesmo quando o robô traz a planilha de novo: [{ date, maquina, turno, prod, obs, at }]
+        let correcoes = [];
+        function aplicarCorrecoes() {
+            correcoes.forEach(c => {
+                const rows = rawData.filter(d => d.date === c.date && d.maquina === c.maquina && String(d.turno) === String(c.turno) && isMontagem(d.area));
+                if (rows.length) rows.forEach((d, i) => { if (d._orig === undefined) d._orig = d.prod; d.prod = i === 0 ? c.prod : 0; });
+                else if (c.prod > 0) rawData.push({ date: c.date, area: 'Montagem', maquina: c.maquina, modelo: 'Geral', turno: String(c.turno), prod: c.prod, sourceFile: 'Correção manual', _orig: 0 });
+            });
+        }
+        function desfazerCorrecao(c) {
+            rawData.filter(d => d.date === c.date && d.maquina === c.maquina && String(d.turno) === String(c.turno) && isMontagem(d.area) && d._orig !== undefined)
+                .forEach(d => { d.prod = d._orig; delete d._orig; });
+            rawData = rawData.filter(d => !(d.sourceFile === 'Correção manual' && d.prod === 0));
+        }
         // Scrap: { date, area, maquina, turno, modelo, qty, tipo: 'completa' | 'semtampa', sourceFile }
         let scrapData = [];
         let perdasData = []; // horas perdidas (aba Perdas)
@@ -2332,6 +2347,7 @@
                     if (data.materialNames) { try { materialNames = JSON.parse(data.materialNames); } catch (e) { materialNames = {}; } }
                     if (data.scrapMetasQ) { try { scrapMetas = JSON.parse(data.scrapMetasQ); } catch (e) { scrapMetas = {}; } }
                     if (data.contarZeros !== undefined) contarZeros = !!data.contarZeros;
+                    if (data.correcoes) { try { correcoes = JSON.parse(data.correcoes) || []; } catch (e) { correcoes = []; } }
                     if (data.dayPlan) { try { dayPlan = JSON.parse(data.dayPlan); } catch (e) { dayPlan = {}; } }
                     needMigration = !!(data.turnosLinha && data.turnosLinha !== '{}') || !!(data.metaHist && data.metaHist !== '{}');
                     if (data.metaHist) { try { metaHist = JSON.parse(data.metaHist); } catch (e) { metaHist = {}; } }
@@ -2425,6 +2441,7 @@
                 metaHist: JSON.stringify(metaHist),
                 dayPlan: JSON.stringify(dayPlan),
                 contarZeros,
+                correcoes: JSON.stringify(correcoes),
                 scrapMetasQ: JSON.stringify(scrapMetas),
                 materialNames: JSON.stringify(materialNames),
                 ciclo: JSON.stringify({ modelos: cicloModelos, linhas: cicloLinhas, fonte: cicloFonte, moldes: cicloMoldes }),
@@ -2975,6 +2992,7 @@
 
         function updateUI() {
             if (LIDER) activeTab = 'lider';
+            aplicarCorrecoes();
             calculateData();
             if (tvOn) setTimeout(() => tvPintar(false, false), 0);
             const ps = processedState;
@@ -6891,6 +6909,27 @@
                     <button onclick="exportDataForExcel()" class="icon-btn h-10 px-4" title="Colunas na ordem da planilha Dashboard_Producao_Moura.xlsx"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar dados para o Excel</button>
                 </div>
             </section>`;
+            // --- Correções de lançamento ---
+            {
+                const linhasMont = [...new Set(rawData.filter(d => isMontagem(d.area)).map(d => d.maquina))].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
+                const atual = (c) => rawData.filter(d => d.date === c.date && d.maquina === c.maquina && String(d.turno) === String(c.turno) && isMontagem(d.area)).reduce((a, d) => a + (d._orig ?? d.prod), 0);
+                html += `
+            <section class="admin-only ${CARD} p-5 sm:p-6 mb-6">
+                ${sectionHead('Correções de lançamento', 'Corrige a produção de um dia, linha e turno quando o Sequor mandou um número errado. A correção fica salva e vale em todo o app, mesmo quando o robô importa a planilha de novo.', '', 'pencil')}
+                <div class="no-print flex flex-wrap items-end gap-3">
+                    <label class="text-xs text-slate-500">Data<input id="cor-data" type="date" class="block mt-1 h-10 px-3 rounded-xl text-sm"></label>
+                    <label class="text-xs text-slate-500">Linha<select id="cor-linha" class="block mt-1 h-10 px-3 rounded-xl text-sm">${linhasMont.map(l => `<option>${esc(l)}</option>`).join('')}</select></label>
+                    <label class="text-xs text-slate-500">Turno<select id="cor-turno" class="block mt-1 h-10 px-3 rounded-xl text-sm"><option value="1">Turno 01</option><option value="2">Turno 02</option><option value="3">Turno 03</option></select></label>
+                    <label class="text-xs text-slate-500">Produção correta<input id="cor-valor" type="number" min="0" step="1" value="0" class="block mt-1 h-10 px-3 rounded-xl text-sm w-32"></label>
+                    <label class="text-xs text-slate-500 flex-1 min-w-[180px]">Motivo<input id="cor-obs" type="text" placeholder="Ex.: linha não rodou" class="block mt-1 h-10 px-3 rounded-xl text-sm w-full"></label>
+                    <button onclick="addCorrecao()" class="flex items-center gap-2 bg-brand-navy hover:bg-[#15256d] text-white px-4 h-10 rounded-xl text-sm font-medium"><i data-lucide="check" class="w-4 h-4"></i>Aplicar</button>
+                </div>
+                ${correcoes.length ? `<div class="overflow-x-auto mt-4"><table class="w-full text-sm"><thead><tr class="text-[11px] uppercase tracking-wider text-slate-400 text-left"><th class="py-1.5 pr-2">Data</th><th class="px-2">Linha</th><th class="px-2">Turno</th><th class="px-2 text-right">Sequor</th><th class="px-2 text-right">Corrigido</th><th class="px-2">Motivo</th><th></th></tr></thead><tbody class="divide-y divide-slate-100">
+                    ${correcoes.map((c, i) => `<tr><td class="py-2 pr-2">${fmtDate(c.date)}</td><td class="px-2 font-medium">${esc(c.maquina)}</td><td class="px-2">Turno ${String(c.turno).padStart(2, '0')}</td><td class="px-2 text-right text-slate-500">${fmt(atual(c))}</td><td class="px-2 text-right font-semibold">${fmt(c.prod)}</td><td class="px-2 text-slate-500">${esc(c.obs || '')}</td>
+                        <td class="pl-2 text-right"><button onclick="removeCorrecao(${i})" class="icon-btn h-8 px-3 text-xs" title="Volta ao número do Sequor"><i data-lucide="undo-2" class="w-3.5 h-3.5"></i>Desfazer</button></td></tr>`).join('')}
+                </tbody></table></div>` : '<p class="text-sm text-slate-400 mt-4">Nenhuma correção.</p>'}
+            </section>`;
+            }
             container.innerHTML = html;
         }
 
@@ -9046,6 +9085,23 @@
             document.addEventListener('keydown', handleEscKey);
         };
 
+        window.addCorrecao = function() {
+            const date = document.getElementById('cor-data').value, maquina = document.getElementById('cor-linha').value, turno = document.getElementById('cor-turno').value;
+            const prod = parseFloat(document.getElementById('cor-valor').value), obs = document.getElementById('cor-obs').value.trim();
+            if (!date || !maquina || !Number.isFinite(prod) || prod < 0) { showToast('Preencha a data, a linha, o turno e a produção correta (0 ou mais).', 'error'); return; }
+            const old = correcoes.find(c => c.date === date && c.maquina === maquina && String(c.turno) === turno);
+            if (old) desfazerCorrecao(old);
+            correcoes = [...correcoes.filter(c => c !== old), { date, maquina, turno, prod, obs, at: new Date().toISOString() }].sort((a, b) => a.date.localeCompare(b.date));
+            bomDiaDate = null;
+            persist({ config: true }); updateUI();
+            showToast(`Correção aplicada: ${maquina} · ${fmtDate(date)} · Turno ${turno.padStart(2, '0')} = ${fmt(prod)}`, 'success');
+        };
+        window.removeCorrecao = function(i) {
+            const c = correcoes[i]; if (!c) return;
+            desfazerCorrecao(c); correcoes = correcoes.filter((_, j) => j !== i); bomDiaDate = null;
+            persist({ config: true }); updateUI();
+            showToast('Correção desfeita: volta o número do Sequor.', 'success');
+        };
         window.closeEditModal = function() {
             const modal = document.getElementById('edit-modal');
             const content = document.getElementById('edit-modal-content');
