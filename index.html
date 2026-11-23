@@ -3861,7 +3861,7 @@
             const mont = rawData.filter(d => isMontagem(d.area));
             const days = montagemDays();
             if (!days.length) return null;
-            const refDay = diaFechado(days);
+            const refDay = days.length > 1 ? days[days.length - 2] : days[days.length - 1];
             if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = refDay;
             const date = bomDiaDate, month = date.substring(0, 7);
             const idx = days.indexOf(date);
@@ -4516,7 +4516,7 @@
             const container = document.getElementById('gestao-content');
             const days = montagemDays();
             if (!days.length) { container.innerHTML = `<div class="${CARD} py-16 text-center text-sm text-slate-500">Ainda não há dados da Montagem.</div>`; return; }
-            if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = diaFechado(days);
+            if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = days.length > 1 ? days[days.length - 2] : days[0];
             const date = bomDiaDate, month = date.slice(0, 7);
             const all = metasLines().filter(x => x.ugb && x.ugb !== 'Sem UGB');
             const ugbs = [...new Set(all.map(x => x.ugb))].sort();
@@ -7084,7 +7084,7 @@
                     TITULO_ABA.lider = liderPasso.linha || u.ugb;
                     // Já mostra, para cada turno, o acumulado do mês até o dia anterior (mesma conta da Gestão)
                     const Ls = liderPasso.linha ? [liderPasso.linha] : u.lines;
-                    const dR = diaFechado();
+                    const dR = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
                     const tot = mtdFor(Ls, dR, null);
                     const cls = (v) => v === null || v === undefined ? 'nd' : v >= 0 ? 'ok' : 'bad';
                     setHero('lider', { periodo: `${curto(u.ugb)} · ${MONTH_NAMES[+dR.slice(5, 7) - 1].toLowerCase()}`, frase: 'Escolha o seu turno',
@@ -7136,7 +7136,7 @@
             const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
             TITULO_ABA.lider = nome;
             // Acumulado do mês até o dia anterior (o mesmo dia de referência do Bom Dia e da Gestão no painel principal)
-            const dRef = diaFechado();
+            const dRef = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
             const mtd = mtdFor(L, dRef, null);
             // Últimos 7 dias com produção
             const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
@@ -7278,7 +7278,7 @@
         // Mesma conta da Gestão: dias com produção da Montagem (válidos), até o dia anterior no mês corrente
         function liderMesDados(mes) {
             const { L, T } = liderCtx, set = new Set(L);
-            const md = montagemDays(), dRef = diaFechado(md);
+            const md = montagemDays(), dRef = md.length > 1 ? md[md.length - 2] : md[md.length - 1];
             const ate = mes === dRef.slice(0, 7) ? dRef : `${mes}-31`;
             const prod = {}, prodMeta = {};
             rawData.forEach(d => { if (set.has(d.maquina) && String(d.turno) === T && isMontagem(d.area) && d.date.startsWith(mes) && d.date <= ate) {
