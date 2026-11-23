@@ -2069,9 +2069,13 @@
             });
         };
 
+        // "Todos" já marcado + clique em "Todos" = desmarca tudo para escolher só o que quiser (o filtro só muda ao marcar um item)
+        const nenhumSel = {};
+        const fecharNenhum = () => { const tipos = Object.keys(nenhumSel).filter(t => nenhumSel[t]); tipos.forEach(t => { nenhumSel[t] = false; }); if (tipos.length) updateUI(); };
         window.toggleDropdown = function(id) {
             const list = document.getElementById(`dropdown-${id}-list`);
             const isHidden = list.classList.contains('hide');
+            if (!isHidden) fecharNenhum();
             document.querySelectorAll('.dd-list').forEach(el => el.classList.add('hide'));
             if (isHidden) {
                 list.classList.remove('hide');
@@ -2084,10 +2088,11 @@
             if (!document.body.contains(e.target)) return;
             if (!e.target.closest('.multi-dropdown-container, .fx-dd, .oee-dd')) {
                 document.querySelectorAll('.dd-list').forEach(el => el.classList.add('hide'));
+                fecharNenhum();
             }
         });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') document.querySelectorAll('.dd-list').forEach(el => el.classList.add('hide'));
+            if (e.key === 'Escape') { document.querySelectorAll('.dd-list').forEach(el => el.classList.add('hide')); fecharNenhum(); }
         });
 
         window.handleCheckboxChange = function(type, value) {
@@ -2095,7 +2100,19 @@
             const allLabel = ALL_OF(type);
             let cur = [...selectionOf(type)];
 
+            const box0 = document.getElementById(`dropdown-${type}-options`) || document.getElementById(`dropdown-${type}-list`);
             if (value === allLabel) {
+                if (isAll(cur) && !nenhumSel[type]) {
+                    // Tudo marcado: desmarca todas as caixas e espera a escolha
+                    nenhumSel[type] = true;
+                    if (box0) box0.querySelectorAll('input[type="checkbox"]').forEach(i => { i.checked = false; });
+                    const disp = document.getElementById(`${type}-display`); if (disp) disp.innerText = allLabel === 'Todas' ? 'Nenhuma' : 'Nenhum';
+                    return;
+                }
+                nenhumSel[type] = false;
+                cur = [value];
+            } else if (nenhumSel[type]) {
+                nenhumSel[type] = false;
                 cur = [value];
             } else {
                 // Com "Todos" marcado, todas as caixas estão marcadas: tocar numa tira só ela
