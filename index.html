@@ -1606,6 +1606,7 @@
         let dayPlan = {};
         let needMigration = false;
         let contarZeros = false; // contar nas médias os dias de trabalho com meta e produção 0 (ex.: linha parada por quebra)
+        let semDomingos = false; // desconsiderar todos os domingos nas metas e acumulados, mesmo que algum domingo tenha rodado
         // Dias de trabalho do mês até `date` usados nos acumulados: os com produção ou, com a opção ligada, todos os dias de trabalho até o último dia com dados
         function mtdDaysOf(month, date) {
             const prodDays = montagemDays().filter(ds => ds.startsWith(month) && ds <= date && isValidDay(ds));
@@ -1664,7 +1665,7 @@
             if (_sunCache.n !== rawData.length) _sunCache = { n: rawData.length, set: new Set(rawData.filter(d => d.prod > 0 && toDate(d.date).getDay() === 0).map(d => d.date)) };
             return _sunCache.set;
         };
-        const isValidDay = (ds) => !hiddenDates.includes(ds) && (toDate(ds).getDay() !== 0 || sundaysWithProd().has(ds));
+        const isValidDay = (ds) => !hiddenDates.includes(ds) && (toDate(ds).getDay() !== 0 || (!semDomingos && sundaysWithProd().has(ds)));
         // Turnos que uma linha roda num dia (o último registo com início até esse dia)
         function activeTurnosOf(line, ds) {
             const hist = turnosLinha[line];
@@ -1722,7 +1723,7 @@
             for (let d = 1; d <= new Date(y, m, 0).getDate(); d++) {
                 const ds = `${month}-${String(d).padStart(2, '0')}`;
                 const dow = toDate(ds).getDay();
-                if (dow === 0 && !sundays.has(ds)) continue;
+                if (dow === 0 && (semDomingos || !sundays.has(ds))) continue;
                 if (!hiddenDates.includes(ds)) out.push(ds);
             }
             return out;
@@ -2332,6 +2333,7 @@
                     if (data.materialNames) { try { materialNames = JSON.parse(data.materialNames); } catch (e) { materialNames = {}; } }
                     if (data.scrapMetasQ) { try { scrapMetas = JSON.parse(data.scrapMetasQ); } catch (e) { scrapMetas = {}; } }
                     if (data.contarZeros !== undefined) contarZeros = !!data.contarZeros;
+                    if (data.semDomingos !== undefined) semDomingos = !!data.semDomingos;
                     if (data.dayPlan) { try { dayPlan = JSON.parse(data.dayPlan); } catch (e) { dayPlan = {}; } }
                     needMigration = !!(data.turnosLinha && data.turnosLinha !== '{}') || !!(data.metaHist && data.metaHist !== '{}');
                     if (data.metaHist) { try { metaHist = JSON.parse(data.metaHist); } catch (e) { metaHist = {}; } }
@@ -2425,6 +2427,7 @@
                 metaHist: JSON.stringify(metaHist),
                 dayPlan: JSON.stringify(dayPlan),
                 contarZeros,
+                semDomingos,
                 scrapMetasQ: JSON.stringify(scrapMetas),
                 materialNames: JSON.stringify(materialNames),
                 ciclo: JSON.stringify({ modelos: cicloModelos, linhas: cicloLinhas, fonte: cicloFonte, moldes: cicloMoldes }),
@@ -3827,6 +3830,11 @@
             rawData.forEach(d => { if (isMontagem(d.area)) tot[d.date] = (tot[d.date] || 0) + d.prod; });
             return Object.keys(tot).filter(k => tot[k] !== 0).sort();
         };
+        // Último dia fechado = penúltimo dia com produção (o último costuma estar em andamento); sem domingos se a opção estiver ligada
+        const diaFechado = (days = montagemDays()) => {
+            const d = semDomingos ? days.filter(ds => toDate(ds).getDay() !== 0) : days;
+            return d.length > 1 ? d[d.length - 2] : d[d.length - 1];
+        };
         window.shiftBomDia = function(step) {
             const days = montagemDays();
             const i = days.indexOf(bomDiaDate);
@@ -3853,7 +3861,7 @@
             const mont = rawData.filter(d => isMontagem(d.area));
             const days = montagemDays();
             if (!days.length) return null;
-            const refDay = days.length > 1 ? days[days.length - 2] : days[days.length - 1];
+            const refDay = diaFechado(days);
             if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = refDay;
             const date = bomDiaDate, month = date.substring(0, 7);
             const idx = days.indexOf(date);
@@ -4508,7 +4516,7 @@
             const container = document.getElementById('gestao-content');
             const days = montagemDays();
             if (!days.length) { container.innerHTML = `<div class="${CARD} py-16 text-center text-sm text-slate-500">Ainda não há dados da Montagem.</div>`; return; }
-            if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = days.length > 1 ? days[days.length - 2] : days[0];
+            if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = diaFechado(days);
             const date = bomDiaDate, month = date.slice(0, 7);
             const all = metasLines().filter(x => x.ugb && x.ugb !== 'Sem UGB');
             const ugbs = [...new Set(all.map(x => x.ugb))].sort();
@@ -4561,6 +4569,7 @@
                     ${fxDD('g-linha', 'Linha', gestaoLinha || 'Todas', fxOpt(`setGestao('linha', null)`, !gestaoLinha, 'Todas', true) + linhasUgb.map(l => fxOpt(`setGestao('linha', '${l}')`, gestaoLinha === l, l)).join(''), !!gestaoLinha)}
                     ${fxDD('g-turno', 'Turno', gestaoTurno ? 'Turno ' + gestaoTurno.padStart(2, '0') : 'Todos', fxOpt(`setGestao('turno', null)`, !gestaoTurno, 'Todos', true) + TURNOS_BASE.map(t => fxOpt(`setGestao('turno', '${t}')`, gestaoTurno === t, 'Turno ' + t.padStart(2, '0'))).join(''), !!gestaoTurno)}
                 </div>
+                <label class="admin-only flex items-center gap-2 mt-3 text-xs text-slate-600 cursor-pointer w-fit"><input type="checkbox" ${semDomingos ? 'checked' : ''} onchange="setSemDomingos(this.checked)" class="w-4 h-4 accent-[#1B2F88]">Desconsiderar domingos, mesmo que algum domingo tenha rodado</label>
             </section>
             <section class="${CARD} p-5 sm:p-6 mb-4 sm:mb-6">
                 ${sectionHead(`Acumulado de ${mName} · ${esc(escopoG)}${gestaoTurno ? ' · ' + tLabel(gestaoTurno) : ''}`, gestaoTurno ? 'Meta do turno = 1/3 da meta diária de cada linha que roda este turno' : 'Todos os turnos', '', 'calendar-check')}
@@ -6356,6 +6365,11 @@
             persistConfigDebounced(); renderPlan();
         };
         window.setContarZeros = function(v) { contarZeros = v; persist({ config: true }); renderPlan(); };
+        window.setSemDomingos = function(v) {
+            semDomingos = v; bomDiaDate = null; persist({ config: true });
+            if (activeTab === 'metas' && planState) renderPlan(); else setTab(activeTab);
+            showToast(v ? 'Domingos desconsiderados nas metas e acumulados' : 'Domingos com produção voltam a contar', 'success');
+        };
         const daysOfMonth = (month) => { const [y, m] = month.split('-').map(Number); return Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`); };
 
         function renderPlan(keepFocus = false) {
@@ -6412,6 +6426,8 @@
                 </table>
                 <label class="flex items-start gap-2.5 mt-4 text-sm text-slate-700 cursor-pointer"><input type="checkbox" ${contarZeros ? 'checked' : ''} onchange="setContarZeros(this.checked)" class="mt-0.5 w-4 h-4 accent-[#1B2F88]">
                     <span>Contar nas médias os dias com meta em que a produção foi <strong>0</strong> <span class="block text-[11px] text-slate-500">Ex.: linha ou turno parado por quebra. Vale para todas as linhas, no calendário, no Bom Dia e na Gestão por UGB.</span></span></label>
+                <label class="flex items-start gap-2.5 mt-3 text-sm text-slate-700 cursor-pointer"><input type="checkbox" ${semDomingos ? 'checked' : ''} onchange="setSemDomingos(this.checked)" class="mt-0.5 w-4 h-4 accent-[#1B2F88]">
+                    <span>Desconsiderar domingos, mesmo que algum domingo tenha rodado <span class="block text-[11px] text-slate-500">A produção e a meta de domingo ficam fora do acumulado, da média, do saldo e do "precisa por dia", e o último dia fechado nunca é um domingo. Vale no Bom Dia, na Gestão por UGB e no app dos líderes.</span></span></label>
                 <p class="text-[11px] text-slate-400 mt-3">Dias em cinza são domingos ou dias ignorados (não contam). As mudanças são salvas sozinhas e valem no Bom Dia, Gestão por UGB e Dashboard.</p>`;
             lucide.createIcons();
             if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
@@ -7068,7 +7084,7 @@
                     TITULO_ABA.lider = liderPasso.linha || u.ugb;
                     // Já mostra, para cada turno, o acumulado do mês até o dia anterior (mesma conta da Gestão)
                     const Ls = liderPasso.linha ? [liderPasso.linha] : u.lines;
-                    const dR = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
+                    const dR = diaFechado();
                     const tot = mtdFor(Ls, dR, null);
                     const cls = (v) => v === null || v === undefined ? 'nd' : v >= 0 ? 'ok' : 'bad';
                     setHero('lider', { periodo: `${curto(u.ugb)} · ${MONTH_NAMES[+dR.slice(5, 7) - 1].toLowerCase()}`, frase: 'Escolha o seu turno',
@@ -7120,7 +7136,7 @@
             const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
             TITULO_ABA.lider = nome;
             // Acumulado do mês até o dia anterior (o mesmo dia de referência do Bom Dia e da Gestão no painel principal)
-            const dRef = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
+            const dRef = diaFechado();
             const mtd = mtdFor(L, dRef, null);
             // Últimos 7 dias com produção
             const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
@@ -7262,7 +7278,7 @@
         // Mesma conta da Gestão: dias com produção da Montagem (válidos), até o dia anterior no mês corrente
         function liderMesDados(mes) {
             const { L, T } = liderCtx, set = new Set(L);
-            const md = montagemDays(), dRef = md.length > 1 ? md[md.length - 2] : md[md.length - 1];
+            const md = montagemDays(), dRef = diaFechado(md);
             const ate = mes === dRef.slice(0, 7) ? dRef : `${mes}-31`;
             const prod = {}, prodMeta = {};
             rawData.forEach(d => { if (set.has(d.maquina) && String(d.turno) === T && isMontagem(d.area) && d.date.startsWith(mes) && d.date <= ate) {
