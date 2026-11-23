@@ -1689,15 +1689,7 @@
             return base && activeTurnosOf(line, ds).includes(String(t)) ? base / TURNOS_BASE.length : 0;
         }
         const turnosOnDay = (line, ds) => TURNOS_BASE.filter(t => turnoMeta(line, ds, t) > 0);
-        // Domingo não é dia de trabalho da fábrica: só conta meta para a linha que produziu nesse domingo
-        // (assim um lançamento isolado num domingo não põe a meta de domingo de todas as linhas na conta)
-        let _domCache = { n: -1, set: new Set() };
-        const produziuNoDomingo = (line, ds) => {
-            if (_domCache.n !== rawData.length) _domCache = { n: rawData.length, set: new Set(rawData.filter(d => d.prod > 0 && isMontagem(d.area) && toDate(d.date).getDay() === 0).map(d => d.date + '|' + d.maquina)) };
-            return _domCache.set.has(ds + '|' + line);
-        };
         function metaDay(line, ds, sel = null) {
-            if (toDate(ds).getDay() === 0 && !produziuNoDomingo(line, ds)) return null;
             if ((dayPlan[line] || {})[ds]) {
                 const ts = !sel || sel.includes('Geral') ? TURNOS_BASE : sel.map(String);
                 const v = sum(ts.map(t => turnoMeta(line, ds, t)));
@@ -3835,14 +3827,6 @@
             rawData.forEach(d => { if (isMontagem(d.area)) tot[d.date] = (tot[d.date] || 0) + d.prod; });
             return Object.keys(tot).filter(k => tot[k] !== 0).sort();
         };
-        // Último dia fechado = o dia com produção antes do último (que costuma estar em andamento),
-        // pulando domingo sem meta (ex.: lançamento isolado num domingo)
-        const diaFechado = (days = montagemDays()) => {
-            if (days.length < 2) return days[days.length - 1];
-            const conta = (ds) => toDate(ds).getDay() !== 0 || metaLinesOf(ds.slice(0, 7)).some(l => metaDay(l, ds) > 0);
-            const fechados = days.slice(0, -1).filter(conta);
-            return fechados.length ? fechados[fechados.length - 1] : days[days.length - 2];
-        };
         window.shiftBomDia = function(step) {
             const days = montagemDays();
             const i = days.indexOf(bomDiaDate);
@@ -3869,7 +3853,7 @@
             const mont = rawData.filter(d => isMontagem(d.area));
             const days = montagemDays();
             if (!days.length) return null;
-            const refDay = diaFechado(days);
+            const refDay = days.length > 1 ? days[days.length - 2] : days[days.length - 1];
             if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = refDay;
             const date = bomDiaDate, month = date.substring(0, 7);
             const idx = days.indexOf(date);
@@ -3940,25 +3924,22 @@
                 if (metaDay(d.maquina, d.date)) metaProdByDay[d.date] = (metaProdByDay[d.date] || 0) + d.prod;
             });
             const futureDays = workDaysOf(month).filter(ds => ds > date);
+            const remaining = futureDays.length;
             const baseDayMeta = (ds) => metaOfLinesDay(metaLines, ds) || 0;
             const basePast = sum(mtdDays.map(baseDayMeta)), baseFuture = sum(futureDays.map(baseDayMeta));
             // Meta diária digitada: vale para cada dia de trabalho do mês (no lugar da soma das linhas)
             const override = metasMes[month] > 0 ? metasMes[month] : null;
-            const temBase = basePast + baseFuture > 0;
-            const dayMetaOf = override ? (ds) => (!temBase || baseDayMeta(ds) > 0 ? override : 0) : baseDayMeta;
-            // Dias que contam: os com meta (um domingo com lançamento isolado fica de fora)
-            const diasComMeta = mtdDays.filter(ds => dayMetaOf(ds) > 0).length;
-            const remaining = temBase || override ? futureDays.filter(ds => dayMetaOf(ds) > 0).length : futureDays.length;
-            const nAll = diasComMeta + remaining;
+            const nAll = mtdDays.length + futureDays.length;
+            const dayMetaOf = override ? () => override : baseDayMeta;
             const metaPast = sum(mtdDays.map(dayMetaOf)), metaFuture = sum(futureDays.map(dayMetaOf));
             const mtd = {
-                days: diasComMeta, remaining,
+                days: mtdDays.length, remaining,
                 prod: sum(Object.values(prodByDay)),
                 metaProd: sum(Object.values(metaProdByDay)),
                 metaToDate: metaPast + metaFuture > 0 ? metaPast : null,
                 metaMonth: metaPast + metaFuture > 0 ? metaPast + metaFuture : null
             };
-            mtd.avg = diasComMeta ? mtd.metaProd / diasComMeta : 0;
+            mtd.avg = mtd.days ? mtd.metaProd / mtd.days : 0;
             mtd.override = override; mtd.linesSum = nAll && basePast + baseFuture ? (basePast + baseFuture) / nAll : null;
             mtd.avgAll = mtd.days ? mtd.prod / mtd.days : 0;
             mtd.metaAvg = mtd.metaMonth && nAll ? mtd.metaMonth / nAll : null;
@@ -4527,7 +4508,7 @@
             const container = document.getElementById('gestao-content');
             const days = montagemDays();
             if (!days.length) { container.innerHTML = `<div class="${CARD} py-16 text-center text-sm text-slate-500">Ainda não há dados da Montagem.</div>`; return; }
-            if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = diaFechado(days);
+            if (!bomDiaDate || !days.includes(bomDiaDate)) bomDiaDate = days.length > 1 ? days[days.length - 2] : days[0];
             const date = bomDiaDate, month = date.slice(0, 7);
             const all = metasLines().filter(x => x.ugb && x.ugb !== 'Sem UGB');
             const ugbs = [...new Set(all.map(x => x.ugb))].sort();
@@ -4544,12 +4525,12 @@
             const pctCls = (p) => p === null ? 'text-slate-400' : p >= 100 ? 'text-emerald-600' : 'text-rose-600';
             const blk = (label, value, sub, cls = 'text-slate-900') => `<div class="min-w-0"><p class="filter-label truncate">${label}</p><p class="text-xl sm:text-2xl font-semibold tracking-tight mt-1.5 ${cls}">${comUnidade(value)}</p><p class="text-[11px] text-slate-500 mt-1 leading-snug">${sub}</p></div>`;
             const mName = MONTH_NAMES[+month.slice(5, 7) - 1].toLowerCase();
-            setHero('gestao', { periodo: `${gestaoLinha || gestaoUgb} · ${mName}`, frase: `${fmt(r.metaProd)} baterias · meta até o dia ${fmt(r.metaToDate)}`, pct: r.pct, txt: r.pct === null ? '' : pf(r.pct) + '%', serie: serieDias(date, 14, lines) });
+            setHero('gestao', { periodo: `${gestaoLinha || gestaoUgb} · ${mName}`, frase: `${fmt(r.prod)} baterias · meta até o dia ${fmt(r.metaToDate)}`, pct: r.pct, txt: r.pct === null ? '' : pf(r.pct) + '%', serie: serieDias(date, 14, lines) });
             const tLabel = (t) => `Turno ${String(t).padStart(2, '0')}`;
             const idx = days.indexOf(date);
             const row = (name, x, extra = '') => `<tr class="hover:bg-slate-50/60 ${extra}">
                 <td class="py-2.5 px-2 font-medium text-slate-800 whitespace-nowrap">${name}</td>
-                <td class="py-2.5 px-2 text-right font-semibold text-slate-900">${fmt(x.metaProd)}</td>
+                <td class="py-2.5 px-2 text-right font-semibold text-slate-900">${fmt(x.prod)}</td>
                 <td class="py-2.5 px-2 text-right text-slate-500">${x.metaToDate ? fmt(x.metaToDate) : '—'}</td>
                 <td class="py-2.5 px-2 text-right font-semibold ${pctCls(x.pct)}">${x.pct === null ? '—' : pf(x.pct) + '%'}</td>
                 <td class="py-2.5 px-2 text-right text-slate-600">${fmt(x.avg)}</td>
@@ -4585,7 +4566,7 @@
                 ${sectionHead(`Acumulado de ${mName} · ${esc(escopoG)}${gestaoTurno ? ' · ' + tLabel(gestaoTurno) : ''}`, gestaoTurno ? 'Meta do turno = 1/3 da meta diária de cada linha que roda este turno' : 'Todos os turnos', '', 'calendar-check')}
                 ${r.metaToDate ? `
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 sm:gap-5">
-                    ${blk('Produzido', fmt(r.metaProd), `Meta até o dia ${fmt(r.metaToDate)}`)}
+                    ${blk('Produzido', fmt(r.prod), `Meta até o dia ${fmt(r.metaToDate)}`)}
                     ${blk('Atingimento', `${pf(r.pct)}%`, `${r.gap >= 0 ? '+' : '−'}${fmt(Math.abs(r.gap))} peças`, pctCls(r.pct))}
                     ${blk('Média diária', fmt(r.avg), r.metaAvg ? `Meta ${fmt(r.metaAvg)}/dia` : '')}
                     ${blk('Projeção do mês', r.remaining ? `${pf(r.projPct)}%` : '—', r.remaining ? `${fmt(r.projection)} de ${fmt(r.metaMonth)}` : 'Mês concluído', r.remaining ? pctCls(r.projPct) : 'text-slate-400')}
@@ -4608,7 +4589,7 @@
                             <thead><tr class="text-[10px] uppercase tracking-wider text-slate-400 text-left"><th class="py-1.5 pr-2 font-semibold">Turno</th><th class="py-1.5 px-2 font-semibold text-right">Produzido</th><th class="py-1.5 px-2 font-semibold text-right">Média/dia</th><th class="py-1.5 px-2 font-semibold text-right">Meta/dia</th><th class="py-1.5 px-2 font-semibold text-right">Saldo</th><th class="py-1.5 pl-2 font-semibold text-right">Precisa/dia</th></tr></thead>
                             <tbody class="divide-y divide-slate-100">${L.t.map(x => `<tr>
                                 <td class="py-1.5 pr-2 text-slate-700">${tLabel(x.t)}</td>
-                                <td class="py-1.5 px-2 text-right font-medium text-slate-900">${fmt(x.metaProd)}</td>
+                                <td class="py-1.5 px-2 text-right font-medium text-slate-900">${fmt(x.prod)}</td>
                                 <td class="py-1.5 px-2 text-right text-slate-600">${fmt(x.avg)}</td>
                                 <td class="py-1.5 px-2 text-right text-slate-500">${x.metaAvg ? fmt(x.metaAvg) : '—'}</td>
                                 <td class="py-1.5 px-2 text-right font-semibold ${saldoCls(x)}">${saldoTxt(x)}</td>
@@ -7087,7 +7068,7 @@
                     TITULO_ABA.lider = liderPasso.linha || u.ugb;
                     // Já mostra, para cada turno, o acumulado do mês até o dia anterior (mesma conta da Gestão)
                     const Ls = liderPasso.linha ? [liderPasso.linha] : u.lines;
-                    const dR = diaFechado();
+                    const dR = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
                     const tot = mtdFor(Ls, dR, null);
                     const cls = (v) => v === null || v === undefined ? 'nd' : v >= 0 ? 'ok' : 'bad';
                     setHero('lider', { periodo: `${curto(u.ugb)} · ${MONTH_NAMES[+dR.slice(5, 7) - 1].toLowerCase()}`, frase: 'Escolha o seu turno',
@@ -7139,7 +7120,7 @@
             const proj = aoVivo && foco.pct !== null ? foco.pct / live.frac : null;
             TITULO_ABA.lider = nome;
             // Acumulado do mês até o dia anterior (o mesmo dia de referência do Bom Dia e da Gestão no painel principal)
-            const dRef = diaFechado();
+            const dRef = (() => { const d = montagemDays(); return d.length > 1 ? d[d.length - 2] : d[d.length - 1]; })();
             const mtd = mtdFor(L, dRef, null);
             // Últimos 7 dias com produção
             const tot = {}; doT.forEach(d => { if (d.date <= date) tot[d.date] = (tot[d.date] || 0) + d.prod; });
@@ -7281,7 +7262,7 @@
         // Mesma conta da Gestão: dias com produção da Montagem (válidos), até o dia anterior no mês corrente
         function liderMesDados(mes) {
             const { L, T } = liderCtx, set = new Set(L);
-            const md = montagemDays(), dRef = diaFechado(md);
+            const md = montagemDays(), dRef = md.length > 1 ? md[md.length - 2] : md[md.length - 1];
             const ate = mes === dRef.slice(0, 7) ? dRef : `${mes}-31`;
             const prod = {}, prodMeta = {};
             rawData.forEach(d => { if (set.has(d.maquina) && String(d.turno) === T && isMontagem(d.area) && d.date.startsWith(mes) && d.date <= ate) {
