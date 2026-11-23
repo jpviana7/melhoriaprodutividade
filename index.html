@@ -1553,11 +1553,18 @@
                 if (rows.length) rows.forEach((d, i) => { if (d._orig === undefined) d._orig = d.prod; d.prod = i === 0 ? c.prod : 0; });
                 else if (c.prod > 0) rawData.push({ date: c.date, area: 'Montagem', maquina: c.maquina, modelo: 'Geral', turno: String(c.turno), prod: c.prod, sourceFile: 'Correção manual', _orig: 0 });
             });
+            _sunCache = { n: -1, set: new Set() }; // domingos com produção mudam com a correção
+        }
+        // Volta todos os números do Sequor (antes de aplicar uma lista de correções nova)
+        function limparCorrecoes() {
+            rawData.forEach(d => { if (d._orig !== undefined) { d.prod = d._orig; delete d._orig; } });
+            rawData = rawData.filter(d => d.sourceFile !== 'Correção manual');
         }
         function desfazerCorrecao(c) {
             rawData.filter(d => d.date === c.date && d.maquina === c.maquina && String(d.turno) === String(c.turno) && isMontagem(d.area) && d._orig !== undefined)
                 .forEach(d => { d.prod = d._orig; delete d._orig; });
             rawData = rawData.filter(d => !(d.sourceFile === 'Correção manual' && d.prod === 0));
+            _sunCache = { n: -1, set: new Set() };
         }
         // Scrap: { date, area, maquina, turno, modelo, qty, tipo: 'completa' | 'semtampa', sourceFile }
         let scrapData = [];
@@ -2241,17 +2248,20 @@
                 let allScrap = []; ss.forEach(d => { const x = d.data().data; if (x) allScrap = allScrap.concat(unpackRows(x)); });
                 const nrTudo = lido.mudou ? dedupeProd(cleanRawRows(allData), fileNames).rows : null;
                 const nr = nrTudo ? nrTudo.filter(d => isMontagem(d.area)) : rawData, ns = allScrap.filter(d => d && d.date && Number(d.qty));
-                const sig = (a, f) => a.length + ':' + a.reduce((t, d) => t + (Number(d[f]) || 0), 0);
+                const sig = (a, f) => { a = a.filter(d => d.sourceFile !== 'Correção manual'); return a.length + ':' + a.reduce((t, d) => t + (Number(d._orig ?? d[f]) || 0), 0); };
                 const changed = sig(nr, 'prod') !== sig(rawData, 'prod') || sig(ns, 'qty') !== sig(scrapData, 'qty');
+                let corrMudou = false;
                 if (cfg.exists()) {
                     const c = cfg.data();
                     if (Array.isArray(c.fileNames)) fileNames = c.fileNames;
                     if (c.materialNames) { try { materialNames = { ...materialNames, ...JSON.parse(c.materialNames) }; } catch (e) { /* ignora */ } }
+                    const nc = c.correcoes || '[]';
+                    if (nc !== JSON.stringify(correcoes)) { try { const lista = JSON.parse(nc) || []; limparCorrecoes(); correcoes = lista; corrMudou = true; } catch (e) { /* ignora */ } }
                 }
                 const sigP = perdasData.length + ':' + perdasData.reduce((t, d) => t + d.h, 0).toFixed(3);
                 await loadPerdas();
                 const changedP = sigP !== perdasData.length + ':' + perdasData.reduce((t, d) => t + d.h, 0).toFixed(3);
-                if (!changed && !changedP) return;
+                if (!changed && !changedP) { if (corrMudou) { bomDiaDate = null; updateUI(); } return; }
                 if (nrTudo) rawOutras = nrTudo.filter(d => !isMontagem(d.area));
                 rawData = nr; scrapData = ns;
                 updateUI();
