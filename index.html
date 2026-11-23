@@ -9050,6 +9050,29 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.json_to_sheet(rows); ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 10 }];
                 XLSX.utils.book_append_sheet(wb, ws, 'Produção diária');
+                // Baterias que rodaram: dia a dia (linha, turno e modelo) e o resumo por modelo, com os mesmos filtros da tela
+                const det = new Map(), porMod = new Map();
+                (processedState.activeRows || []).forEach(d => {
+                    if (!d.prod) return;
+                    const t = /^\d+$/.test(String(d.turno)) ? 'Turno ' + String(d.turno).padStart(2, '0') : String(d.turno || '');
+                    const k = [d.date, d.maquina, t, d.modelo].join('|');
+                    const o = det.get(k) || { date: d.date, linha: d.maquina, ugb: ugbOf(d) || '', turno: t, modelo: d.modelo || 'Geral', v: 0 };
+                    o.v += d.prod; det.set(k, o);
+                    const m = porMod.get(o.modelo) || { v: 0, dias: new Set(), linhas: new Set() };
+                    m.v += d.prod; m.dias.add(d.date); m.linhas.add(d.maquina); porMod.set(o.modelo, m);
+                });
+                if (det.size) {
+                    const linhasDet = [...det.values()].sort((a, b) => a.date.localeCompare(b.date) || a.linha.localeCompare(b.linha, 'pt', { numeric: true }) || a.turno.localeCompare(b.turno) || b.v - a.v)
+                        .map(o => ({ 'Data': ddmmyyyyG(o.date), 'Dia da semana': DAY_FULL[toDate(o.date).getDay()], 'UGB': o.ugb, 'Linha': o.linha, 'Turno': o.turno, 'Bateria': o.modelo, 'Produção': o.v }));
+                    const wsB = XLSX.utils.json_to_sheet(linhasDet); wsB['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 42 }, { wch: 10 }];
+                    wsB['!autofilter'] = { ref: `A1:G${linhasDet.length + 1}` };
+                    XLSX.utils.book_append_sheet(wb, wsB, 'Baterias por dia');
+                    const totB = [...porMod.values()].reduce((a, m) => a + m.v, 0);
+                    const resumo = [...porMod.entries()].sort((a, b) => b[1].v - a[1].v).map(([mod, m]) => ({ 'Bateria': mod, 'Produção': m.v,
+                        '% do total': totB ? +(m.v / totB * 100).toFixed(1) : 0, 'Dias que rodou': m.dias.size, 'Linhas': [...m.linhas].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true })).join(', ') }));
+                    const wsR = XLSX.utils.json_to_sheet(resumo); wsR['!cols'] = [{ wch: 42 }, { wch: 10 }, { wch: 11 }, { wch: 14 }, { wch: 30 }];
+                    XLSX.utils.book_append_sheet(wb, wsR, 'Resumo por bateria');
+                }
                 const info = XLSX.utils.aoa_to_sheet([['Filtro', 'Valor'], ['Período', describePeriod()], ['Área', selectedAreas.join(', ')], ['UGB', selectedUgb], ['Linha', selectedMachines.join(', ')], ['Modelo', selectedModelos.join(', ')], ['Turno', selectedTurnos.join(', ')]]);
                 info['!cols'] = [{ wch: 10 }, { wch: 60 }];
                 XLSX.utils.book_append_sheet(wb, info, 'Filtros');
