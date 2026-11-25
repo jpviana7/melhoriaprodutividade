@@ -4041,10 +4041,10 @@
             // Gráfico das linhas em quadradinhos (funciona no WhatsApp e no e-mail): 10 quadrados = 100% da meta
             const comMeta = m.lines.filter(l => l.pct !== null).sort((a, b) => a.line.localeCompare(b.line, 'pt', { numeric: true }));
             if (comMeta.length) {
-                out.push('', `*Linhas · % da meta · saldo em baterias* (${comMeta.filter(l => l.pct >= 100).length} de ${comMeta.length} na meta)`);
+                out.push('', `*Linhas · produção · saldo em baterias* (${comMeta.filter(l => l.pct >= 100).length} de ${comMeta.length} na meta)`);
                 comMeta.forEach(l => {
                     const ok = l.pct >= 100, n = ok ? 10 : Math.max(0, Math.min(9, Math.floor(l.pct / 10)));
-                    out.push(`${ok ? '✅' : '🔻'} ${l.line} ${(ok ? '🟩' : '🟥').repeat(n)}${'⬜'.repeat(10 - n)} ${fmt(l.pct, 0)}% · ${signed(l.total - l.meta)}`);
+                    out.push(`${ok ? '✅' : '🔻'} ${l.line} ${(ok ? '🟩' : '🟥').repeat(n)}${'⬜'.repeat(10 - n)} ${fmt(l.total)} · ${signed(l.total - l.meta)}`);
                 });
             }
             const below = m.lines.filter(l => l.pct !== null && l.pct < 100).sort((a, b) => a.pct - b.pct);
@@ -4053,7 +4053,14 @@
             if (m.linesNoMeta.length) out.push(`_Sem meta definida: ${m.linesNoMeta.join(', ')}_`);
             if (m.mtd.pct !== null) {
                 out.push('', `*Acumulado de ${MONTH_NAMES[+m.month.slice(5, 7) - 1].toLowerCase()}:* ${fmt(m.mtd.prod)} peças · ${fmt(m.mtd.pct, 0)}% da meta (${signed(m.mtd.gap)})`);
-                if (m.mtd.remaining) out.push(`Projeção do mês: ${fmt(m.mtd.projPct, 0)}% · ritmo necessário ${fmt(m.mtd.needed)}/dia`);
+                // Projeção e ritmo necessário saem do acumulado até o dia anterior (o dia do resumo entra nos dias restantes)
+                const ant = (() => {
+                    if (!m.prevDay || m.prevDay.slice(0, 7) !== m.month) return null;
+                    const antes = bomDiaDate; bomDiaDate = m.prevDay;
+                    try { const x = bomDiaModel(); return x && x.mtd && x.mtd.metaMonth ? x.mtd : null; } finally { bomDiaDate = antes; }
+                })();
+                const r = ant || m.mtd;
+                if (r.remaining) out.push(`Projeção do mês: ${fmt(r.projPct, 0)}% · ritmo necessário ${fmt(r.needed)}/dia nos ${r.remaining} dias restantes${ant ? ` (acumulado até ${fmtDate(m.prevDay, { day: '2-digit', month: '2-digit' })})` : ''}`);
             }
             return out.join('\n');
         }
