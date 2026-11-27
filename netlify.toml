@@ -11,6 +11,14 @@
   [headers.values]
     Cache-Control = "no-cache"
 
+# App FECHADO: qualquer endereço mostra só a tela de acesso fechado.
+# Para reabrir, apague este bloco (as funções agendadas continuam rodando).
+[[redirects]]
+  from = "/*"
+  to = "/fechado.html"
+  status = 200
+  force = true
+
 # App dos líderes: mesmo arquivo, aberto em /lideres
 [[redirects]]
   from = "/lideres"
